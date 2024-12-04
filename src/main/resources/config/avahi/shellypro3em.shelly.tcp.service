@@ -1,0 +1,13 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">shellypro3em-b827eb364242</name>
+  <service protocol="ipv4">
+    <type>_shelly._tcp</type>
+    <port>80</port>
+    <txt-record>gen=2</txt-record>
+    <txt-record>id=shellypro3em-b827eb364242</txt-record>
+    <txt-record>arch=esp8266</txt-record>
+    <txt-record>fw_id=20241011-114455/1.4.4-g6d2a586</txt-record>
+  </service>
+</service-group>

@@ -1,0 +1,35 @@
+<assembly>
+    <id>distribution</id>
+    <formats>
+        <format>tgz</format>
+    </formats>
+    <includeBaseDirectory>true</includeBaseDirectory>
+    <dependencySets>
+        <dependencySet>
+            <outputDirectory>${file.separator}lib</outputDirectory>
+        </dependencySet>
+    </dependencySets>
+
+    <fileSets>
+        <fileSet>
+            <lineEnding>unix</lineEnding>
+            <directory>src${file.separator}main${file.separator}resources${file.separator}config</directory>
+            <outputDirectory>${file.separator}config</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <lineEnding>unix</lineEnding>
+            <directory>src${file.separator}main${file.separator}resources${file.separator}bin</directory>
+            <outputDirectory>${file.separator}bin</outputDirectory>
+        </fileSet>
+    </fileSets>
+
+    <files>
+        <file>
+            <source>src${file.separator}main${file.separator}resources${file.separator}bin${file.separator}uni-meter.sh</source>
+            <outputDirectory>${file.separator}bin</outputDirectory>
+            <destName>uni-meter.sh</destName>
+            <lineEnding>unix</lineEnding>
+            <fileMode>0755</fileMode>
+        </file>
+    </files>
+</assembly>

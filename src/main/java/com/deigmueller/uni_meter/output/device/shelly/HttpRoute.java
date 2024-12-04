@@ -1,0 +1,128 @@
+/*
+ * Copyright (C) 2018-2023 layline.io GmbH <http://www.layline.io>
+ */
+
+package com.deigmueller.uni_meter.output.device.shelly;
+
+import com.deigmueller.uni_meter.application.WebsocketInput;
+import com.deigmueller.uni_meter.application.WebsocketOutput;
+import com.deigmueller.uni_meter.output.OutputDevice;
+import org.apache.pekko.NotUsed;
+import org.apache.pekko.actor.typed.ActorRef;
+import org.apache.pekko.actor.typed.ActorSystem;
+import org.apache.pekko.actor.typed.javadsl.AskPattern;
+import org.apache.pekko.http.javadsl.marshallers.jackson.Jackson;
+import org.apache.pekko.http.javadsl.model.HttpEntity;
+import org.apache.pekko.http.javadsl.model.StatusCodes;
+import org.apache.pekko.http.javadsl.model.ws.Message;
+import org.apache.pekko.http.javadsl.model.ws.WebSocketUpgrade;
+import org.apache.pekko.http.javadsl.server.AllDirectives;
+import org.apache.pekko.http.javadsl.server.Route;
+import org.apache.pekko.stream.Materializer;
+import org.apache.pekko.stream.javadsl.Sink;
+import org.apache.pekko.stream.javadsl.Source;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.Duration;
+import java.util.UUID;
+
+class HttpRoute extends AllDirectives {
+  private final Logger logger;
+  private final ActorSystem<?> system;
+  private final Materializer materializer;
+  private final ActorRef<OutputDevice.Command> shelly;
+  private final ActorRef<WebsocketInput.Notification> websocketInput;
+  private final Duration timeout = Duration.ofSeconds(5);
+
+  public HttpRoute(Logger logger, 
+                   ActorSystem<?> system, 
+                   Materializer materializer,
+                   ActorRef<OutputDevice.Command> shelly,
+                   ActorRef<WebsocketInput.Notification> websocketInput) {
+    this.logger = logger;
+    this.system = system;
+    this.materializer = materializer;
+    this.shelly = shelly;
+    this.websocketInput = websocketInput;
+  }
+
+  public Route createRoute() {
+    return concat(
+          path("shelly", () -> 
+                get(this::onShellyGet)
+          ), 
+          path("settings", () -> 
+                get(this::onSettingsGet)
+          ), path("status", () -> 
+                get(this::onStatusGet)
+          ), 
+          pathPrefix("rpc", () -> 
+                concat(
+                      post(() -> extractEntity(entity -> {
+                        HttpEntity.Strict strict = (HttpEntity.Strict) entity;
+                        strict.discardBytes(materializer);
+
+                        logger.trace("POST RpcRequest: {}", strict.getData().utf8String());
+                        return onRpcRequest(Rpc.parseRequest(strict.getData().toArray()));
+                      })), 
+                      extractWebSocketUpgrade(upgrade -> {
+                        logger.trace("incoming websocket upgrade");
+                        return createWebsocketFlow(upgrade);
+                      }), 
+                      extractUnmatchedPath(unmatchedPath -> {
+                        logger.trace("unmatched path: {}", unmatchedPath);
+                        return complete(StatusCodes.NOT_FOUND, logUnmatchedPath(unmatchedPath));
+                      })
+                )
+          )
+    );
+  }
+
+  private String logUnmatchedPath(String path) {
+    logger.info("UnmatchedPath: {}", path);
+    return path;
+  }
+
+  private Route onShellyGet() {
+    return completeOKWithFuture(AskPattern.ask(shelly, Shelly.ShellyGet::new, timeout, system.scheduler()), Jackson.marshaller());
+  }
+
+  private Route onSettingsGet() {
+    return completeOKWithFuture(AskPattern.ask(shelly, Shelly.SettingsGet::new, timeout, system.scheduler()), Jackson.marshaller());
+  }
+
+  private Route onStatusGet() {
+    return completeOKWithFuture(AskPattern.ask(shelly, Shelly.StatusGet::new, timeout, system.scheduler()), Jackson.marshaller());
+  }
+
+  private Route onRpcRequest(Rpc.Request request) {
+    return completeOKWithFuture(AskPattern.ask(shelly, (ActorRef<Rpc.ResponseFrame> replyTo) -> new Shelly.RpcRequest(request, replyTo), timeout, system.scheduler()), Jackson.marshaller());
+  }
+
+  /**
+   * Create a Pekko flow which handles the WebSocket connection
+   *
+   * @return Route of the WebSocket connection
+   */
+  private Route createWebsocketFlow(WebSocketUpgrade upgrade) {
+    final String connectionId = UUID.randomUUID().toString();
+    
+    final Logger connectionLogger = LoggerFactory.getLogger("uni-meter.websocket." + connectionId);
+
+    Source<Message, NotUsed> source = 
+          WebsocketOutput.createSource(
+                connectionLogger,
+                materializer, 
+                (sourceActor) -> shelly.tell(new Shelly.WebsocketOutputOpened(connectionId, sourceActor)));
+
+    Sink<Message, NotUsed> sink = 
+          WebsocketInput.createSink(
+                connectionLogger,
+                connectionId, 
+                materializer, 
+                websocketInput);
+
+    return complete(upgrade.handleMessagesWith(sink, source));
+  }
+}
