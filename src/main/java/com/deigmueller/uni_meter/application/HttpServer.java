@@ -1,7 +1,3 @@
-/*
- * Copyright (C) 2018-2023 layline.io GmbH <http://www.layline.io>
- */
-
 package com.deigmueller.uni_meter.application;
 
 import org.apache.pekko.actor.typed.Behavior;
