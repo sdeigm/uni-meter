@@ -10,6 +10,11 @@ using the SMA energy meter UDP protocol.
 The idea is to further enhance the tool in the future by adding more input and output devices to get a universal converter between
 different electrical meters, inverters and storage systems.
 
+## Download
+
+The release versions are packaged as [GitHub package](https://github.com/sdeigm/uni-meter/packages/2336213).
+You just have to download the `uni-meter-<version>.tgz` archive from the assets on the right side of the page.
+
 ## Building
 
 The project can be build using Java 17 and Maven 3.8.5 or later by simply typing
