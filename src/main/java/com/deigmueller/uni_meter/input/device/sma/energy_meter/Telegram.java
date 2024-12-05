@@ -82,10 +82,6 @@ public record Telegram(
   }
   
   public @Nullable Double getActivePowerPhase3Plus() {
-    Double result = getValue(ObisChannel.CHANNEL_61_8_0);
-    if (result != null) {
-      return result;
-    }
     return getValue(ObisChannel.CHANNEL_61_4_0);
   }
 

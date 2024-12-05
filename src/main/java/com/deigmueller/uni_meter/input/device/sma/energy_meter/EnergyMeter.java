@@ -115,6 +115,7 @@ public class EnergyMeter extends InputDevice {
           logger.info("auto detected {} with serial number {}", device, packet.serialNumber());
           susyId = packet.susyId();
           serialNumber = packet.serialNumber();
+          return true;
         }
       }
     }
