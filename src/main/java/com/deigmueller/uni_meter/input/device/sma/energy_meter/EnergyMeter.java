@@ -337,13 +337,23 @@ public class EnergyMeter extends InputDevice {
 
         InetSocketAddress multiCastAddress = new InetSocketAddress(InetAddress.getByName(this.group), this.port);
 
+        boolean joined = false;
+
         for (String networkInterfaceName : this.networkInterface) {
           NetworkInterface networkInterface = lookupNetworkInterface(logger, networkInterfaceName);
           if (networkInterface == null) {
-            throw new IllegalArgumentException("unknown network interface " + networkInterfaceName);
+            logger.warn("unknown network interface {}, will not join", networkInterfaceName);
+          } else {
+            logger.info("joining multicast group {} on network interface {}",
+                    multiCastAddress, networkInterfaceName);
+
+            socket.joinGroup(multiCastAddress, networkInterface);
+            joined = true;
           }
-          
-          socket.joinGroup(multiCastAddress, networkInterface);
+        }
+
+        if (!joined) {
+          throw new IllegalArgumentException("could not join any multicast groups");
         }
         
         getContext().getSelf().tell(ReceiveLoopStarted.INSTANCE);
