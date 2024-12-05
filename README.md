@@ -13,7 +13,7 @@ different electrical meters, inverters and storage systems.
 ## Download
 
 The release versions are packaged as [GitHub package](https://github.com/sdeigm/uni-meter/packages/2336213).
-You just have to download the `uni-meter-<version>.tgz` archive from the assets on the right side of the page.
+You just have to download the `uni-meter-<version>.tgz` archive from the assets on the right side of the package's page.
 
 ## Building
 
