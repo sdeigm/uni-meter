@@ -153,6 +153,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   protected void setPowerPhase0(@NotNull PowerData powerPhase0) {
     this.lastPowerPhase0Update = Instant.now();
     this.powerPhase0 = powerPhase0;
+    logger.debug("power phase 0: {}", powerPhase0);
   }
   
   protected @NotNull PowerData getPowerPhase0() {
@@ -166,6 +167,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   protected void setPowerPhase1(@NotNull PowerData powerPhase1) {
     this.lastPowerPhase1Update = Instant.now();
     this.powerPhase1 = powerPhase1;
+    logger.debug("power phase 1: {}", powerPhase0);
   }
   
   protected @NotNull PowerData getPowerPhase1() {
@@ -179,6 +181,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   protected void setPowerPhase2(@NotNull PowerData powerPhase2) {
     this.lastPowerPhase2Update = Instant.now();
     this.powerPhase2 = powerPhase2;
+    logger.debug("power phase 2: {}", powerPhase0);
   }
   
   protected @NotNull PowerData getPowerPhase2() {
@@ -192,6 +195,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   protected void setEnergyPhase0(@NotNull EnergyData energyPhase0) {
     this.lastEnergyPhase0Update = Instant.now();
     this.energyPhase0 = energyPhase0;
+    logger.debug("energy phase 0: {}", energyPhase0);
   }
   
   protected @NotNull EnergyData getEnergyPhase0() {
@@ -205,6 +209,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   protected void setEnergyPhase1(@NotNull EnergyData energyPhase1) {
     this.lastEnergyPhase1Update = Instant.now();
     this.energyPhase1 = energyPhase1;
+    logger.debug("energy phase 1: {}", energyPhase0);
   }
   
   protected @NotNull EnergyData getEnergyPhase1() {
@@ -218,6 +223,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   protected void setEnergyPhase2(@NotNull EnergyData energyPhase2) {
     this.lastEnergyPhase2Update = Instant.now();
     this.energyPhase2 = energyPhase2;
+    logger.debug("energy phase 2: {}", energyPhase0);
   }
   
   protected @NotNull EnergyData getEnergyPhase2() {
