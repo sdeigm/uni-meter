@@ -158,6 +158,12 @@ public class VzLogger extends InputDevice {
         power = powerValue.tuples().get(0).get(1);
         logger.debug("current power usage: {} W", power);
       }
+      
+      Double lastEnergyValuePower = calculatePowerFromEnergyValues();
+      if (lastEnergyValuePower != null) {
+        logger.debug("using last energy values for power: {} W", lastEnergyValuePower);
+      }
+      
 
       OutputDevice.PowerData data = new OutputDevice.PowerData(
             power,
@@ -207,13 +213,11 @@ public class VzLogger extends InputDevice {
     Double result = null;
     if (consumptionPower != null) {
       result = consumptionPower;
-    } 
-    if (productionPower != null) {
-      if (result != null) {
-        result -= productionPower;
-      } else {
-        result = -productionPower;
+      if (productionPower != null) {
+          result -= productionPower;
       }
+    } else if (productionPower != null) {
+      result = -productionPower;
     }
     
     return result;

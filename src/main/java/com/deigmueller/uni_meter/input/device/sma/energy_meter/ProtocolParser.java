@@ -11,12 +11,10 @@ import java.util.Map;
 public class ProtocolParser {
   public static @NotNull Telegram parse(byte@NotNull[] data, int dataLength) {
     checkValidMagicConstant(data);
+
+    checkTag42(data);
     
-    int tag42 = readTag42(data);
-    
-    long defaultChannel = readUInt32(data, 8);
-    
-    //int dataLength = readDataLength(data);
+    //long defaultChannel = readUInt32(data, 8);
     
     int protocolId = readUInt16(data, 16);
     
@@ -65,20 +63,10 @@ public class ProtocolParser {
     return readUInt16(data, 16);
   }
   
-  private static int readTag42(byte[] data) {
+  private static void checkTag42(byte[] data) {
     if (data[5] != 4 || data[6] != 2) {
       throw new IllegalArgumentException("invalid tag42");
     }
-
-    return readUInt16(data, 4);
-  }
-
-  private static int readDataLength(byte[] data) {
-//    if (data[14] != 0 || data[15] != 16) {
-//      throw new IllegalArgumentException("invalid data length tag");
-//    }
-    
-    return readUInt16(data, 12);
   }
 
   private static int readUInt16(byte[] data, int offset) {

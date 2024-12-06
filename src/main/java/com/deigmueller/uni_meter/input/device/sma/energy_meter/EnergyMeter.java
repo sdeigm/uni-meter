@@ -11,7 +11,6 @@ import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
 
 import java.net.*;
 import java.time.Duration;
@@ -180,21 +179,10 @@ public class EnergyMeter extends InputDevice {
     Double phaseApparentPowerMinus = packet.getApparentPowerPhase1Minus();
     Double phaseCurrent = packet.getCurrentPhase1();
     Double phaseVoltage = packet.getVoltagePhase1();
-    
-    if (phasePowerPlus != null && phasePowerMinus != null  && phaseApparentPowerPlus != null 
-          && phaseApparentPowerMinus != null && phaseCurrent != null) {
-      return createPowerData(
-            phasePowerPlus, 
-            phasePowerMinus, 
-            phaseApparentPowerPlus, 
-            phaseApparentPowerMinus, 
-            phaseCurrent,
-            phaseVoltage != null ? phaseVoltage : defaultVoltage);
-    }
-    
-    return null;
+
+    return getPhasePowerData(phasePowerPlus, phasePowerMinus, phaseApparentPowerPlus, phaseApparentPowerMinus, phaseCurrent, phaseVoltage);
   }
-  
+
   private @Nullable OutputDevice.PowerData getPhase2PowerData(@NotNull Telegram packet) {
     Double phasePowerPlus = packet.getActivePowerPhase2Plus();
     Double phasePowerMinus = packet.getActivePowerPhase2Minus();
@@ -203,18 +191,7 @@ public class EnergyMeter extends InputDevice {
     Double phaseCurrent = packet.getCurrentPhase2();
     Double phaseVoltage = packet.getVoltagePhase2();
 
-    if (phasePowerPlus != null && phasePowerMinus != null
-          && phaseApparentPowerPlus != null && phaseApparentPowerMinus != null && phaseCurrent != null) {
-      return createPowerData(
-            phasePowerPlus,
-            phasePowerMinus,
-            phaseApparentPowerPlus,
-            phaseApparentPowerMinus,
-            phaseCurrent,
-            phaseVoltage != null ? phaseVoltage : defaultVoltage);
-    }
-
-    return null;
+    return getPhasePowerData(phasePowerPlus, phasePowerMinus, phaseApparentPowerPlus, phaseApparentPowerMinus, phaseCurrent, phaseVoltage);
   }
 
   private @Nullable OutputDevice.PowerData getPhase3PowerData(@NotNull Telegram packet) {
@@ -225,8 +202,12 @@ public class EnergyMeter extends InputDevice {
     Double phaseCurrent = packet.getCurrentPhase3();
     Double phaseVoltage = packet.getVoltagePhase3();
 
-    if (phasePowerPlus != null && phasePowerMinus != null
-          && phaseApparentPowerPlus != null && phaseApparentPowerMinus != null && phaseCurrent != null) {
+    return getPhasePowerData(phasePowerPlus, phasePowerMinus, phaseApparentPowerPlus, phaseApparentPowerMinus, phaseCurrent, phaseVoltage);
+  }
+
+  private @Nullable OutputDevice.PowerData getPhasePowerData(Double phasePowerPlus, Double phasePowerMinus, Double phaseApparentPowerPlus, Double phaseApparentPowerMinus, Double phaseCurrent, Double phaseVoltage) {
+    if (phasePowerPlus != null && phasePowerMinus != null  && phaseApparentPowerPlus != null
+          && phaseApparentPowerMinus != null && phaseCurrent != null) {
       return createPowerData(
             phasePowerPlus,
             phasePowerMinus,
@@ -340,7 +321,7 @@ public class EnergyMeter extends InputDevice {
         boolean joined = false;
 
         for (String networkInterfaceName : this.networkInterface) {
-          NetworkInterface networkInterface = lookupNetworkInterface(logger, networkInterfaceName);
+          NetworkInterface networkInterface = lookupNetworkInterface(networkInterfaceName);
           if (networkInterface == null) {
             logger.warn("unknown network interface {}, will not join", networkInterfaceName);
           } else {
@@ -383,8 +364,7 @@ public class EnergyMeter extends InputDevice {
     });
   }
   
-  private static @Nullable NetworkInterface lookupNetworkInterface(@NotNull Logger logger,
-                                                                   @NotNull String name) throws SocketException {
+  private static @Nullable NetworkInterface lookupNetworkInterface(@NotNull String name) throws SocketException {
     NetworkInterface networkInterface = NetworkInterface.getByName(name);
     if (networkInterface == null) {
       try {

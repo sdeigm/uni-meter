@@ -12,7 +12,7 @@ import java.util.Map;
 public class HttpServerController extends AbstractBehavior<HttpServerController.Command> {
   // Instance members
   private final Map<Integer, ActorRef<HttpServer.Command>> servers = new HashMap<>();
-  private final String bindInterface = "0.0.0.0";
+  private final String bindInterface;
   
   public static Behavior<Command> create() {
     return Behaviors.setup(HttpServerController::new);
@@ -20,6 +20,7 @@ public class HttpServerController extends AbstractBehavior<HttpServerController.
 
   protected HttpServerController(@NotNull ActorContext<Command> context) {
     super(context);
+    bindInterface = context.getSystem().settings().config().getString("uni-meter.http-server.interface");
   }
 
   @Override
@@ -50,7 +51,7 @@ public class HttpServerController extends AbstractBehavior<HttpServerController.
   public interface Command {}
   
   public record RegisterHttpRoute(
-        @NotNull int port,
+        int port,
         @NotNull Route route
   ) implements Command {}
 }
