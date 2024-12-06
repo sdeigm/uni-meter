@@ -258,7 +258,7 @@ sudo systemctl status uni-meter
 ## Troubleshooting
 
 If you start the tool directly from the command line, all error messages will be printed to the console. If you start the
-tool using the systemd service, you can check the log messages in `var/log/uni-meter.log`.
+tool using the systemd service, you can check the log messages in `/var/log/uni-meter.log`.
 
 As a default the log level is just set to `INFO`. For debugging purposes you can set the log level to `DEBUG` or even 
 `TRACE` within the `/opt/uni-meter/config/logback.xml` file.
