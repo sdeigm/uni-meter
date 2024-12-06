@@ -10,6 +10,7 @@ import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.*;
 import org.apache.pekko.http.javadsl.server.Route;
 import org.apache.pekko.stream.Materializer;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,6 +18,9 @@ import org.jetbrains.annotations.NotNull;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter(AccessLevel.PROTECTED)
 @Setter(AccessLevel.PROTECTED)
@@ -29,6 +33,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   private final Duration forgetInterval;
   private final double defaultVoltage;
   private final double defaultFrequency;
+  private final List<TimerOverride> timerOverrides = new ArrayList<>();
   
   private Instant lastPowerPhase0Update = Instant.now();
   private PowerData powerPhase0 = new PowerData(0, 0, 0, 0, 230.0, 50.0);
@@ -54,6 +59,12 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     this.forgetInterval = config.getDuration("forget-interval");
     this.defaultVoltage = config.getDouble("default-voltage");
     this.defaultFrequency = config.getDouble("default-frequency");
+    
+    if (config.hasPath("timer-overrides")) {
+      for (Config timerOverrideConfig : config.getConfigList("timer-overrides")) {
+        timerOverrides.add(new TimerOverride(timerOverrideConfig));
+      }
+    }
   }
   
   @Override
@@ -157,6 +168,11 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   }
   
   protected @NotNull PowerData getPowerPhase0() {
+    PowerData timerOverride = getPowerTimerOverride();
+    if (timerOverride != null) {
+      return timerOverride;
+    }
+    
     if (Duration.between(this.lastPowerPhase0Update, Instant.now()).compareTo(forgetInterval) > 0) {
       return new PowerData(0, 0, 0, 0, defaultVoltage, defaultFrequency);
     } else {
@@ -171,6 +187,11 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   }
   
   protected @NotNull PowerData getPowerPhase1() {
+    PowerData timerOverride = getPowerTimerOverride();
+    if (timerOverride != null) {
+      return timerOverride;
+    }
+
     if (Duration.between(this.lastPowerPhase1Update, Instant.now()).compareTo(forgetInterval) > 0) {
       return new PowerData(0, 0, 0, 0, defaultVoltage, defaultFrequency);
     } else {
@@ -185,6 +206,11 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   }
   
   protected @NotNull PowerData getPowerPhase2() {
+    PowerData timerOverride = getPowerTimerOverride();
+    if (timerOverride != null) {
+      return timerOverride;
+    }
+
     if (Duration.between(this.lastPowerPhase2Update, Instant.now()).compareTo(forgetInterval) > 0) {
       return new PowerData(0, 0, 0, 0, defaultVoltage, defaultFrequency);
     } else {
@@ -240,6 +266,18 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   
   protected abstract int getNumMeters();
   
+  private @Nullable PowerData getPowerTimerOverride() {
+    LocalDateTime now = LocalDateTime.now();
+    
+    for (TimerOverride timerOverride : timerOverrides) {
+      if (timerOverride.matches(now)) {
+        double power = timerOverride.getPower() / 3.0;
+        return new PowerData(power, power, 1.0, power / defaultVoltage, defaultVoltage, defaultFrequency);
+      }
+    }
+    return null;  
+  }
+  
   public interface Command {}
 
   public record NotifyPhasePowerData(
@@ -285,4 +323,5 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   public record Ack(
         int messageId
   ) {}
+  
 }
