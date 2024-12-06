@@ -13,19 +13,19 @@
     <fileSets>
         <fileSet>
             <lineEnding>unix</lineEnding>
-            <directory>src${file.separator}main${file.separator}resources${file.separator}config</directory>
+            <directory>${project.build.outputDirectory}${file.separator}config</directory>
             <outputDirectory>${file.separator}config</outputDirectory>
         </fileSet>
         <fileSet>
             <lineEnding>unix</lineEnding>
-            <directory>src${file.separator}main${file.separator}resources${file.separator}bin</directory>
+            <directory>${project.build.outputDirectory}${file.separator}bin</directory>
             <outputDirectory>${file.separator}bin</outputDirectory>
         </fileSet>
     </fileSets>
 
     <files>
         <file>
-            <source>src${file.separator}main${file.separator}resources${file.separator}bin${file.separator}uni-meter.sh</source>
+            <source>${project.build.outputDirectory}${file.separator}bin${file.separator}uni-meter.sh</source>
             <outputDirectory>${file.separator}bin</outputDirectory>
             <destName>uni-meter.sh</destName>
             <lineEnding>unix</lineEnding>
