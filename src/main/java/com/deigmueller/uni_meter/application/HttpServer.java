@@ -16,8 +16,8 @@ import org.slf4j.LoggerFactory;
 import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.concurrent.CompletionStage;
 
 public class HttpServer extends AbstractBehavior<HttpServer.Command> {
   // Instance members
@@ -35,7 +35,7 @@ public class HttpServer extends AbstractBehavior<HttpServer.Command> {
   
   protected HttpServer(@NotNull ActorContext<Command> context,
                        @NotNull String bindInterface,
-                       @NotNull int bindPort) {
+                       int bindPort) {
     super(context);
     
     this.logger = LoggerFactory.getLogger("uni-meter.http.port-" + bindPort);
@@ -202,6 +202,10 @@ public class HttpServer extends AbstractBehavior<HttpServer.Command> {
      */
     private ExceptionHandler createExceptionHandler() {
       return ExceptionHandler.newBuilder()
+            .match(NoSuchElementException.class, e -> {
+              logger.debug("no such element: {}", e.getMessage());
+              return complete(StatusCodes.NOT_FOUND, e.getMessage());
+            })
             .matchAny(e -> {
               logger.error("exception in HTTP server: {}", e.getMessage());
               return complete(HttpResponse.create().withStatus(500));

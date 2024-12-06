@@ -10,7 +10,7 @@
         <appender-ref ref="STDOUT" />
     </root>
 
-    <logger name="uni-meter"  level="INFO" additivity="false">
+    <logger name="uni-meter"  level="DEBUG" additivity="false">
         <appender-ref ref="STDOUT" />
     </logger>
 </Configuration>

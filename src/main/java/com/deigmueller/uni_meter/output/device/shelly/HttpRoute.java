@@ -14,6 +14,7 @@ import org.apache.pekko.http.javadsl.model.ws.Message;
 import org.apache.pekko.http.javadsl.model.ws.WebSocketUpgrade;
 import org.apache.pekko.http.javadsl.server.AllDirectives;
 import org.apache.pekko.http.javadsl.server.Route;
+import org.apache.pekko.http.javadsl.unmarshalling.StringUnmarshallers;
 import org.apache.pekko.stream.Materializer;
 import org.apache.pekko.stream.javadsl.Sink;
 import org.apache.pekko.stream.javadsl.Source;
@@ -50,11 +51,22 @@ class HttpRoute extends AllDirectives {
           ), 
           path("settings", () -> 
                 get(this::onSettingsGet)
-          ), path("status", () -> 
-                get(this::onStatusGet)
           ), 
+          path("status", () -> 
+                get(this::onStatusGet)
+          ),
           pathPrefix("rpc", () -> 
                 concat(
+                      path("EM.GetStatus", () ->
+                            get(() ->
+                                  parameter(StringUnmarshallers.INTEGER, "id", this::onEmGetStatus)
+                            )
+                      ),
+                      path("EMData.GetStatus", () ->
+                            get(() ->
+                                  parameter(StringUnmarshallers.INTEGER, "id", this::onEmGetStatus)
+                            )
+                      ),
                       post(() -> extractEntity(entity -> {
                         HttpEntity.Strict strict = (HttpEntity.Strict) entity;
                         strict.discardBytes(materializer);
@@ -93,7 +105,46 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onRpcRequest(Rpc.Request request) {
-    return completeOKWithFuture(AskPattern.ask(shelly, (ActorRef<Rpc.ResponseFrame> replyTo) -> new Shelly.RpcRequest(request, replyTo), timeout, system.scheduler()), Jackson.marshaller());
+    return completeOKWithFuture(AskPattern.ask(
+                shelly, 
+                (ActorRef<Rpc.ResponseFrame> replyTo) -> new Shelly.RpcRequest(request, replyTo), timeout, 
+                system.scheduler()
+          ), 
+          Jackson.marshaller());
+  }
+  
+  private Route onEmGetStatus(int id) {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly, 
+                (ActorRef<ShellyPro3EM.EmGetStatusOrFailureResponse> replyTo) -> new ShellyPro3EM.EmGetStatus(id, replyTo), 
+                timeout, 
+                system.scheduler()
+          ).thenApply(response -> {
+            if (response.failure() != null) {
+              throw response.failure();
+            }
+            
+            return response.status();
+          }),
+          Jackson.marshaller());
+  }
+
+  private Route onEmDataGetStatus(int id) {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<ShellyPro3EM.EmDataGetStatusOrFailureResponse> replyTo) -> new ShellyPro3EM.EmDataGetStatus(id, replyTo),
+                timeout,
+                system.scheduler()
+          ).thenApply(response -> {
+            if (response.failure() != null) {
+              throw response.failure();
+            }
+
+            return response.status();
+          }),
+          Jackson.marshaller());
   }
 
   /**

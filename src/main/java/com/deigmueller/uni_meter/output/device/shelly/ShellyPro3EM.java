@@ -21,6 +21,7 @@ import org.jetbrains.annotations.NotNull;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 public class ShellyPro3EM extends Shelly {
   // Instance members
@@ -42,6 +43,8 @@ public class ShellyPro3EM extends Shelly {
   @Override
   public @NotNull ReceiveBuilder<Command> newReceiveBuilder() {
     return super.newReceiveBuilder()
+          .onMessage(EmGetStatus.class, this::onEmGetStatus)
+          .onMessage(EmDataGetStatus.class, this::onEmDataGetStatus)
           .onMessage(ResetData.class, this::onResetData);
   }
   
@@ -74,6 +77,42 @@ public class ShellyPro3EM extends Shelly {
     return Behaviors.same();
   }
   
+  protected @NotNull Behavior<Command> onEmGetStatus(@NotNull EmGetStatus request) {
+    logger.trace("ShellyPro3EM.onEmGetStatus()");
+    
+    if (request.id() == 0) {
+      request.replyTo().tell(
+            new EmGetStatusOrFailureResponse(
+                  null, 
+                  rpcEmGetStatus()));
+    } else  {
+      request.replyTo().tell(
+            new EmGetStatusOrFailureResponse(
+                  new NoSuchElementException("unknown EM with id " + request.id()),
+                  null));
+    } 
+    
+    return Behaviors.same();
+  }
+
+  protected @NotNull Behavior<Command> onEmDataGetStatus(@NotNull EmDataGetStatus request) {
+    logger.trace("ShellyPro3EM.onEmDataGetStatus()");
+
+    if (request.id() == 0) {
+      request.replyTo().tell(
+            new EmDataGetStatusOrFailureResponse(
+                  null,
+                  rpcEmDataGetStatus()));
+    } else  {
+      request.replyTo().tell(
+            new EmDataGetStatusOrFailureResponse(
+                  new NoSuchElementException("unknown EM with id " + request.id()),
+                  null));
+    }
+
+    return Behaviors.same();
+  }
+
   /**
    * Handle the request to reset the device's data
    * @param request Request to reset the device's data
@@ -227,7 +266,27 @@ public class ShellyPro3EM extends Shelly {
     logger.error("ShellyPro3EM.rpcUnknownMethod()");
     throw new IllegalArgumentException("Unknown method: " + request.method());
   }
-
+  
+  public record EmGetStatus(
+        @JsonProperty("id") int id,
+        @JsonProperty("replyTo") ActorRef<EmGetStatusOrFailureResponse> replyTo
+  ) implements Command {}
+  
+  public record EmGetStatusOrFailureResponse(
+        @JsonProperty("failure") RuntimeException failure,
+        @JsonProperty("status") Rpc.EmGetStatusResponse status
+  ) {}
+  
+  public record EmDataGetStatus(
+        @JsonProperty("id") int id,
+        @JsonProperty("replyTo") ActorRef<EmDataGetStatusOrFailureResponse> replyTo
+  ) implements Command {}
+  
+  public record EmDataGetStatusOrFailureResponse(
+        @JsonProperty("failure") RuntimeException failure,
+        @JsonProperty("status") Rpc.EmDataGetStatusResponse status
+  ) {}
+  
   public record ResetData(
         @NotNull ActorRef<Done> replyTo
   ) implements Command {}
