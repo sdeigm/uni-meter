@@ -18,6 +18,7 @@ import org.apache.pekko.http.javadsl.unmarshalling.StringUnmarshallers;
 import org.apache.pekko.stream.Materializer;
 import org.apache.pekko.stream.javadsl.Sink;
 import org.apache.pekko.stream.javadsl.Source;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,13 +68,7 @@ class HttpRoute extends AllDirectives {
                                   parameter(StringUnmarshallers.INTEGER, "id", this::onEmGetStatus)
                             )
                       ),
-                      post(() -> extractEntity(entity -> {
-                        HttpEntity.Strict strict = (HttpEntity.Strict) entity;
-                        strict.discardBytes(materializer);
-
-                        logger.trace("POST RpcRequest: {}", strict.getData().utf8String());
-                        return onRpcRequest(Rpc.parseRequest(strict.getData().toArray()));
-                      })), 
+                      post(() -> extractEntity(this::onRpcRequest)), 
                       extractWebSocketUpgrade(upgrade -> {
                         logger.trace("incoming websocket upgrade");
                         return createWebsocketFlow(upgrade);
@@ -104,12 +99,20 @@ class HttpRoute extends AllDirectives {
     return completeOKWithFuture(AskPattern.ask(shelly, Shelly.StatusGet::new, timeout, system.scheduler()), Jackson.marshaller());
   }
 
-  private Route onRpcRequest(Rpc.Request request) {
-    return completeOKWithFuture(AskPattern.ask(
-                shelly, 
-                (ActorRef<Rpc.ResponseFrame> replyTo) -> new Shelly.RpcRequest(request, replyTo), timeout, 
-                system.scheduler()
-          ), 
+  private Route onRpcRequest(@NotNull HttpEntity entity) {
+    return completeOKWithFuture(
+          entity.toStrict(5000L, materializer)
+                .thenApply(strict -> {
+                  logger.trace("POST RpcRequest: {}", strict.getData().utf8String());
+                  return Rpc.parseRequest(strict.getData().toArray());
+                })
+                .thenApply(rpcRequest ->     
+                      AskPattern.ask(
+                            shelly, 
+                            (ActorRef<Rpc.ResponseFrame> replyTo) -> new Shelly.RpcRequest(rpcRequest, replyTo), timeout, 
+                            system.scheduler()
+                      )
+                ), 
           Jackson.marshaller());
   }
   
