@@ -21,6 +21,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 
 public class VzLogger extends InputDevice {
@@ -38,6 +40,10 @@ public class VzLogger extends InputDevice {
   private final String consumptionChannel = getConfig().getString("energy-consumption-channel");
   private final String productionChannel = getConfig().getString("energy-production-channel");
   private final String powerChannel = getConfig().getString("power-channel");
+  private final int lastEnergyValuesQueueSize = getConfig().getInt("last-energy-values-queue-size");
+  private final Deque<VzLoggerValue> lastProductionValues = new ArrayDeque<>();
+  private final Deque<VzLoggerValue> lastConsumptionValues = new ArrayDeque<>();
+  
   
   public static Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> outputDevice,
                                          @NotNull Config config) {
@@ -113,25 +119,6 @@ public class VzLogger extends InputDevice {
     try {
       VzLoggerResponse response = objectMapper.readValue(strictEntity.getData().utf8String(), VzLoggerResponse.class);
       
-      double power = 0.0;
-      VzLoggerValue powerValue = response.dataByUuid(powerChannel);
-      if (powerValue == null) {
-        logger.debug("no power data found for channel uuid {}", powerChannel);
-      } else {
-        power = powerValue.tuples().get(0).get(1);
-        logger.debug("current power usage: {} W", power);
-      }
-      
-      OutputDevice.PowerData data = new OutputDevice.PowerData(
-            power,
-            power, 
-            1.0,
-            power / defaultVoltage, 
-            defaultVoltage, 
-            defaultFrequency);
-
-      getOutputDevice().tell(new OutputDevice.NotifyTotalPowerData(0, data, getOutputDeviceAckAdapter()));
-
       double consumption = 0.0;
       VzLoggerValue consumptionValue = response.dataByUuid(consumptionChannel);
       if (consumptionValue == null) {
@@ -139,6 +126,8 @@ public class VzLogger extends InputDevice {
       } else {
         consumption = consumptionValue.tuples().get(0).get(1);
         logger.debug("current consumption counter: {} kWh", Math.round(consumption / 1000.0));
+        
+        tryAddToQueue(lastConsumptionValues, consumptionValue);
       }
 
       double production = 0.0;
@@ -148,10 +137,37 @@ public class VzLogger extends InputDevice {
       } else {
         production = productionValue.tuples().get(0).get(1);
         logger.debug("current production counter: {} kWh", Math.round(production / 1000.0));
+        
+        tryAddToQueue(lastProductionValues, productionValue);
       }
 
       OutputDevice.EnergyData energyData = new OutputDevice.EnergyData(consumption, production);
       getOutputDevice().tell(new OutputDevice.NotifyTotalEnergyData(0, energyData, getOutputDeviceAckAdapter()));
+
+      double power = 0.0;
+      VzLoggerValue powerValue = response.dataByUuid(powerChannel);
+      if (powerValue == null) {
+        logger.debug("no power data found for channel uuid {}", powerChannel);
+        
+        Double lastEnergyValuePower = calculatePowerFromEnergyValues();
+        if (lastEnergyValuePower != null) {
+          power = lastEnergyValuePower;
+          logger.debug("using last energy values for power: {} W", power);
+        }
+      } else {
+        power = powerValue.tuples().get(0).get(1);
+        logger.debug("current power usage: {} W", power);
+      }
+
+      OutputDevice.PowerData data = new OutputDevice.PowerData(
+            power,
+            power,
+            1.0,
+            power / defaultVoltage,
+            defaultVoltage,
+            defaultFrequency);
+
+      getOutputDevice().tell(new OutputDevice.NotifyTotalPowerData(0, data, getOutputDeviceAckAdapter()));
     } catch (Exception e) {
       logger.error("Failed to parse response: {}", e.getMessage());
     }
@@ -181,6 +197,59 @@ public class VzLogger extends InputDevice {
           getContext().getExecutionContext());
   }
 
+  private @Nullable Double calculatePowerFromEnergyValues() {
+    logger.trace("VzLogger.calculatePowerFromEnergyValues()");
+
+    Double productionPower = calculatePowerFromAQueue(lastProductionValues);
+
+    Double consumptionPower = calculatePowerFromAQueue(lastConsumptionValues);
+    
+    Double result = null;
+    if (consumptionPower != null) {
+      result = consumptionPower;
+    } 
+    if (productionPower != null) {
+      if (result != null) {
+        result -= productionPower;
+      } else {
+        result = -productionPower;
+      }
+    }
+    
+    return result;
+  }
+  
+  private @Nullable Double calculatePowerFromAQueue(Deque<VzLoggerValue> deque) {
+    logger.trace("VzLogger.calculatePowerFromAQueue()");
+
+    if (deque.size() >= lastEnergyValuesQueueSize) {
+      try {
+        long timeDiff = Long.parseLong(deque.getFirst().last())
+              - Long.parseLong(deque.getLast().last());
+
+        double energyDiff = deque.getFirst().tuples().get(0).get(1)
+              - deque.getLast().tuples().get(0).get(1);
+
+        if (timeDiff > 0) {
+          return Math.round(energyDiff / timeDiff * 3600.0 * 10000.0) / 10.0;
+        }
+      } catch (Exception e) {
+        logger.debug("failed to calculate power from last energy values: {}", e.getMessage());
+      }
+    }
+    return null;
+  }
+  
+  private void tryAddToQueue(Deque<VzLoggerValue> deque, VzLoggerValue value) {
+    logger.trace("VzLogger.tryAddToQueue()");
+    
+    if (deque.isEmpty() || !deque.peek().last().equals(value.last())) {
+      deque.addFirst(value);
+      if (deque.size() > lastEnergyValuesQueueSize) {
+        deque.removeLast();
+      }
+    }
+  }
 
   protected record HttpRequestFailed(
         @NotNull Throwable throwable
