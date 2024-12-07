@@ -1,6 +1,7 @@
 package com.deigmueller.uni_meter.output.device.shelly;
 
 import com.deigmueller.uni_meter.application.UniMeter;
+import com.deigmueller.uni_meter.common.shelly.Rpc;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.typesafe.config.Config;
 import lombok.AllArgsConstructor;

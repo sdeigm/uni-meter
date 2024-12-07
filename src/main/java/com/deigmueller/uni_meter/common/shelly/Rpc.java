@@ -1,4 +1,4 @@
-package com.deigmueller.uni_meter.output.device.shelly;
+package com.deigmueller.uni_meter.common.shelly;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;

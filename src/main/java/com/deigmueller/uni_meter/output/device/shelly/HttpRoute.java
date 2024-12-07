@@ -2,6 +2,7 @@ package com.deigmueller.uni_meter.output.device.shelly;
 
 import com.deigmueller.uni_meter.application.WebsocketInput;
 import com.deigmueller.uni_meter.application.WebsocketOutput;
+import com.deigmueller.uni_meter.common.shelly.Rpc;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import org.apache.pekko.NotUsed;
 import org.apache.pekko.actor.typed.ActorRef;
@@ -64,7 +65,7 @@ class HttpRoute extends AllDirectives {
                       ),
                       path("EMData.GetStatus", () ->
                             get(() ->
-                                  parameter(StringUnmarshallers.INTEGER, "id", this::onEmGetStatus)
+                                  parameter(StringUnmarshallers.INTEGER, "id", this::onEmDataGetStatus)
                             )
                       ),
                       post(() -> extractEntity(entity -> {

@@ -112,8 +112,15 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
 
     double phasePower = data.power() / 3.0;
     double phaseApparentPower = data.apparentPower() / 3.0;
+    double phaseCurrent = data.current() / 3.0;
     
-    PowerData phasePowerData = new PowerData(phasePower, phaseApparentPower, data.powerFactor(), data.current(), data.voltage(), data.frequency()); 
+    PowerData phasePowerData = new PowerData(
+            phasePower, 
+            phaseApparentPower, 
+            data.powerFactor(), 
+            phaseCurrent, 
+            data.voltage(), 
+            data.frequency()); 
 
     setPowerPhase0(phasePowerData);
     setPowerPhase1(phasePowerData);

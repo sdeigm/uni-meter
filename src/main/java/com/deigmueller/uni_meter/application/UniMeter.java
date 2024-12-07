@@ -128,26 +128,39 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
     double jitter = getContext().getSystem().settings().config().getDouble("uni-meter.input-supervision.jitter");
 
     logger.info("creating {} input device", inputDeviceType);
-    if (inputDeviceType.equals(VzLogger.TYPE)) {
-      return getContext().spawn(
-            Behaviors.supervise(
-                  VzLogger.create(
-                        output, 
-                        getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-            ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-            "input");
-    } else if (inputDeviceType.equals(EnergyMeter.TYPE)) {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    EnergyMeter.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-    } else {
-      logger.error("unknown input device type: {}", inputDeviceType);
-      throw new IllegalArgumentException("unknown input device type: " + inputDeviceType);
-    }
+      switch (inputDeviceType) {
+          case VzLogger.TYPE -> {
+              return getContext().spawn(
+                      Behaviors.supervise(
+                              VzLogger.create(
+                                      output,
+                                      getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
+                      ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
+                      "input");
+          }
+          case EnergyMeter.TYPE -> {
+              return getContext().spawn(
+                      Behaviors.supervise(
+                              EnergyMeter.create(
+                                      output,
+                                      getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
+                      ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
+                      "input");
+          }
+          case com.deigmueller.uni_meter.input.device.shelly.pro3em.ShellyPro3EM.TYPE -> {
+              return getContext().spawn(
+                      Behaviors.supervise(
+                              com.deigmueller.uni_meter.input.device.shelly.pro3em.ShellyPro3EM.create(
+                                      output,
+                                      getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
+                      ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
+                      "input");
+          }
+          default -> {
+              logger.error("unknown input device type: {}", inputDeviceType);
+              throw new IllegalArgumentException("unknown input device type: " + inputDeviceType);
+          }
+      }
   }
   
   public interface Command {}

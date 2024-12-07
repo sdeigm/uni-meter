@@ -1,22 +1,19 @@
 package com.deigmueller.uni_meter.input.device.vzlogger;
 
-import com.deigmueller.uni_meter.input.InputDevice;
+import com.deigmueller.uni_meter.input.device.common.http.HttpInputDevice;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.typesafe.config.Config;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.ActorContext;
 import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
-import org.apache.pekko.http.javadsl.Http;
 import org.apache.pekko.http.javadsl.model.HttpEntity;
 import org.apache.pekko.http.javadsl.model.HttpRequest;
 import org.apache.pekko.http.javadsl.model.HttpResponse;
-import org.apache.pekko.stream.Materializer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,17 +22,13 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 
-public class VzLogger extends InputDevice {
+public class VzLogger extends HttpInputDevice {
   // Class members
   public static final String TYPE = "VZLogger";
   
   // Instance members
-  private final Http http = Http.get(getContext().getSystem());
-  private final Materializer materializer = Materializer.createMaterializer(getContext());
-  private final ObjectMapper objectMapper = new ObjectMapper();
   private final double defaultVoltage = getConfig().getDouble("default-voltage");
   private final double defaultFrequency = getConfig().getDouble("default-frequency");
-  private final String url = getConfig().getString("url");
   private final Duration pollingInterval = getConfig().getDuration("polling-interval");
   private final String consumptionChannel = getConfig().getString("energy-consumption-channel");
   private final String productionChannel = getConfig().getString("energy-production-channel");
@@ -88,7 +81,7 @@ public class VzLogger extends InputDevice {
       // The entity is not yet strict
       try {
         httpResponse.entity()
-              .toStrict(5000, materializer)
+              .toStrict(5000, getMaterializer())
               .whenComplete((strictEntity, toStrictFailure) -> {
                 if (toStrictFailure != null) {
                   getContext().getSelf().tell(new HttpRequestFailed(toStrictFailure));
@@ -117,7 +110,7 @@ public class VzLogger extends InputDevice {
     logger.trace("VzLogger.handleEntity()");
     
     try {
-      VzLoggerResponse response = objectMapper.readValue(strictEntity.getData().utf8String(), VzLoggerResponse.class);
+      VzLoggerResponse response = getObjectMapper().readValue(strictEntity.getData().utf8String(), VzLoggerResponse.class);
       
       double consumption = 0.0;
       VzLoggerValue consumptionValue = response.dataByUuid(consumptionChannel);
@@ -178,14 +171,15 @@ public class VzLogger extends InputDevice {
   private void executePolling() {
     logger.trace("VzLogger.executePolling()");
     
-    http.singleRequest(HttpRequest.create(url))
-          .whenComplete((response, throwable) -> {
-            if (throwable != null) {
-              getContext().getSelf().tell(new HttpRequestFailed(throwable));
-            } else {
-              getContext().getSelf().tell(new HttpRequestSuccess(response));
-            }
-          });
+    getHttp()
+            .singleRequest(HttpRequest.create(getUrl()))
+            .whenComplete((response, throwable) -> {
+              if (throwable != null) {
+                getContext().getSelf().tell(new HttpRequestFailed(throwable));
+              } else {
+                getContext().getSelf().tell(new HttpRequestSuccess(response));
+              }
+            });
   }
   
   private void startNextPollingTimer() {

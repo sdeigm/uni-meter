@@ -58,6 +58,8 @@ public class Modbus extends InputDevice {
               .setPort(port)
               .setInstanceId("1")
               .build();
+
+        //SerialPortClientTransport client = new ModbusSerialClient(config);
   
         ModbusTcpMaster master = new ModbusTcpMaster(config);
   
