@@ -6,7 +6,7 @@
 
     <groupId>com.deigmueller</groupId>
     <artifactId>uni-meter</artifactId>
-    <version>0.9.3</version>
+    <version>0.9.4-SNAPSHOT</version>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
