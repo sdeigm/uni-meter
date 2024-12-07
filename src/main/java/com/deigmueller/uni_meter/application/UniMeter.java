@@ -1,6 +1,7 @@
 package com.deigmueller.uni_meter.application;
 
 import com.deigmueller.uni_meter.input.InputDevice;
+import com.deigmueller.uni_meter.input.device.modbus.sdm120.Sdm120;
 import com.deigmueller.uni_meter.input.device.sma.energy_meter.EnergyMeter;
 import com.deigmueller.uni_meter.input.device.vzlogger.VzLogger;
 import com.deigmueller.uni_meter.output.OutputDevice;
@@ -149,6 +150,15 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
               return getContext().spawn(
                       Behaviors.supervise(
                               com.deigmueller.uni_meter.input.device.shelly.pro3em.ShellyPro3EM.create(
+                                      output,
+                                      getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
+                      ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
+                      "input");
+          }
+          case Sdm120.TYPE -> {
+              return getContext().spawn(
+                      Behaviors.supervise(
+                              Sdm120.create(
                                       output,
                                       getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
                       ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
