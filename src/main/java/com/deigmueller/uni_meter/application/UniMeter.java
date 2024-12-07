@@ -22,10 +22,8 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
   // Instance members
   private final Logger logger = LoggerFactory.getLogger("uni-meter.controller");
   private final ActorRef<HttpServerController.Command> httpServerController;
-  private final ActorRef<OutputDevice.Command> output;
-  private final ActorRef<InputDevice.Command> input;
-  
-  public static Behavior<Command> create() {
+
+    public static Behavior<Command> create() {
     return Behaviors.setup(UniMeter::new);
   }
   
@@ -35,11 +33,11 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
     try {
       httpServerController = createHttpServerController();
       getContext().watch(httpServerController);
-      
-      output = createOutput();
+
+        ActorRef<OutputDevice.Command> output = createOutput();
       getContext().watch(output);
-      
-      input = createInput(output);
+
+        ActorRef<InputDevice.Command> input = createInput(output);
       getContext().watch(input);       
     } catch (Exception e) {
       logger.error("failed to initialize the main controller", e);

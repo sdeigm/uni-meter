@@ -231,26 +231,6 @@ public abstract class Shelly extends OutputDevice {
     output.tell(new WebsocketOutput.Send(wsResponse));
   }
   
-  protected void sendToConnection(@NotNull String connectionId, 
-                                  @NotNull Rpc.ResponseFrame responseFrame) {
-    ActorRef<WebsocketOutput.Command> output = websocketOutputs.get(connectionId);
-    if (output != null) {
-      Message wsResponse = TextMessage.create(Rpc.toString(responseFrame));
-    
-      output.tell(new WebsocketOutput.Send(wsResponse));
-    }
-  }
-
-  protected void sendToConnection(@NotNull String connectionId,
-                                  @NotNull Rpc.NotificationFrame notificationFrame) {
-    ActorRef<WebsocketOutput.Command> output = websocketOutputs.get(connectionId);
-    if (output != null) {
-      Message wsResponse = TextMessage.create(Rpc.toString(notificationFrame));
-
-      output.tell(new WebsocketOutput.Send(wsResponse));
-    }
-  }
-  
   protected abstract Rpc.ResponseFrame createRpcResponse(Rpc.Request request);
   
   private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
