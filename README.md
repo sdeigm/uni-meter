@@ -130,7 +130,7 @@ uni-meter {
 
 Additionally, you have to modify the two service files you copied into the `/etc/avahi/services` directory, so that the correct
 device name is announced. Please replace the shellypro3em-b827eb364242 hostname with the one you have configured in the
-`uni-meter.conf` file. Each service files contains the hostname twice. Once in the \<name> tag and once in the \<txt-record> tag.
+`uni-meter.conf` file. Each service file contains the hostname twice. Once in the \<name> tag and once in the \<txt-record> tag.
 
 ```xml
 <?xml version="1.0" standalone='no'?>
