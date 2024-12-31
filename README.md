@@ -106,6 +106,48 @@ sudo cp /opt/uni-meter/config/uni-meter.conf /etc/uni-meter.conf
 
 Then use your favorite editor to adjust the configuration file to your needs as described in the following sections.
 
+### Configuring the Shelly device id
+
+It seems as if the Hoymiles storage expects a global unique identifier for the Shelly device. This Shelly device id
+is freely configurable and can be set in the `/etc/uni-meter.conf` file. Please configure the mac address and the hostname
+of your virtual Shelly Pro3EM device. The mac address should be an arbitrary 12 character long hexadecimal string. 
+The hostname should end with the mac address in lower case.
+
+```hocon
+uni-meter {
+  # ...
+  output-devices {
+    shelly-pro3em {
+      device {
+        mac = "B827EB364242"
+        hostname = "shellypro3em-b827eb364242"
+      }
+    }
+  }
+  #...
+}
+```
+
+Additionally, you have to modify the two service files you copied into the `/etc/avahi/services` directory, so that the correct
+device name is announced. Please replace the shellypro3em-b827eb364242 hostname with the one you have configured in the
+`uni-meter.conf` file. Each service files contains the hostname twice. Once in the \<name> tag and once in the \<txt-record> tag.
+
+```xml
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+    <name replace-wildcards="yes">shellypro3em-b827eb364242</name>
+    <service protocol="ipv4">
+        <type>_http._tcp</type>
+        <port>80</port>
+        <txt-record>gen=2</txt-record>
+        <txt-record>id=shellypro3em-b827eb364242</txt-record>
+        <txt-record>arch=esp8266</txt-record>
+        <txt-record>fw_id=20241011-114455/1.4.4-g6d2a586</txt-record>
+    </service>
+</service-group>
+```
+
 ### Using VzLogger webserver as input source
 
 To use the VzLogger webserver as an input source set up the `/etc/uni-meter.conf` file as follows and replace the
@@ -213,7 +255,7 @@ After you have adjusted the configuration file, you can start the tool using com
 sudo /opt/uni-meter/bin/uni-meter.sh
 ```
 
-If everything is set up correctly, the tool should start up and you should see an output like
+If everything is set up correctly, the tool should start up, and you should see an output like
 
 ```shell
 24-12-04 07:29:08.006 INFO  uni-meter                - ##################################################################

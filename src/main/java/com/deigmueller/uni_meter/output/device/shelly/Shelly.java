@@ -343,8 +343,8 @@ public abstract class Shelly extends OutputDevice {
 
       public Device(@NotNull Config config) {
         this.type = config.getString("type");
-        this.mac = config.getString("mac");
-        this.hostname = config.getString("hostname");
+        this.mac = config.getString("mac").toUpperCase();
+        this.hostname = config.getString("hostname").toLowerCase();
       }
     }
 
