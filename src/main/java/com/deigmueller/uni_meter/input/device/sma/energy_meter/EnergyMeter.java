@@ -62,7 +62,7 @@ public class EnergyMeter extends InputDevice {
     
     logger.info("starting receive loop for notifications from the SMA energy meter");
     
-  return Behaviors.same();
+    return Behaviors.same();
   }
   
   protected Behavior<Command> onReceiveLoopFinished(ReceiveLoopFinished message) {
@@ -129,7 +129,7 @@ public class EnergyMeter extends InputDevice {
    */
   private void notifyPowerData(@NotNull Telegram packet) {
     logger.trace("EnergyMeter.notifyPowerData()");
-    
+
     OutputDevice.PowerData phase1PowerData = getPhase1PowerData(packet);
     OutputDevice.PowerData phase2PowerData = getPhase2PowerData(packet);
     OutputDevice.PowerData phase3PowerData = getPhase3PowerData(packet);

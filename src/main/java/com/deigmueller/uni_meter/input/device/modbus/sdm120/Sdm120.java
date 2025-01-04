@@ -26,11 +26,9 @@ public class Sdm120 extends Modbus {
   private float activePower;
   private float apparentPower;
   private float powerFactor;
-  private float frequency;
   private float importActiveEnergy;
-  private float exportActiveEnergy;
-  
-  
+
+
   public static Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> outputDevice,
                                          @NotNull Config config) {
     return Behaviors.setup(context -> new Sdm120(context, outputDevice, config));
@@ -159,7 +157,7 @@ public class Sdm120 extends Modbus {
     logger.trace("Sdm120.onReadFrequencySucceeded()");
     
     try {
-      frequency = bytesToFloat(message.response().registers());
+      float frequency = bytesToFloat(message.response().registers());
       logger.debug("frequency: {}", frequency);
       
       getOutputDevice().tell(new OutputDevice.NotifyTotalPowerData(
@@ -194,7 +192,7 @@ public class Sdm120 extends Modbus {
     logger.trace("Sdm120.onReadExportActiveEnergySucceeded()");
     
     try {
-      exportActiveEnergy = bytesToFloat(message.response().registers());
+      float exportActiveEnergy = bytesToFloat(message.response().registers());
       logger.debug("export active energy: {}", exportActiveEnergy);
       
       getOutputDevice().tell(new OutputDevice.NotifyTotalEnergyData(
