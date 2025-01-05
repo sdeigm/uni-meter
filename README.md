@@ -4,11 +4,14 @@ uni-meter is a small tool that simulates a Shelly Pro3EM device for the usage wi
 It is not a full implementation of a Shelly Pro3EM device, currently only the parts that are needed by the Hoymiles 
 storage are implemented.
 
-The real electrical meter data currently can be gathered either from a VzLogger webserver or from a SMA energy meter 
-using the SMA energy meter UDP protocol.
+The real electrical meter data currently can be gathered either from the following devices:
+- VzLogger webserver
+- SMA energy meter / Sunny Home Manager (UDP protocol)
+- SMD120 modbus energy meter (via Protos PE11) (SMD630 could be added, I have no test device)
+- SHRDZM smartmeter interface module (UDP)
 
-The idea is to further enhance the tool in the future by adding more input and output devices to get a universal converter between
-different electrical meters, inverters and storage systems.
+The idea is to further enhance the tool in the future by adding more input and output devices to get a universal 
+converter between different electrical meters, inverters and storage systems.
 
 ## Download
 
@@ -246,6 +249,29 @@ of the device you want to use.
 
 The network interfaces to use are provided as a list of strings. Either specify the names or the IP addresses of the 
 interfaces you want to use.
+
+### Using SHRDZM smartmeter interface as input source
+
+To use a SHRDZM smartmeter interface providing the smart meter readings via UDP, set up the `/etc/uni-meter.conf` file 
+as follows
+
+```hocon
+uni-meter {
+  output = "uni-meter.output-devices.shelly-pro3em"
+  
+  input = "uni-meter.input-devices.shrdzm"
+
+  input-devices {
+    shrdzm {
+      port = 9522
+      interface = "0.0.0.0"
+    }
+  }
+}
+```
+
+The above configuration shows the default values for the ShrDzm device which are used, if nothing is provided. If you
+want to use a different port or interface, you have to adjust the values accordingly.
 
 ### First test
 

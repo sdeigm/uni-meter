@@ -2,6 +2,7 @@ package com.deigmueller.uni_meter.application;
 
 import com.deigmueller.uni_meter.input.InputDevice;
 import com.deigmueller.uni_meter.input.device.modbus.sdm120.Sdm120;
+import com.deigmueller.uni_meter.input.device.shrdzm.ShrDzm;
 import com.deigmueller.uni_meter.input.device.sma.energy_meter.EnergyMeter;
 import com.deigmueller.uni_meter.input.device.vzlogger.VzLogger;
 import com.deigmueller.uni_meter.output.OutputDevice;
@@ -164,6 +165,17 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
                       ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
                       "input");
           }
+          
+          case ShrDzm.TYPE -> {
+              return getContext().spawn(
+                      Behaviors.supervise(
+                              ShrDzm.create(
+                                      output,
+                                      getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
+                      ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
+                      "input");
+          }
+          
           default -> {
               logger.error("unknown input device type: {}", inputDeviceType);
               throw new IllegalArgumentException("unknown input device type: " + inputDeviceType);

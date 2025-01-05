@@ -227,7 +227,7 @@ public class ShellyPro3EM extends Shelly {
           null, //Collections.emptyList(),
           getPowerPhase0().current() + getPowerPhase1().current() + getPowerPhase2().current(),
           getPowerPhase0().power() + getPowerPhase1().power() + getPowerPhase2().power(),
-          0.0,
+          getPowerPhase0().apparentPower() + getPowerPhase1().apparentPower() + getPowerPhase2().apparentPower(),
           null, //Collections.emptyList()
           null
     );
