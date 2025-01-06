@@ -3,7 +3,7 @@ package com.deigmueller.uni_meter.application;
 import com.deigmueller.uni_meter.input.InputDevice;
 import com.deigmueller.uni_meter.input.device.modbus.sdm120.Sdm120;
 import com.deigmueller.uni_meter.input.device.shrdzm.ShrDzm;
-import com.deigmueller.uni_meter.input.device.tibber.Pulse;
+import com.deigmueller.uni_meter.input.device.tibber.pulse.Pulse;
 import com.deigmueller.uni_meter.input.device.sma.energy_meter.EnergyMeter;
 import com.deigmueller.uni_meter.input.device.vzlogger.VzLogger;
 import com.deigmueller.uni_meter.output.OutputDevice;

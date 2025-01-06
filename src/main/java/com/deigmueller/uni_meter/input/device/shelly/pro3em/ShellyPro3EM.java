@@ -1,7 +1,3 @@
-/*
- * Copyright (C) 2018-2023 layline.io GmbH <http://www.layline.io>
- */
-
 package com.deigmueller.uni_meter.input.device.shelly.pro3em;
 
 import com.deigmueller.uni_meter.common.shelly.Rpc;

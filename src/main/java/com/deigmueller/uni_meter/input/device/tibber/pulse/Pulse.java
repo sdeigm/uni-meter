@@ -1,10 +1,5 @@
-/*
- * Copyright (C) 2018-2023 layline.io GmbH <http://www.layline.io>
- */
+package com.deigmueller.uni_meter.input.device.tibber.pulse;
 
-package com.deigmueller.uni_meter.input.device.tibber;
-
-import com.deigmueller.uni_meter.common.shelly.Rpc;
 import com.deigmueller.uni_meter.input.device.common.http.HttpInputDevice;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import com.typesafe.config.Config;
@@ -18,7 +13,6 @@ import org.apache.pekko.http.javadsl.model.HttpRequest;
 import org.apache.pekko.http.javadsl.model.HttpResponse;
 import org.apache.pekko.http.javadsl.model.headers.HttpCredentials;
 import org.apache.pekko.http.scaladsl.model.headers.BasicHttpCredentials;
-import static org.apache.pekko.http.javadsl.server.Directives.authenticateBasic;
 import org.jetbrains.annotations.NotNull;
 import java.io.DataInputStream;
 import java.io.ByteArrayInputStream;
@@ -27,7 +21,6 @@ import org.openmuc.jsml.structures.SmlFile;
 import org.openmuc.jsml.structures.SmlMessage;
 import org.openmuc.jsml.structures.EMessageBody;
 import org.openmuc.jsml.structures.responses.SmlGetListRes;
-import org.openmuc.jsml.structures.SmlList;
 import org.openmuc.jsml.structures.SmlListEntry;
 import java.util.List;
 import java.time.Duration;
@@ -112,7 +105,7 @@ public class Pulse extends HttpInputDevice {
         for(SmlMessage message : messages) {
             logger.debug("Found tag {}", message.getMessageBody().getTag());
             if(message.getMessageBody().getTag() == EMessageBody.GET_LIST_RESPONSE) {
-                return (SmlGetListRes) message.getMessageBody().getChoice();
+                return message.getMessageBody().getChoice();
             }
         }
         return null;
@@ -168,16 +161,16 @@ public class Pulse extends HttpInputDevice {
                 double energyExport = findEnergyExportEntry(listResponse);
                 double power        = findPowerEntry(listResponse);
 
-                logger.debug("Energy Import (Wh): " + Double.toString(energyImport));
-                logger.debug("Energy Export (Wh): " + Double.toString(energyExport));
-                logger.debug("Power (W): " + Double.toString(power));
+                logger.debug("Energy Import (Wh): {}", energyImport);
+                logger.debug("Energy Export (Wh): {}", energyExport);
+                logger.debug("Power (W): {}", power);
                 
                 getOutputDevice().tell(
                         new OutputDevice.NotifyTotalPowerData(
                                 getNextMessageId(),
                                 new OutputDevice.PowerData(
                                         power,  //act_power
-                                        0.0,    //aprt_power
+                                        power,  //aprt_power
                                         1.0,
                                         power/defaultVoltage,   //act_current
                                         defaultVoltage,
@@ -226,10 +219,6 @@ public class Pulse extends HttpInputDevice {
 
     protected record PulseStatusRequestSuccess(
             @NotNull HttpResponse response
-    ) implements Command {}
-
-    protected record PulseDataStatusRequestFailed(
-            @NotNull Throwable throwable
     ) implements Command {}
 
     protected enum ExecuteNextPulseStatusPolling implements Command {
