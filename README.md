@@ -4,7 +4,8 @@ uni-meter is a small tool that simulates a Shelly Pro3EM device for the usage wi
 It is not a full implementation of a Shelly Pro3EM device, currently only the parts that are needed by the Hoymiles 
 storage are implemented.
 
-The real electrical meter data currently can be gathered either from the following devices:
+The real electrical meter data currently can be gathered from the following devices:
+
 - VzLogger webserver
 - SMA energy meter / Sunny Home Manager (UDP protocol)
 - SMD120 modbus energy meter (via Protos PE11) (SMD630 could be added, I have no test device)
