@@ -14,9 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.Optional;
-
-import static org.hamcrest.MatcherAssert.assertThat;
 
 class Shelly3EMTestServer {
   public static Logger LOGGER = LoggerFactory.getLogger(Shelly3EMTestServer.class);
