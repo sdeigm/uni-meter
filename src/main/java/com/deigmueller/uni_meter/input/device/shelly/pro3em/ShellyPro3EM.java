@@ -61,7 +61,7 @@ public class ShellyPro3EM extends HttpInputDevice {
     }
 
     protected Behavior<Command> onEmStatusRequestSuccess(@NotNull EmStatusRequestSuccess message) {
-        logger.trace("ShellyPro3EM.onHttpRequestSuccess()");
+        logger.trace("ShellyPro3EM.onEmStatusRequestSuccess()");
 
         HttpResponse httpResponse = message.response();
 

@@ -11,6 +11,7 @@ The real electrical meter data currently can be gathered from the following devi
 - SMD120 modbus energy meter (via Protos PE11) (SMD630 could be added, I have no test device)
 - SHRDZM smartmeter interface module (UDP)
 - Tibber Pulse (local API) 
+- Shelly 3EM (totally untested, I have no test device)
 
 The idea is to further enhance the tool in the future by adding more input and output devices to get a universal 
 converter between different electrical meters, inverters and storage systems.
@@ -303,6 +304,29 @@ uni-meter {
 Replace the `<tibber-device-url>` and `<tibber-device-password>` placeholders with the actual values from your environment.  
 The `node-id` and `user-id` are optional and can be omitted if the default values from above are correct. Otherwise,
 adjust the values accordingly.
+
+### Using Shelly 3EM as input source
+
+To use a Shelly 3EM as an input source, set up the `/etc/uni-meter.conf` file as follows
+
+```hocon
+uni-meter {
+  output = "uni-meter.output-devices.shelly-pro3em"
+  
+  input = "uni-meter.input-devices.shelly-3em"
+
+  input-devices {
+    shelly-3em {
+      url = "<shelly-3em-url>"
+    }
+  }
+}
+```
+
+Replace the `<shelly-3em-url>` placeholder with the actual URL of your Shelly 3EM device.
+
+This input device is currently totally untested, as I have no test device. If you have a Shelly 3EM device, please provide
+feedback if it works or not via the GitHub issues.
 
 ### First test
 
