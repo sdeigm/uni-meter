@@ -190,7 +190,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   protected void setPowerPhase1(@NotNull PowerData powerPhase1) {
     this.lastPowerPhase1Update = Instant.now();
     this.powerPhase1 = powerPhase1;
-    logger.debug("power phase 1: {}", powerPhase0);
+    logger.debug("power phase 1: {}", powerPhase1);
   }
   
   protected @NotNull PowerData getPowerPhase1() {
@@ -209,7 +209,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   protected void setPowerPhase2(@NotNull PowerData powerPhase2) {
     this.lastPowerPhase2Update = Instant.now();
     this.powerPhase2 = powerPhase2;
-    logger.debug("power phase 2: {}", powerPhase0);
+    logger.debug("power phase 2: {}", powerPhase2);
   }
   
   protected @NotNull PowerData getPowerPhase2() {
