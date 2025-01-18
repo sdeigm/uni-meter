@@ -2,6 +2,7 @@ package com.deigmueller.uni_meter.application;
 
 import com.deigmueller.uni_meter.input.InputDevice;
 import com.deigmueller.uni_meter.input.device.modbus.sdm120.Sdm120;
+import com.deigmueller.uni_meter.input.device.mqtt.Mqtt;
 import com.deigmueller.uni_meter.input.device.shelly._3em.Shelly3EM;
 import com.deigmueller.uni_meter.input.device.shrdzm.ShrDzm;
 import com.deigmueller.uni_meter.input.device.tibber.pulse.Pulse;
@@ -193,6 +194,16 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
             return getContext().spawn(
                       Behaviors.supervise(
                               Pulse.create(
+                                      output,
+                                      getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
+                      ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
+                      "input");
+          }
+          
+          case Mqtt.TYPE -> {
+              return getContext().spawn(
+                      Behaviors.supervise(
+                              Mqtt.create(
                                       output,
                                       getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
                       ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
