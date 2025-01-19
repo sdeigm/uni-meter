@@ -43,14 +43,13 @@ class MqttTestWriter {
                 MqttQoS.atLeastOnce());
     
     final Source<MqttMessage, NotUsed> source = 
-          Source.single(MqttMessage.create("energy-meter/main/total-power", ByteString.fromString("1234")));
+          Source.single(MqttMessage.create("solar/powermeter/powertotal", ByteString.fromString("196.0")));
     
-    final Source<MqttMessage, NotUsed> source2 = 
-          Source.single(MqttMessage.create("energy-meter/main/total-energy", ByteString.fromString("{\"Time\":\"2025-01-18T01:57:30\",\"Main\":{\"power\":466,\"counter_pos\":1306.661,\"counter_neg\":148.611}}")));
+//    final Source<MqttMessage, NotUsed> source = 
+//          Source.single(MqttMessage.create("tele/smlreader/SENSOR", ByteString.fromString("{\"Time\":\"2025-01-18T01:57:30\",\"Main\":{\"power\":466,\"counter_pos\":1306.661,\"counter_neg\":148.611}}")));
     
     while (true) {
-      //source.viaMat(mqttFlow, Keep.both()).toMat(Sink.seq(), Keep.both()).run(actorSystem);
-      source2.viaMat(mqttFlow, Keep.both()).toMat(Sink.seq(), Keep.both()).run(actorSystem);
+      source.viaMat(mqttFlow, Keep.both()).toMat(Sink.seq(), Keep.both()).run(actorSystem);
       
       
       Thread.sleep(1000);
