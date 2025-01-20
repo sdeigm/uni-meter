@@ -173,15 +173,19 @@ public class Mqtt extends InputDevice {
     logger.trace("Mqtt.onTopicData()");
     
     try {
+      boolean changes = false;
       for (TopicReader topicReader : topicReaders) {
         if (Objects.equals(topicReader.getTopic(), message.topic())) {
           Double value = topicReader.getValue(message.payload());
           if (value != null) {
             setChannelData(topicReader.getChannel(), value);
-            
-            notifyOutputDevice();
+            changes = true;
           }
         }
+      }
+      
+      if (changes) {
+        notifyOutputDevice();
       }
     } catch (Exception exception) {
       logger.error("failed to process MQTT topic data", exception);
@@ -332,6 +336,9 @@ public class Mqtt extends InputDevice {
     });    
   }
   
+  /**
+   * Initialize the topic readers.
+   */
   private void initTopicReaders() {
     for (Config channelConfig : getConfig().getConfigList("channels")) {
       switch (channelConfig.getString("type")) {
@@ -393,10 +400,6 @@ public class Mqtt extends InputDevice {
     
     Pair<CompletionStage<Done>, CompletionStage<Done>> result = MqttSource
           .atMostOnce(createConnectionSettings(), createSubscriptions(), 256)
-//          .mapAsync(
-//                1,
-//                messageWithAck ->
-//                      messageWithAck.ack().thenApply(unused2 -> messageWithAck.message()))
           .mapAsync(5, message -> AskPattern.ask(
                 self,
                 (ActorRef<AckTopicData> replyTo) -> new NotifyTopicData(message.topic(), message.payload(), replyTo),
