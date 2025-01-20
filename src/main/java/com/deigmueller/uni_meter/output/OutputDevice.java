@@ -110,9 +110,9 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
 
     PowerData data = message.data();
 
-    double phasePower = data.power() / 3.0;
-    double phaseApparentPower = data.apparentPower() / 3.0;
-    double phaseCurrent = data.current() / 3.0;
+    double phasePower = Math.round(data.power() / 3.0 * 100.0) / 100.0;
+    double phaseApparentPower = Math.round(data.apparentPower() / 3.0 * 100.0) / 100.0;
+    double phaseCurrent = Math.round(data.current() / 3.0 * 100.0) / 100.0;
     
     PowerData phasePowerData = new PowerData(
             phasePower, 

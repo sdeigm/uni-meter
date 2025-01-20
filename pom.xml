@@ -15,7 +15,7 @@
 
         <pekko.version>1.1.2</pekko.version>
         <pekko.http.version>1.1.0</pekko.http.version>
-        <scala.version>2.13</scala.version>
+        <scala.binary.version>2.13</scala.binary.version>
         <junit5.version>5.8.2</junit5.version>
     </properties>
 
@@ -36,42 +36,47 @@
         <!-- PEKKO -->
         <dependency>
             <groupId>org.apache.pekko</groupId>
-            <artifactId>pekko-actor_${scala.version}</artifactId>
+            <artifactId>pekko-actor_${scala.binary.version}</artifactId>
             <version>${pekko.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.pekko</groupId>
-            <artifactId>pekko-actor-typed_${scala.version}</artifactId>
+            <artifactId>pekko-actor-typed_${scala.binary.version}</artifactId>
             <version>${pekko.version}</version>
         </dependency>
 
         <!-- PEKKO STREAM -->
         <dependency>
             <groupId>org.apache.pekko</groupId>
-            <artifactId>pekko-stream_${scala.version}</artifactId>
+            <artifactId>pekko-stream_${scala.binary.version}</artifactId>
             <version>${pekko.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.pekko</groupId>
-            <artifactId>pekko-stream-typed_${scala.version}</artifactId>
+            <artifactId>pekko-stream-typed_${scala.binary.version}</artifactId>
             <version>${pekko.version}</version>
         </dependency>
 
         <!-- PEKKO HTTP -->
         <dependency>
             <groupId>org.apache.pekko</groupId>
-            <artifactId>pekko-http-core_${scala.version}</artifactId>
+            <artifactId>pekko-http-core_${scala.binary.version}</artifactId>
             <version>${pekko.http.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.pekko</groupId>
-            <artifactId>pekko-http_${scala.version}</artifactId>
+            <artifactId>pekko-http_${scala.binary.version}</artifactId>
             <version>${pekko.http.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.pekko</groupId>
-            <artifactId>pekko-http-jackson_${scala.version}</artifactId>
+            <artifactId>pekko-http-jackson_${scala.binary.version}</artifactId>
             <version>${pekko.http.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-connectors-mqtt_${scala.binary.version}</artifactId>
+            <version>1.0.2</version>
         </dependency>
         
         <!-- OTHERS -->
@@ -110,6 +115,11 @@
             <artifactId>jsml</artifactId>
             <version>1.1.2</version>
         </dependency>
+        <dependency>
+            <groupId>com.jayway.jsonpath</groupId>
+            <artifactId>json-path</artifactId>
+            <version>2.9.0</version>
+        </dependency>
         
         <!-- TEST DEPENDENCIES -->
         <dependency>
@@ -125,12 +135,6 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.junit.vintage</groupId>
-            <artifactId>junit-vintage-engine</artifactId>
-            <version>${junit5.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>org.hamcrest</groupId>
             <artifactId>hamcrest-all</artifactId>
             <version>1.3</version>
@@ -138,7 +142,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.pekko</groupId>
-            <artifactId>pekko-actor-testkit-typed_${scala.version}</artifactId>
+            <artifactId>pekko-actor-testkit-typed_${scala.binary.version}</artifactId>
             <version>${pekko.version}</version>
             <scope>test</scope>
         </dependency>
