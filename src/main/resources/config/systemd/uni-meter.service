@@ -5,8 +5,14 @@ After=syslog.target network.target ntp.service
 [Service]
 ExecStart=/opt/uni-meter/bin/uni-meter.sh
 ExecReload=
-StandardOutput=file:/var/log/uni-meter.log
-StandardError=file:/var/log/uni-meter.log
+
+# Create a new log file on every daemon start
+#StandardOutput=file:/var/log/uni-meter.log
+#StandardError=file:/var/log/uni-meter.log
+
+# Append to the existing log file
+StandardOutput=append:/var/log/uni-meter.log
+StandardError=append:/var/log/uni-meter.log
 
 [Install]
 WantedBy=multi-user.target
