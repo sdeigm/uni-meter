@@ -6,12 +6,13 @@ storage are implemented.
 
 The real electrical meter data currently can be gathered from the following devices:
 
-- VzLogger webserver
+- MQTT
+- Shelly 3EM (totally untested, I have no test device)
+- SHRDZM smartmeter interface module (UDP)
 - SMA energy meter / Sunny Home Manager (UDP protocol)
 - SMD120 modbus energy meter (via Protos PE11) (SMD630 could be added, I have no test device)
-- SHRDZM smartmeter interface module (UDP)
 - Tibber Pulse (local API) 
-- Shelly 3EM (totally untested, I have no test device)
+- VzLogger webserver
 
 The idea is to further enhance the tool in the future by adding more input and output devices to get a universal 
 converter between different electrical meters, inverters and storage systems.
@@ -153,6 +154,11 @@ device name is announced. Please replace the shellypro3em-b827eb364242 hostname 
     </service>
 </service-group>
 ```
+### Using MQTT as input source
+
+The MQTT input source can operate in two modes. Either in a `mono-phase` mode, where the power and/or the energy data is
+provided as a single value for all three phases, or in a `tri-phase` mode, where the power and/or the energy data is
+provided as a separate value for each phase.
 
 ### Using VzLogger webserver as input source
 
