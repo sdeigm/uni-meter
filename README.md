@@ -55,7 +55,7 @@ to any location you like, but all the scripts and configuration files included a
 directory. So preferably you should extract it to the `/opt` directory using the following commands:
 
 ```shell
-sudo tar -xzvf uni-meter-<version>.tgz -C /opt
+sudo tar xzvf uni-meter-<version>.tgz -C /opt
 ```
 ```shell
 sudo ln -s /opt/uni-meter-<version> /opt/uni-meter
