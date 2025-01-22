@@ -153,14 +153,14 @@ public class ShellyPro3EM extends Shelly {
    
   protected Rpc.Response createRpcResult(Rpc.Request request) {
     return switch (request.method()) {
-      case "Shelly.GetDeviceInfo" -> rpcGetDeviceInfo(request);
+      case "Shelly.GetDeviceInfo" -> rpcGetDeviceInfo();
       case "EM.GetStatus" -> rpcEmGetStatus();
       case "EMData.GetStatus" -> rpcEmDataGetStatus();
       default -> rpcUnknownMethod(request);
     };
   }
 
-  private Rpc.GetDeviceInfoResponse rpcGetDeviceInfo(Rpc.Request request) {
+  private Rpc.GetDeviceInfoResponse rpcGetDeviceInfo() {
     logger.trace("Shelly.rpcGetDeviceInfo()");
 
     Rpc.GetDeviceInfoResponse response = new Rpc.GetDeviceInfoResponse(
@@ -183,20 +183,6 @@ public class ShellyPro3EM extends Shelly {
     return response;
   }
 
-  private Rpc.NotificationFrame rpcGetEmNotification(String destination) {
-    logger.trace("ShellyPro3EM.rpcGetEmNotification()");
-
-    return new Rpc.NotificationFrame(
-          getHostname(),
-          destination,
-          "NotifyStatus",
-          new Rpc.EmGetStatusNotification(
-                Instant.now().toEpochMilli() / 1000.0,
-                rpcEmGetStatus()
-          )
-    );
-  }
-  
   private Rpc.EmGetStatusResponse rpcEmGetStatus() {
     logger.trace("ShellyPro3EM.rpcEmGetStatus()");
     
@@ -249,20 +235,6 @@ public class ShellyPro3EM extends Shelly {
           null);
   }
   
-  private Rpc.NotificationFrame rpcGetEmDataNotification(String destination) {
-    logger.trace("ShellyPro3EM.rpcGetEmDataNotification()");
-    
-    return new Rpc.NotificationFrame(
-          getHostname(),
-          destination,
-          "NotifyStatus",
-          new Rpc.EmDataGetStatusNotification(
-                Instant.now().toEpochMilli() / 1000.0,
-                rpcEmDataGetStatus()
-          )
-    );
-  }
-  
   private Rpc.Response rpcUnknownMethod(Rpc.Request request) {
     logger.error("ShellyPro3EM.rpcUnknownMethod()");
     throw new IllegalArgumentException("Unknown method: " + request.method());
@@ -297,11 +269,6 @@ public class ShellyPro3EM extends Shelly {
       super(config);
     }
   }
-  
-  public record Actions(
-        @JsonProperty("active") boolean active,
-        @JsonProperty("names") List<String> names
-  ) {}
   
   @Getter
   public static class Status extends Shelly.Status {

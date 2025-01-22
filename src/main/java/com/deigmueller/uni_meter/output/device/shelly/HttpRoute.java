@@ -108,7 +108,7 @@ class HttpRoute extends AllDirectives {
   private Route onRpcRequest(Rpc.Request request) {
     return completeOKWithFuture(AskPattern.ask(
                 shelly, 
-                (ActorRef<Rpc.ResponseFrame> replyTo) -> new Shelly.RpcRequest(request, replyTo), timeout, 
+                (ActorRef<Rpc.ResponseFrame> replyTo) -> new Shelly.HttpRpcRequest(request, replyTo), timeout, 
                 system.scheduler()
           ), 
           Jackson.marshaller());

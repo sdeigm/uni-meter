@@ -15,12 +15,17 @@ import org.apache.pekko.actor.Cancellable;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.ActorContext;
+import org.apache.pekko.actor.typed.javadsl.Adapter;
 import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
 import org.apache.pekko.http.javadsl.model.ws.BinaryMessage;
 import org.apache.pekko.http.javadsl.model.ws.Message;
 import org.apache.pekko.http.javadsl.model.ws.TextMessage;
 import org.apache.pekko.http.javadsl.server.Route;
+import org.apache.pekko.stream.OverflowStrategy;
+import org.apache.pekko.stream.javadsl.Sink;
+import org.apache.pekko.stream.javadsl.Source;
+import org.apache.pekko.stream.javadsl.SourceQueueWithComplete;
 import org.apache.pekko.util.ByteString;
 
 import org.jetbrains.annotations.NotNull;
@@ -37,13 +42,12 @@ public abstract class Shelly extends OutputDevice {
   // Instance members
   private final ActorRef<WebsocketInput.Notification> websocketInputNotificationAdapter =
         getContext().messageAdapter(WebsocketInput.Notification.class, WrappedWebsocketInputNotification::new);
-  protected final Map<String, ActorRef<WebsocketOutput.Command>> websocketOutputs = new HashMap<>();
-  protected final Map<String, String> statusSubscriber = new HashMap<>();
-  protected final Map<String, Rpc.Request> rpcRequests = new HashMap<>();
+  protected final Map<String, ConnectionContext> connections = new HashMap<>();
   private final Instant startTime = Instant.now();
   private final int bindPort = getConfig().getInt("port");
   private final String mac = getConfig().getString("device.mac");
   private final String hostname = getConfig().getString("device.hostname");
+  private final Duration minSamplePeriod = getConfig().getDuration("min-sample-period");
   
   private Cancellable notificationTimer;
   private Settings settings = new Settings(getConfig());
@@ -54,18 +58,28 @@ public abstract class Shelly extends OutputDevice {
     super(context, controller, config);
   }
 
+  /**
+   * Create the actor's ReceiveBuilder
+   * @return The actor's ReceiveBuilder
+   */
   @Override
   public ReceiveBuilder<Command> newReceiveBuilder() {
     return super.newReceiveBuilder()
           .onMessage(ShellyGet.class, this::onShellyGet)
           .onMessage(SettingsGet.class, this::onSettingsGet)
           .onMessage(StatusGet.class, this::onStatusGet)
-          .onMessage(RpcRequest.class, this::onRpcRequest)
+          .onMessage(HttpRpcRequest.class, this::onHttpRpcRequest)
+          .onMessage(ProcessPendingEmGetStatusRequest.class, this::onProcessPendingEmGetStatusRequest)
           .onMessage(WebsocketOutputOpened.class, this::onWebsocketOutputOpened)
-          .onMessage(NotifySubscribers.class, this::onNotifySubscribers)
+          .onMessage(ThrottlingQueueClosed.class, this::onThrottlingQueueClosed)
           .onMessage(WrappedWebsocketInputNotification.class, this::onWrappedWebsocketInputNotification);
   }
-  
+
+  /**
+   * Handle an HTTP GET request for the Shelly device information
+   * @param request Request for the Shelly device information
+   * @return Same behavior
+   */
   protected Behavior<Command> onShellyGet(ShellyGet request) {
     logger.trace("Shelly.onShellyGet()");
 
@@ -83,6 +97,11 @@ public abstract class Shelly extends OutputDevice {
     return Behaviors.same();
   }
 
+  /**
+   * Handle an HTTP GET request for the Shelly device settings
+   * @param request Request for the Shelly device settings
+   * @return Same behavior
+   */
   protected Behavior<Command> onSettingsGet(SettingsGet request) {
     logger.trace("Shelly.onSettingsGet()");
 
@@ -91,6 +110,11 @@ public abstract class Shelly extends OutputDevice {
     return Behaviors.same();
   }
 
+  /**
+   * Handle an HTTP GET request for the Shelly device status
+   * @param request Request for the Shelly device status
+   * @return Same behavior
+   */
   protected Behavior<Command> onStatusGet(StatusGet request) {
     logger.trace("Shelly.onStatusGet()");
 
@@ -114,7 +138,12 @@ public abstract class Shelly extends OutputDevice {
     return Behaviors.same();
   }
   
-  protected Behavior<Command> onRpcRequest(RpcRequest request) {
+  /**
+   * Handle an HTTP RPC request
+   * @param request HTTP RPC request
+   * @return Same behavior
+   */
+  protected Behavior<Command> onHttpRpcRequest(HttpRpcRequest request) {
     logger.trace("Shelly.onRpcRequest()");
     
     request.replyTo().tell(createRpcResponse(request.request()));
@@ -126,16 +155,28 @@ public abstract class Shelly extends OutputDevice {
     logger.trace("Shelly.onWebsocketOutputOpened()");
 
     logger.debug("outgoing websocket connection {} created", message.connectionId());
-    websocketOutputs.put(message.connectionId(), message.sourceActor());
+
+    SourceQueueWithComplete<ProcessPendingEmGetStatusRequest> throttlingQueue =
+          Source.<ProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
+                .throttle(1, minSamplePeriod)
+                .to(Sink.actorRef(Adapter.toClassic(getContext().getSelf()), ThrottlingQueueClosed.INSTANCE))
+                .run(getMaterializer());
+    
+    connections.put(message.connectionId(), ConnectionContext.create(message.sourceActor(), throttlingQueue, null));
     
     return Behaviors.same();
   }
   
-  protected Behavior<Command> onNotifySubscribers(NotifySubscribers message) {
-    logger.trace("Shelly.onNotifySubscribers()");
+  protected Behavior<Command> onThrottlingQueueClosed(ThrottlingQueueClosed message) {
+    logger.trace("Shelly.onThrottlingQueueClosed()");
     return Behaviors.same();
   }
-  
+
+  /**
+   * Handle a wrapped websocket input notification
+   * @param message Wrapped websocket input notification
+   * @return Same behavior
+   */
   protected Behavior<Command> onWrappedWebsocketInputNotification(WrappedWebsocketInputNotification message) {
     logger.trace("Shelly.onWrappedWebsocketInputNotification()");
     
@@ -160,6 +201,10 @@ public abstract class Shelly extends OutputDevice {
     return Behaviors.same();
   }
   
+  /**
+   * Handle the notification that a websocket input connection was opened
+   * @param message Notification of an opened websocket input connection
+   */
   protected void onWebsocketInputOpened(WebsocketInput.NotifyOpened message) {
     logger.trace("Shelly.onWebsocketInputOpened()");
 
@@ -167,36 +212,46 @@ public abstract class Shelly extends OutputDevice {
 
     message.replyTo().tell(WebsocketInput.Ack.INSTANCE);
   }
-  
+
+  /**
+   * Handle the notification that a websocket input connection was closed
+   * @param message Notification of a closed websocket input connection
+   */
   protected void onWebsocketInputClosed(WebsocketInput.NotifyClosed message) {
     logger.trace("Shelly.onWebsocketInputClosed()");
     
     logger.debug("incoming websocket connection {} closed", message.connectionId());
-    ActorRef<WebsocketOutput.Command> output = websocketOutputs.remove(message.connectionId());
-    if (output != null) {
-      output.tell(WebsocketOutput.Close.INSTANCE);
+    ConnectionContext connectionContext = connections.remove(message.connectionId());
+    if (connectionContext != null) {
+      connectionContext.close();
     }
-    rpcRequests.remove(message.connectionId());
-    statusSubscriber.remove(message.connectionId());
   }
-  
+
+  /**
+   * Handle the notification that a websocket input connection failed
+   * @param message Notification of a failed websocket input connection
+   */
   protected void onWebsocketInputFailed(WebsocketInput.NotifyFailed message) {
     logger.trace("Shelly.onWebsocketInputFailed()");
 
     logger.error("incoming websocket connection {} failed: {}", message.connectionId(), message.failure().getMessage());
-    ActorRef<WebsocketOutput.Command> output = websocketOutputs.remove(message.connectionId());
-    if (output != null) {
-      output.tell(WebsocketOutput.Close.INSTANCE);
+    ConnectionContext connectionContext = connections.remove(message.connectionId());
+    if (connectionContext != null) {
+      connectionContext.close();
     }
   }
-  
+
+  /**
+   * Handle an incoming websocket message
+   * @param message Notification of an incoming websocket message
+   */
   protected void onWebsocketMessageReceived(WebsocketInput.NotifyMessageReceived message) {
     logger.trace("Shelly.onWebsocketMessageReceived()");
 
     message.replyTo().tell(WebsocketInput.Ack.INSTANCE);
     
-    ActorRef<WebsocketOutput.Command> output = websocketOutputs.get(message.connectionId());
-    if (output == null) {
+    ConnectionContext connectionContext = connections.get(message.connectionId());
+    if (connectionContext == null) {
       return;
     }
     
@@ -212,22 +267,49 @@ public abstract class Shelly extends OutputDevice {
     
     Rpc.Request request = Rpc.parseRequest(text);
     
-    if (request.src() != null) {
-      if (! statusSubscriber.containsKey(message.connectionId())) {
-        rpcRequests.put(message.connectionId(), request);
-        statusSubscriber.put(message.connectionId(), request.src());
-      }
+    if ("EM.GetStatus".equals(request.method())) {
+      connectionContext.handleEmGetStatusRequest(wsMessage, request);
+    } else {
+      processRpcRequest(request, wsMessage.isText(), connectionContext.getOutput());
     }
+  }
+
+  /**
+   * Handle the notification to process a pending EM.GetStatus request
+   * @param message Notification to process a pending EM.GetStatus request
+   * @return Same behavior
+   */
+  protected Behavior<Command> onProcessPendingEmGetStatusRequest(ProcessPendingEmGetStatusRequest message) {
+    logger.trace("Shelly.onProcessPendingEmGetStatusRequest()");
+
+    processRpcRequest(
+          message.connectionContext().getLastEmGetStatusRequest(),
+          message.websocketMessage().isText(),
+          message.connectionContext().getOutput());
+
+    return Behaviors.same();
+  }
+
+  /**
+   * Process the specified RPC request
+   * @param request Incoming RPC request to process
+   * @param createTextResponse Flag indicating whether to create a text or binary response
+   * @param output Actor reference to the websocket output actor
+   */
+  protected void processRpcRequest(@NotNull Rpc.Request request,
+                                   boolean createTextResponse,
+                                   @NotNull ActorRef<WebsocketOutput.Command> output) {
+    logger.trace("Shelly.processRpcRequest()");
     
     Rpc.ResponseFrame response = createRpcResponse(request);
 
     Message wsResponse;
-    if (wsMessage.isText()) {
+    if (createTextResponse) {
       wsResponse = TextMessage.create(Rpc.responseToString(response));
     } else {
       wsResponse = BinaryMessage.create(ByteString.fromArrayUnsafe(Rpc.responseToBytes(response)));
     }
-    
+
     output.tell(new WebsocketOutput.Send(wsResponse));
   }
   
@@ -284,15 +366,11 @@ public abstract class Shelly extends OutputDevice {
         @NotNull ActorRef<ShellyInfo> response
   ) implements Command {}
   
-  public record RpcRequest(
+  public record HttpRpcRequest(
         @NotNull Rpc.Request request,
         @NotNull ActorRef<Rpc.ResponseFrame> replyTo
   ) implements Command {}
   
-  public enum NotifySubscribers implements Command {
-    INSTANCE
-  }
-
   public record WebsocketOutputOpened(
         @NotNull String connectionId,
         @NotNull ActorRef<WebsocketOutput.Command> sourceActor
@@ -305,6 +383,15 @@ public abstract class Shelly extends OutputDevice {
   public record WrappedWebsocketInputNotification(
         @NotNull WebsocketInput.Notification notification
   ) implements Command {}
+  
+  public record ProcessPendingEmGetStatusRequest(
+        @NotNull ConnectionContext connectionContext,
+        @NotNull Message websocketMessage
+  ) implements Command {}
+  
+  public enum ThrottlingQueueClosed implements Command {
+    INSTANCE
+  }
 
   @Getter
   @AllArgsConstructor
@@ -405,5 +492,23 @@ public abstract class Shelly extends OutputDevice {
   public record MqttStatus(
         @JsonProperty("connected") boolean connected
   ) {}
+
+  @Getter
+  @Setter
+  @AllArgsConstructor(staticName = "create")
+  protected static class ConnectionContext {
+    private final ActorRef<WebsocketOutput.Command> output;
+    private final SourceQueueWithComplete<ProcessPendingEmGetStatusRequest> throttlingQueue;
+    private Rpc.Request lastEmGetStatusRequest;
+    
+    public void close() {
+      output.tell(WebsocketOutput.Close.INSTANCE);
+    }
+    
+    public void handleEmGetStatusRequest(@NotNull Message wsMessage, @NotNull Rpc.Request emGetStatusRequest) {
+      lastEmGetStatusRequest = emGetStatusRequest;
+      throttlingQueue.offer(new ProcessPendingEmGetStatusRequest(this, wsMessage));
+    }
+  }
 
 }
