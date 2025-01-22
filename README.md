@@ -102,7 +102,7 @@ Using `nginx` or using `setcap` to run the tool as a non-root user is possible b
 
 ## Configuration
 
-The configuration is done using a configuration file in the HOCON format (https://github.com/lightbend/config/blob/main/HOCON.md). 
+The configuration is done using a configuration file in the [HOCON format](https://github.com/lightbend/config/blob/main/HOCON.md). 
 
 The provided start script assumes the configuration file to be located in the `/etc` directory. To do so, copy the
 provided configuration file to that location using:
