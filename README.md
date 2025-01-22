@@ -181,7 +181,7 @@ from. The following channels exist for the different energy and power phase mode
 
 Each channel is linked to a topic where the data is gathered from and has a type which specifies how the data is
 stored within the MQTT topic. Currently, two types are supported: `value` and `json`. Use the `value` type for data 
-stored as a number string within the topic. Use the `json` type for data stored as a JSON within the topic. For
+stored as a number string within the topic. Use the `json` type for data stored as JSON within the topic. For
 channels in JSON format, an additional JSON path has to be provided which specifies which part of the JSON data
 contains the actual value.
 
