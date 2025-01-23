@@ -11,6 +11,7 @@ The real electrical meter data currently can be gathered from the following devi
 - SHRDZM smartmeter interface module (UDP)
 - SMA energy meter / Sunny Home Manager (UDP protocol)
 - SMD120 modbus energy meter (via Protos PE11) (SMD630 could be added, I have no test device)
+- Tasmota IR read head (via HTTP)
 - Tibber Pulse (local API) 
 - VzLogger webserver
 
@@ -154,6 +155,7 @@ device name is announced. Please replace the shellypro3em-b827eb364242 hostname 
     </service>
 </service-group>
 ```
+
 ### Using MQTT as input source
 
 The MQTT input source can operate in two modes. Either in a `mono-phase` mode, where the power and/or the energy data is
@@ -229,10 +231,164 @@ uni-meter {
 }
 ```
 
+### Using Shelly 3EM as input source
+
+To use a Shelly 3EM as an input source, set up the `/etc/uni-meter.conf` file as follows
+
+```hocon
+uni-meter {
+  output = "uni-meter.output-devices.shelly-pro3em"
+  
+  input = "uni-meter.input-devices.shelly-3em"
+
+  input-devices {
+    shelly-3em {
+      url = "<shelly-3em-url>"
+    }
+  }
+}
+```
+
+Replace the `<shelly-3em-url>` placeholder with the actual URL of your Shelly 3EM device.
+
+This input device is currently totally untested, as I have no test device. If you have a Shelly 3EM device, please provide
+feedback if it works or not via the GitHub issues.
+
+### Using SHRDZM smartmeter interface as input source
+
+To use a SHRDZM smartmeter interface providing the smart meter readings via UDP, set up the `/etc/uni-meter.conf` file
+as follows
+
+```hocon
+uni-meter {
+  output = "uni-meter.output-devices.shelly-pro3em"
+  
+  input = "uni-meter.input-devices.shrdzm"
+
+  input-devices {
+    shrdzm {
+      port = 9522
+      interface = "0.0.0.0"
+    }
+  }
+}
+```
+
+The above configuration shows the default values for the ShrDzm device which are used, if nothing is provided. If you
+want to use a different port or interface, you have to adjust the values accordingly.
+
+### Using SMA energy meter as input source
+
+To use a SMA energy meter or a Sunny Home Manager as an input source, set up the `/etc/uni-meter.conf` file as follows
+
+```hocon
+uni-meter {
+  output = "uni-meter.output-devices.shelly-pro3em"
+  
+  input = "uni-meter.input-devices.sma-energy-meter"
+
+  input-devices {
+    sma-energy-meter {
+      port = 9522   
+      group = "239.12.255.254"
+      //susy-id = 270  
+      //serial-number = 1234567
+      network-interfaces =[
+        "eth0"
+        "wlan0"
+        // "192.168.178.222"
+      ]
+    }
+  }
+}
+```
+
+The above configuration shows the default values which are used, if nothing is provided. If your `port` and `group` are
+different, you have to adjust the values accordingly.
+
+If no `susy-id` and `serial-number` are provided, the first detected device will be used. Otherwise, provide the values
+of the device you want to use.
+
+The network interfaces to use are provided as a list of strings. Either specify the names or the IP addresses of the 
+interfaces you want to use.
+
+### Using SMD120 modbus energy meter as input source
+
+To use a SMD120 modbus energy meter via a Protos PE11 as an input source, set up the `/etc/uni-meter.conf` file as 
+follows:
+
+```hocon
+uni-meter {
+  output = "uni-meter.output-devices.shelly-pro3em"
+  
+  input = "uni-meter.input-devices.smd120"
+
+  input-devices {
+    smd120 {
+      port = 8899
+    }
+  }
+}
+```
+
+### Using Tasmota IR read head as input source
+
+To use a Tasmota IR read head as an input source, set up the `/etc/uni-meter.conf` file as follows:
+
+```hocon
+uni-meter {
+  uni-meter {
+    output = "uni-meter.output-devices.shelly-pro3em"
+
+    input = "uni-meter.input-devices.tasmota"
+
+    input-devices {
+      tasmota {
+        url = "http://<tasmota-ir-read-head-ip>"
+        # username=""
+        # password=""
+      }
+    }
+  }
+}
+```
+
+Replace the `<tasmota-ir-read-head-ip>` placeholder with the actual IP address of your Tasmota IR read head device.
+If you have set a username and password for the device, you have to provide them as well.
+
+### Using Tibber Pulse as input source
+
+The Tibber Pulse local API can be used as an input source. To use this API, the local HTTP server has to be enabled on 
+the Pulse bridge. How this can be done is described for instance here 
+[marq24/ha-tibber-pulse-local](https://github.com/marq24/ha-tibber-pulse-local).
+
+If this API is enabled on your Tibber bridge, you should set up the `/etc/uni-meter.conf` file as follows
+
+```hocon
+uni-meter {
+  output = "uni-meter.output-devices.shelly-pro3em"
+  
+  input = "uni-meter.input-devices.tibber-pulse"
+
+  input-devices {
+    tibber-pulse {
+      url = "<tibber-device-url>"
+      node-id = 1
+      user-id = "admin"
+      password = "<tibber-device-password>"
+    }
+  }
+}
+```
+
+Replace the `<tibber-device-url>` and `<tibber-device-password>` placeholders with the actual values from your environment.  
+The `node-id` and `user-id` are optional and can be omitted if the default values from above are correct. Otherwise,
+adjust the values accordingly.
+
 ### Using VzLogger webserver as input source
 
 To use the VzLogger webserver as an input source set up the `/etc/uni-meter.conf` file as follows and replace the
-`<vzlogger-host>` and `<vzlogger-port>` placeholders with the actual host and port of your VzLogger webserver. 
+`<vzlogger-host>` and `<vzlogger-port>` placeholders with the actual host and port of your VzLogger webserver.
 Additionally provide the channel UUIDs of your system.
 
 ```hocon
@@ -252,8 +408,8 @@ uni-meter {
 }
 ```
 
-You will find that information in the VzLogger configuration file. As a 
-default, the VzLogger is configured in the `/etc/vzlogger.conf` file. Make sure that the VzLogger provides its 
+You will find that information in the VzLogger configuration file. As a
+default, the VzLogger is configured in the `/etc/vzlogger.conf` file. Make sure that the VzLogger provides its
 readings as Web service and extract the needed information from that file:
 
 ```hocon
@@ -292,116 +448,6 @@ readings as Web service and extract the needed information from that file:
   ]
 }
 ````
-
-### Using SMA energy meter as input source
-
-To use a SMA energy meter or a Sunny Home Manager as an input source, set up the `/etc/uni-meter.conf` file as follows
-
-```hocon
-uni-meter {
-  output = "uni-meter.output-devices.shelly-pro3em"
-  
-  input = "uni-meter.input-devices.sma-energy-meter"
-
-  input-devices {
-    sma-energy-meter {
-      port = 9522   
-      group = "239.12.255.254"
-      //susy-id = 270  
-      //serial-number = 1234567
-      network-interfaces =[
-        "eth0"
-        "wlan0"
-        // "192.168.178.222"
-      ]
-    }
-  }
-}
-```
-
-The above configuration shows the default values which are used, if nothing is provided. If your `port` and `group` are
-different, you have to adjust the values accordingly.
-
-If no `susy-id` and `serial-number` are provided, the first detected device will be used. Otherwise, provide the values
-of the device you want to use.
-
-The network interfaces to use are provided as a list of strings. Either specify the names or the IP addresses of the 
-interfaces you want to use.
-
-### Using SHRDZM smartmeter interface as input source
-
-To use a SHRDZM smartmeter interface providing the smart meter readings via UDP, set up the `/etc/uni-meter.conf` file 
-as follows
-
-```hocon
-uni-meter {
-  output = "uni-meter.output-devices.shelly-pro3em"
-  
-  input = "uni-meter.input-devices.shrdzm"
-
-  input-devices {
-    shrdzm {
-      port = 9522
-      interface = "0.0.0.0"
-    }
-  }
-}
-```
-
-The above configuration shows the default values for the ShrDzm device which are used, if nothing is provided. If you
-want to use a different port or interface, you have to adjust the values accordingly.
-
-### Using Tibber Pulse as input source
-
-The Tibber Pulse local API can be used as an input source. To use this API, the local HTTP server has to be enabled on 
-the Pulse bridge. How this can be done is described for instance here 
-[marq24/ha-tibber-pulse-local](https://github.com/marq24/ha-tibber-pulse-local).
-
-If this API is enabled on your Tibber bridge, you should set up the `/etc/uni-meter.conf` file as follows
-
-```hocon
-uni-meter {
-  output = "uni-meter.output-devices.shelly-pro3em"
-  
-  input = "uni-meter.input-devices.tibber-pulse"
-
-  input-devices {
-    tibber-pulse {
-      url = "<tibber-device-url>"
-      node-id = 1
-      user-id = "admin"
-      password = "<tibber-device-password>"
-    }
-  }
-}
-```
-
-Replace the `<tibber-device-url>` and `<tibber-device-password>` placeholders with the actual values from your environment.  
-The `node-id` and `user-id` are optional and can be omitted if the default values from above are correct. Otherwise,
-adjust the values accordingly.
-
-### Using Shelly 3EM as input source
-
-To use a Shelly 3EM as an input source, set up the `/etc/uni-meter.conf` file as follows
-
-```hocon
-uni-meter {
-  output = "uni-meter.output-devices.shelly-pro3em"
-  
-  input = "uni-meter.input-devices.shelly-3em"
-
-  input-devices {
-    shelly-3em {
-      url = "<shelly-3em-url>"
-    }
-  }
-}
-```
-
-Replace the `<shelly-3em-url>` placeholder with the actual URL of your Shelly 3EM device.
-
-This input device is currently totally untested, as I have no test device. If you have a Shelly 3EM device, please provide
-feedback if it works or not via the GitHub issues.
 
 ### First test
 
