@@ -1,5 +1,6 @@
 package com.deigmueller.uni_meter.output.device.shelly;
 
+import com.deigmueller.uni_meter.application.UdpServer;
 import com.deigmueller.uni_meter.application.UniMeter;
 import com.deigmueller.uni_meter.application.WebsocketInput;
 import com.deigmueller.uni_meter.application.WebsocketOutput;
@@ -11,7 +12,6 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.pekko.actor.Cancellable;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.ActorContext;
@@ -23,12 +23,16 @@ import org.apache.pekko.http.javadsl.model.ws.Message;
 import org.apache.pekko.http.javadsl.model.ws.TextMessage;
 import org.apache.pekko.http.javadsl.server.Route;
 import org.apache.pekko.stream.OverflowStrategy;
+import org.apache.pekko.stream.connectors.udp.Datagram;
 import org.apache.pekko.stream.javadsl.Sink;
 import org.apache.pekko.stream.javadsl.Source;
 import org.apache.pekko.stream.javadsl.SourceQueueWithComplete;
 import org.apache.pekko.util.ByteString;
 
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.LoggerFactory;
+
+import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
@@ -42,20 +46,29 @@ public abstract class Shelly extends OutputDevice {
   // Instance members
   private final ActorRef<WebsocketInput.Notification> websocketInputNotificationAdapter =
         getContext().messageAdapter(WebsocketInput.Notification.class, WrappedWebsocketInputNotification::new);
-  protected final Map<String, ConnectionContext> connections = new HashMap<>();
+  private final ActorRef<UdpServer.Notification> udpServerNotificationAdapter =
+        getContext().messageAdapter(UdpServer.Notification.class, WrappedUdpServerNotification::new);
+  
+  private final Map<String, WebsocketContext> websocketConnections = new HashMap<>();
+  private final Map<InetSocketAddress, UdpClientContext> udpClients = new HashMap<>();
+  private ActorRef<Datagram> udpOutput = null;
+
   private final Instant startTime = Instant.now();
   private final int bindPort = getConfig().getInt("port");
+  private final int udpPort = getConfig().getInt("udp-port");
+  private final String udpInterface = getConfig().getString("udp-interface");
   private final String mac = getConfig().getString("device.mac");
   private final String hostname = getConfig().getString("device.hostname");
   private final Duration minSamplePeriod = getConfig().getDuration("min-sample-period");
   
-  private Cancellable notificationTimer;
   private Settings settings = new Settings(getConfig());
   
   protected Shelly(@NotNull ActorContext<Command> context,
                    @NotNull ActorRef<UniMeter.Command> controller,
                    @NotNull Config config) {
     super(context, controller, config);
+    
+    startUdpServer();
   }
 
   /**
@@ -69,10 +82,12 @@ public abstract class Shelly extends OutputDevice {
           .onMessage(SettingsGet.class, this::onSettingsGet)
           .onMessage(StatusGet.class, this::onStatusGet)
           .onMessage(HttpRpcRequest.class, this::onHttpRpcRequest)
-          .onMessage(ProcessPendingEmGetStatusRequest.class, this::onProcessPendingEmGetStatusRequest)
+          .onMessage(WebsocketProcessPendingEmGetStatusRequest.class, this::onProcessPendingEmGetStatusRequest)
           .onMessage(WebsocketOutputOpened.class, this::onWebsocketOutputOpened)
           .onMessage(ThrottlingQueueClosed.class, this::onThrottlingQueueClosed)
-          .onMessage(WrappedWebsocketInputNotification.class, this::onWrappedWebsocketInputNotification);
+          .onMessage(UdpClientProcessPendingEmGetStatusRequest.class, this::onUdpClientProcessPendingEmGetStatusRequest)
+          .onMessage(WrappedWebsocketInputNotification.class, this::onWrappedWebsocketInputNotification)
+          .onMessage(WrappedUdpServerNotification.class, this::onWrappedUdpServerNotification);
   }
 
   /**
@@ -156,13 +171,13 @@ public abstract class Shelly extends OutputDevice {
 
     logger.debug("outgoing websocket connection {} created", message.connectionId());
 
-    SourceQueueWithComplete<ProcessPendingEmGetStatusRequest> throttlingQueue =
-          Source.<ProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
+    SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest> throttlingQueue =
+          Source.<WebsocketProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
                 .throttle(1, minSamplePeriod)
                 .to(Sink.actorRef(Adapter.toClassic(getContext().getSelf()), ThrottlingQueueClosed.INSTANCE))
                 .run(getMaterializer());
     
-    connections.put(message.connectionId(), ConnectionContext.create(message.sourceActor(), throttlingQueue, null));
+    websocketConnections.put(message.connectionId(), WebsocketContext.create(message.sourceActor(), throttlingQueue, null));
     
     return Behaviors.same();
   }
@@ -221,9 +236,9 @@ public abstract class Shelly extends OutputDevice {
     logger.trace("Shelly.onWebsocketInputClosed()");
     
     logger.debug("incoming websocket connection {} closed", message.connectionId());
-    ConnectionContext connectionContext = connections.remove(message.connectionId());
-    if (connectionContext != null) {
-      connectionContext.close();
+    WebsocketContext websocketContext = websocketConnections.remove(message.connectionId());
+    if (websocketContext != null) {
+      websocketContext.close();
     }
   }
 
@@ -235,9 +250,9 @@ public abstract class Shelly extends OutputDevice {
     logger.trace("Shelly.onWebsocketInputFailed()");
 
     logger.error("incoming websocket connection {} failed: {}", message.connectionId(), message.failure().getMessage());
-    ConnectionContext connectionContext = connections.remove(message.connectionId());
-    if (connectionContext != null) {
-      connectionContext.close();
+    WebsocketContext websocketContext = websocketConnections.remove(message.connectionId());
+    if (websocketContext != null) {
+      websocketContext.close();
     }
   }
 
@@ -250,8 +265,8 @@ public abstract class Shelly extends OutputDevice {
 
     message.replyTo().tell(WebsocketInput.Ack.INSTANCE);
     
-    ConnectionContext connectionContext = connections.get(message.connectionId());
-    if (connectionContext == null) {
+    WebsocketContext websocketContext = websocketConnections.get(message.connectionId());
+    if (websocketContext == null) {
       return;
     }
     
@@ -268,9 +283,9 @@ public abstract class Shelly extends OutputDevice {
     Rpc.Request request = Rpc.parseRequest(text);
     
     if ("EM.GetStatus".equals(request.method())) {
-      connectionContext.handleEmGetStatusRequest(wsMessage, request);
+      websocketContext.handleEmGetStatusRequest(wsMessage, request);
     } else {
-      processRpcRequest(request, wsMessage.isText(), connectionContext.getOutput());
+      processRpcRequest(request, wsMessage.isText(), websocketContext.getOutput());
     }
   }
 
@@ -279,14 +294,121 @@ public abstract class Shelly extends OutputDevice {
    * @param message Notification to process a pending EM.GetStatus request
    * @return Same behavior
    */
-  protected Behavior<Command> onProcessPendingEmGetStatusRequest(ProcessPendingEmGetStatusRequest message) {
+  protected Behavior<Command> onProcessPendingEmGetStatusRequest(WebsocketProcessPendingEmGetStatusRequest message) {
     logger.trace("Shelly.onProcessPendingEmGetStatusRequest()");
 
     processRpcRequest(
-          message.connectionContext().getLastEmGetStatusRequest(),
+          message.websocketContext().getLastEmGetStatusRequest(),
           message.websocketMessage().isText(),
-          message.connectionContext().getOutput());
+          message.websocketContext().getOutput());
 
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle a wrapped UDP server notification
+   * @param message Wrapped UDP server notification
+   * @return Same behavior
+   */
+  protected Behavior<Command> onWrappedUdpServerNotification(WrappedUdpServerNotification message) {
+    UdpServer.Notification notification = message.notification();
+    
+    if (notification instanceof UdpServer.NotifyDatagramReceived notifyDatagramReceived) {
+      onUdpServerDatagramReceived(notifyDatagramReceived);
+    } else if (notification instanceof UdpServer.NotifyOutput notifyOutput) {
+      logger.debug("UDP server output {}", notifyOutput.output());
+      udpOutput = notifyOutput.output();
+    } else if (notification instanceof UdpServer.NotifyInitialized notifyInitialized) {
+      logger.debug("UDP server initialized");
+      notifyInitialized.replyTo().tell(UdpServer.Ack.INSTANCE);
+    } else if (notification instanceof UdpServer.NotifyClosed) {
+      logger.debug("UDP server closed");
+    } else if (notification instanceof UdpServer.NotifyFailed notifyFailed) {
+      onUdpServerFailed(notifyFailed);
+    } else if (notification instanceof UdpServer.NotifyBound notifyBound) {
+      logger.info("UDP server is listening on {}", notifyBound.address());
+    } else {
+      logger.error("unknown UDP server notification: {}", notification);
+    }
+    
+    return Behaviors.same(); 
+  }
+  
+  protected void onUdpServerDatagramReceived(UdpServer.NotifyDatagramReceived message) {
+    logger.trace("Shelly.onUdpServerDatagramReceived()");
+
+    message.replyTo().tell(UdpServer.Ack.INSTANCE);
+    
+    UdpClientContext udpClientContext = getUdpClientContext(message.datagram().remote());
+
+    String text = message.datagram().data().utf8String();
+
+    logger.trace("received udp datagram from {}: {}", message.datagram().remote(), text);
+
+    Rpc.Request request = Rpc.parseRequest(text);
+
+    if ("EM.GetStatus".equals(request.method())) {
+      udpClientContext.handleEmGetStatusRequest(message.datagram(), request);
+    } else {
+      processUdpRpcRequest(request, message.datagram().remote());
+    }
+  }
+
+  /**
+   * Lookup the UDP client context for the specified remote address
+   * @param remote Remote address
+   * @return UDP client context
+   */
+  protected @NotNull UdpClientContext getUdpClientContext(@NotNull InetSocketAddress remote) {
+    logger.trace("Shelly.getUdpClientContext()");
+
+    UdpClientContext udpClientContext = udpClients.get(remote);
+    if (udpClientContext != null) {
+      return udpClientContext;
+    }
+
+    SourceQueueWithComplete<UdpClientProcessPendingEmGetStatusRequest> throttlingQueue =
+          Source.<UdpClientProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
+                .throttle(1, minSamplePeriod)
+                .to(Sink.actorRef(Adapter.toClassic(getContext().getSelf()), ThrottlingQueueClosed.INSTANCE))
+                .run(getMaterializer());
+
+    udpClientContext = UdpClientContext.of(remote, throttlingQueue);
+
+    udpClients.put(remote, udpClientContext);
+    
+    // Cleanup unused UDP client contexts
+    udpClients.entrySet().removeIf(
+          entry -> 
+                Duration.between(entry.getValue().getLastEmGetStatusRequestTime(), Instant.now()).getSeconds() > 60);
+    
+    return udpClientContext;
+  }
+
+  /**
+   * Handle the notification that the UDP server failed
+   * @param message Notification that the UDP server failed
+   */
+  protected void onUdpServerFailed(UdpServer.NotifyFailed message) {
+    logger.trace("Shelly.onUdpServerFailed()");
+    
+    logger.error("UDP server failed: {}", message.failure().getMessage());
+    
+    throw new RuntimeException("UDP server failed", message.failure());
+  }
+
+  /**
+   * Handle the notification to process a pending EM.GetStatus request
+   * @param message Notification to process a pending EM.GetStatus request
+   * @return Same behavior
+   */
+  protected Behavior<Command> onUdpClientProcessPendingEmGetStatusRequest(UdpClientProcessPendingEmGetStatusRequest message) {
+    logger.trace("Shelly.onUdpClientProcessPendingEmGetStatusRequest()");
+    
+    UdpClientContext udpClientContext = message.udpClientContext();
+
+    processUdpRpcRequest(udpClientContext.getLastEmGetStatusRequest(), udpClientContext.getRemote());
+          
     return Behaviors.same();
   }
 
@@ -311,6 +433,36 @@ public abstract class Shelly extends OutputDevice {
     }
 
     output.tell(new WebsocketOutput.Send(wsResponse));
+  }
+
+  /**
+   * Process an RPC request received via UDP
+   * @param request Incoming RPC request to process
+   */
+  protected void processUdpRpcRequest(@NotNull Rpc.Request request,
+                                      @NotNull InetSocketAddress remote) {
+    logger.trace("Shelly.processUdpRpcRequest()");
+
+    Rpc.ResponseFrame response = createRpcResponse(request);
+    
+    udpOutput.tell(Datagram.create(ByteString.fromArrayUnsafe(Rpc.responseToBytes(response)), remote));
+  }
+
+  /**
+   * Start the UDP server if configured
+   */
+  protected void startUdpServer() {
+    logger.trace("Shelly.startUdpServer()");
+    
+    if (udpPort > 0) {
+      final InetSocketAddress bindAddress = new InetSocketAddress(udpInterface, udpPort);
+
+      UdpServer.createServer(
+            LoggerFactory.getLogger(logger.getName() + ".udp-server"),
+            getContext().getSystem(),
+            bindAddress,
+            udpServerNotificationAdapter);
+    }
   }
   
   protected abstract Rpc.ResponseFrame createRpcResponse(Rpc.Request request);
@@ -384,27 +536,34 @@ public abstract class Shelly extends OutputDevice {
         @NotNull WebsocketInput.Notification notification
   ) implements Command {}
   
-  public record ProcessPendingEmGetStatusRequest(
-        @NotNull ConnectionContext connectionContext,
-        @NotNull Message websocketMessage
+  public record WrappedUdpServerNotification(
+        @NotNull UdpServer.Notification notification
   ) implements Command {}
   
+  public record WebsocketProcessPendingEmGetStatusRequest(
+        @NotNull WebsocketContext websocketContext,
+        @NotNull Message websocketMessage
+  ) implements Command {}
+
+  public record UdpClientProcessPendingEmGetStatusRequest(
+        @NotNull UdpClientContext udpClientContext,
+        @NotNull Datagram datagram
+  ) implements Command {}
+
   public enum ThrottlingQueueClosed implements Command {
     INSTANCE
   }
 
-  @Getter
-  @AllArgsConstructor
-  public static class ShellyInfo {
-    private final String type;
-    private final String mac;
-    private final boolean auth;
-    private final String fw;
-    private final boolean discoverable;
-    private final int longid;
-    private final int num_outputs;
-    private final int num_meters;
-  }
+  public record ShellyInfo(
+    String type,
+    String mac,
+    boolean auth,
+    String fw,
+    boolean discoverable,
+    int longid,
+    int num_outputs,
+    int num_meters
+  ) {}
 
   @Getter
   @AllArgsConstructor
@@ -496,9 +655,9 @@ public abstract class Shelly extends OutputDevice {
   @Getter
   @Setter
   @AllArgsConstructor(staticName = "create")
-  protected static class ConnectionContext {
+  protected static class WebsocketContext {
     private final ActorRef<WebsocketOutput.Command> output;
-    private final SourceQueueWithComplete<ProcessPendingEmGetStatusRequest> throttlingQueue;
+    private final SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest> throttlingQueue;
     private Rpc.Request lastEmGetStatusRequest;
     
     public void close() {
@@ -507,8 +666,28 @@ public abstract class Shelly extends OutputDevice {
     
     public void handleEmGetStatusRequest(@NotNull Message wsMessage, @NotNull Rpc.Request emGetStatusRequest) {
       lastEmGetStatusRequest = emGetStatusRequest;
-      throttlingQueue.offer(new ProcessPendingEmGetStatusRequest(this, wsMessage));
+      throttlingQueue.offer(new WebsocketProcessPendingEmGetStatusRequest(this, wsMessage));
     }
   }
 
+  @Getter
+  @Setter
+  @AllArgsConstructor
+  protected static class UdpClientContext {
+    private final InetSocketAddress remote;
+    private final SourceQueueWithComplete<UdpClientProcessPendingEmGetStatusRequest> throttlingQueue;
+    private Rpc.Request lastEmGetStatusRequest;
+    private Instant lastEmGetStatusRequestTime;
+    
+    public static UdpClientContext of(@NotNull InetSocketAddress remote,
+                                      @NotNull SourceQueueWithComplete<UdpClientProcessPendingEmGetStatusRequest> throttlingQueue) {
+      return new UdpClientContext(remote, throttlingQueue, null, Instant.now());
+    }
+
+    public void handleEmGetStatusRequest(@NotNull Datagram datagram, @NotNull Rpc.Request emGetStatusRequest) {
+      lastEmGetStatusRequest = emGetStatusRequest;
+      lastEmGetStatusRequestTime = Instant.now();
+        throttlingQueue.offer(new UdpClientProcessPendingEmGetStatusRequest(this, datagram));
+    }
+  }
 }

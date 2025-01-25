@@ -15,6 +15,7 @@
 
         <pekko.version>1.1.2</pekko.version>
         <pekko.http.version>1.1.0</pekko.http.version>
+        <pekko.connectors.version>1.0.2</pekko.connectors.version>
         <scala.binary.version>2.13</scala.binary.version>
         <junit5.version>5.8.2</junit5.version>
     </properties>
@@ -76,6 +77,11 @@
         <dependency>
             <groupId>org.apache.pekko</groupId>
             <artifactId>pekko-connectors-mqtt_${scala.binary.version}</artifactId>
+            <version>1.0.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-connectors-udp_${scala.binary.version}</artifactId>
             <version>1.0.2</version>
         </dependency>
         
