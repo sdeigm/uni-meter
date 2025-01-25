@@ -162,6 +162,7 @@ As a default the JSON RPC over UDP interface of the Shelly Pro3EM emulator is di
 `udp-port` and optionally the `udp-interface` in the `/etc/uni-meter.conf` file:
 
 ```hocon
+uni-meter {
   # ...
   output-devices {
     shelly-pro3em {
@@ -170,6 +171,7 @@ As a default the JSON RPC over UDP interface of the Shelly Pro3EM emulator is di
     }
   }
   #...
+}
 ```  
 
 ### Using MQTT as input source
