@@ -311,24 +311,30 @@ public abstract class Shelly extends OutputDevice {
    * @return Same behavior
    */
   protected Behavior<Command> onWrappedUdpServerNotification(WrappedUdpServerNotification message) {
-    UdpServer.Notification notification = message.notification();
     
-    if (notification instanceof UdpServer.NotifyDatagramReceived notifyDatagramReceived) {
-      onUdpServerDatagramReceived(notifyDatagramReceived);
-    } else if (notification instanceof UdpServer.NotifyOutput notifyOutput) {
-      logger.debug("UDP server output {}", notifyOutput.output());
-      udpOutput = notifyOutput.output();
-    } else if (notification instanceof UdpServer.NotifyInitialized notifyInitialized) {
-      logger.debug("UDP server initialized");
-      notifyInitialized.replyTo().tell(UdpServer.Ack.INSTANCE);
-    } else if (notification instanceof UdpServer.NotifyClosed) {
-      logger.debug("UDP server closed");
-    } else if (notification instanceof UdpServer.NotifyFailed notifyFailed) {
-      onUdpServerFailed(notifyFailed);
-    } else if (notification instanceof UdpServer.NotifyBound notifyBound) {
-      logger.info("UDP server is listening on {}", notifyBound.address());
-    } else {
-      logger.error("unknown UDP server notification: {}", notification);
+    try {
+      UdpServer.Notification notification = message.notification();
+      
+      if (notification instanceof UdpServer.NotifyDatagramReceived notifyDatagramReceived) {
+        onUdpServerDatagramReceived(notifyDatagramReceived);
+      } else if (notification instanceof UdpServer.NotifyOutput notifyOutput) {
+        logger.debug("UDP server output {}", notifyOutput.output());
+        udpOutput = notifyOutput.output();
+      } else if (notification instanceof UdpServer.NotifyInitialized notifyInitialized) {
+        logger.debug("UDP server initialized");
+        notifyInitialized.replyTo().tell(UdpServer.Ack.INSTANCE);
+      } else if (notification instanceof UdpServer.NotifyClosed) {
+        logger.error("UDP server closed");
+        throw new RuntimeException("UDP server closed");
+      } else if (notification instanceof UdpServer.NotifyFailed notifyFailed) {
+        onUdpServerFailed(notifyFailed);
+      } else if (notification instanceof UdpServer.NotifyBound notifyBound) {
+        logger.info("UDP server is listening on {}", notifyBound.address());
+      } else {
+        logger.error("unknown UDP server notification: {}", notification);
+      }
+    } catch (Exception e) {
+      logger.error("failure while processing UDP server notification: {}", e.getMessage());
     }
     
     return Behaviors.same(); 
@@ -460,6 +466,7 @@ public abstract class Shelly extends OutputDevice {
       UdpServer.createServer(
             LoggerFactory.getLogger(logger.getName() + ".udp-server"),
             getContext().getSystem(),
+            getMaterializer(),
             bindAddress,
             udpServerNotificationAdapter);
     }

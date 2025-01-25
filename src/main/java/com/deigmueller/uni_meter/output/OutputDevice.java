@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
+import org.apache.pekko.actor.typed.PostStop;
 import org.apache.pekko.actor.typed.javadsl.*;
 import org.apache.pekko.http.javadsl.server.Route;
 import org.apache.pekko.stream.Materializer;
@@ -75,10 +76,21 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   @Override
   public ReceiveBuilder<Command> newReceiveBuilder() {
     return super.newReceiveBuilder()
+          .onSignal(PostStop.class, this::onPostStop)
           .onMessage(NotifyPhasePowerData.class, this::onNotifyPhasePowerData)
           .onMessage(NotifyTotalPowerData.class, this::onNotifyTotalPowerData)
           .onMessage(NotifyPhaseEnergyData.class, this::onNotifyPhaseEnergyData)
           .onMessage(NotifyTotalEnergyData.class, this::onNotifyTotalEnergyData);
+  }
+
+  /**
+   * Handle the post stop signal
+   * @param message Post stop signal
+   */
+  protected @NotNull Behavior<Command> onPostStop(@NotNull PostStop message) {
+    logger.trace("OutputDevice.onPostStop()");
+
+    return Behaviors.same();
   }
 
   /**
