@@ -81,10 +81,11 @@ public class Rpc {
   private static Request treeToRequest(@NotNull JsonNode tree) throws JsonProcessingException {
     String method = tree.get("method").asText();
     return switch (method) {
-      case "Shelly.GetDeviceInfo" -> objectMapper.treeToValue(tree, GetDeviceInfo.class);
       case "EM.GetStatus" -> objectMapper.treeToValue(tree, EmGetStatus.class);
       case "EMData.GetStatus" -> objectMapper.treeToValue(tree, EmDataGetStatus.class);
-      default -> throw new RuntimeException("Unknown method: " + method);
+      case "Shelly.GetDeviceInfo" -> objectMapper.treeToValue(tree, GetDeviceInfo.class);
+      case "Sys.GetConfig" -> objectMapper.treeToValue(tree, SysGetConfig.class);
+      default -> throw new RuntimeException("unhandled RPC method '" + method + "'");
     };
   }
 
@@ -307,6 +308,79 @@ public class Rpc {
         @JsonProperty("em:0") EmGetStatusResponse em0,
         @JsonProperty("emdata:0") EmDataGetStatusResponse emdata0
   ) implements NotificationParam {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record SysGetConfig(
+        @JsonProperty("id") Integer id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dest") String dest,
+        @JsonProperty("params") SysGetConfigParams params
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record SysGetConfigParams(
+  ) {}
+  
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record SysGetConfigResponse(
+        @JsonProperty("device") Device device,
+        @JsonProperty("location") Location location,
+        @JsonProperty("debug") Debug debug,
+        @JsonProperty("ui_data") UiData ui_data,
+        @JsonProperty("rpc_udp") RpcUdp rpc_udp,
+        @JsonProperty("sntp") Sntp sntp,
+        @JsonProperty("cfg_rev") int cfg_rev
+  ) implements Response {
+    @Override public String toString() { return Rpc.toString(this); }
+  }
+  
+  public record Device(
+        @JsonProperty("name") String name,
+        @JsonProperty("mac") String mac,
+        @JsonProperty("fw_id") String fw_id,
+        @JsonProperty("eco_mode") boolean eco_mode,
+        @JsonProperty("profile") String profile,
+        @JsonProperty("discoverable") boolean discoverable
+  ) {}
+  
+  public record Location(
+        @JsonProperty("tz") String tz,
+        @JsonProperty("lat") float lat,
+        @JsonProperty("lon") float lon
+  ) {}
+  
+  public record Debug(
+        @JsonProperty("mqtt") Mqtt mqtt,
+        @JsonProperty("websocket") Websocket websocket,
+        @JsonProperty("udp") Udp udp
+  ) {}
+  
+  public record Mqtt(
+        @JsonProperty("enable") boolean enable
+  ) {}
+  
+  public record Websocket(
+        @JsonProperty("enable") boolean enable
+  ) {}
+  
+  public record Udp(
+        @JsonProperty("addr") RpcNull addr
+  ) {}
+  
+  public record UiData() {}
+  
+  public record RpcUdp(
+        @JsonProperty("dst_addr") String dst_addr,
+        @JsonProperty("listen_port") Integer listen_port
+  ) {}
+  
+  public record Sntp(
+        @JsonProperty("server") String server
+  ) {}
   
   public record RpcNull() {}
 

@@ -3,6 +3,7 @@ package com.deigmueller.uni_meter.application;
 import org.apache.pekko.NotUsed;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.ActorSystem;
+import org.apache.pekko.stream.Materializer;
 import org.apache.pekko.stream.OverflowStrategy;
 import org.apache.pekko.stream.connectors.udp.Datagram;
 import org.apache.pekko.stream.connectors.udp.javadsl.Udp;
@@ -19,6 +20,7 @@ import java.util.Optional;
 public class UdpServer {
   public static void createServer(@NotNull Logger logger,
                                   @NotNull ActorSystem<?> system,
+                                  @NotNull Materializer materializer,
                                   @NotNull InetSocketAddress bindAddress,
                                   @NotNull ActorRef<Notification> input) {
 
@@ -55,7 +57,7 @@ public class UdpServer {
                       NotifyClosed.INSTANCE, 
                       NotifyFailed::new
                 )
-          ).run(system)
+          ).run(materializer)
           .whenComplete((binding, failure) -> {
             if (failure != null) {
               input.tell(new NotifyFailed(failure));
