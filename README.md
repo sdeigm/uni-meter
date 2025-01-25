@@ -1,6 +1,6 @@
 # uni-meter
 
-uni-meter is a small tool that simulates a Shelly Pro3EM device for the usage with the Hoymiles MS-A2 storage.
+uni-meter is a small tool that emulates a Shelly Pro3EM device for the usage with the Hoymiles MS-A2 storage.
 It is not a full implementation of a Shelly Pro3EM device, currently only the parts that are needed by the Hoymiles 
 storage are implemented.
 
