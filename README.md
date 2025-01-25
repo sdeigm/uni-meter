@@ -156,6 +156,22 @@ device name is announced. Please replace the shellypro3em-b827eb364242 hostname 
 </service-group>
 ```
 
+### Enabling JSON RPC over UDP
+
+As a default the JSON RPC over UDP interface of the Shelly Pro3EM emulator is disabled. To enable it, configure the 
+`udp-port` and optionally the `udp-interface` in the `/etc/uni-meter.conf` file:
+
+```hocon
+  # ...
+  output-devices {
+    shelly-pro3em {
+      udp-port = 1214
+      udp-interface = "0.0.0.0" # default, can be omitted
+    }
+  }
+  #...
+```  
+
 ### Using MQTT as input source
 
 The MQTT input source can operate in two modes. Either in a `mono-phase` mode, where the power and/or the energy data is
