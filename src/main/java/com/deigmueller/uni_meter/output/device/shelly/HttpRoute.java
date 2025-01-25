@@ -56,41 +56,45 @@ class HttpRoute extends AllDirectives {
           path("status", () -> 
                 get(this::onStatusGet)
           ),
-          pathPrefix("rpc", () -> 
+          path("rpc", () ->
                 concat(
-                      path("EM.GetStatus", () ->
-                            get(() ->
-                                  parameter(StringUnmarshallers.INTEGER, "id", this::onEmGetStatus)
-                            )
-                      ),
-                      path("EMData.GetStatus", () ->
-                            get(() ->
-                                  parameter(StringUnmarshallers.INTEGER, "id", this::onEmDataGetStatus)
-                            )
-                      ),
                       post(() -> extractEntity(entity -> {
                         HttpEntity.Strict strict = (HttpEntity.Strict) entity;
                         strict.discardBytes(materializer);
 
                         logger.trace("POST RpcRequest: {}", strict.getData().utf8String());
                         return onRpcRequest(Rpc.parseRequest(strict.getData().toArray()));
-                      })), 
+                      })),
                       extractWebSocketUpgrade(upgrade -> {
                         logger.trace("incoming websocket upgrade");
                         return createWebsocketFlow(upgrade);
-                      }), 
-                      extractUnmatchedPath(unmatchedPath -> {
-                        logger.trace("unmatched path: {}", unmatchedPath);
-                        return complete(StatusCodes.NOT_FOUND, logUnmatchedPath(unmatchedPath));
                       })
                 )
-          )
+          ),
+          pathPrefix("rpc", () -> 
+                get(() ->
+                      concat(
+                            path("Sys.GetConfig" ,  
+                                  this::onSysGetConfig
+                            ),
+                            path("EM.GetStatus", () ->
+                                  parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmGetStatus(id.orElse(0)))
+                            ),
+                            path("EMData.GetStatus", () ->
+                                  parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmDataGetStatus(id.orElse(0)))
+                            ),
+                            extractUnmatchedPath(unmatchedPath -> {
+                              logger.error("unknown RPC method: {}", unmatchedPath.substring(1));
+                              return complete(StatusCodes.NOT_FOUND);
+                            })
+                      )
+                )
+          ),
+          extractUnmatchedPath(unmatchedPath -> {
+            logger.debug("unhandled HTTP path: {}", unmatchedPath.substring(1));
+            return complete(StatusCodes.NOT_FOUND);
+          })
     );
-  }
-
-  private String logUnmatchedPath(String path) {
-    logger.info("UnmatchedPath: {}", path);
-    return path;
   }
 
   private Route onShellyGet() {
@@ -111,6 +115,23 @@ class HttpRoute extends AllDirectives {
                 (ActorRef<Rpc.ResponseFrame> replyTo) -> new Shelly.HttpRpcRequest(request, replyTo), timeout, 
                 system.scheduler()
           ), 
+          Jackson.marshaller());
+  }
+  
+  private Route onSysGetConfig() {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly, 
+                ShellyPro3EM.SysGetConfig::new, 
+                timeout, 
+                system.scheduler()
+          ).thenApply(response -> {
+            if (response.failure() != null) {
+              throw response.failure();
+            }
+            
+            return response.config();
+          }),
           Jackson.marshaller());
   }
   

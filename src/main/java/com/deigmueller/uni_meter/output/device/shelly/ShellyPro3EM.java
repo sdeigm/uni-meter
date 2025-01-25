@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.TimeZone;
 
 public class ShellyPro3EM extends Shelly {
   // Instance members
@@ -46,7 +47,8 @@ public class ShellyPro3EM extends Shelly {
     return super.newReceiveBuilder()
           .onMessage(EmGetStatus.class, this::onEmGetStatus)
           .onMessage(EmDataGetStatus.class, this::onEmDataGetStatus)
-          .onMessage(ResetData.class, this::onResetData);
+          .onMessage(ResetData.class, this::onResetData)
+          .onMessage(SysGetConfig.class, this::onSysGetConfig);
   }
   
   @Override
@@ -77,7 +79,12 @@ public class ShellyPro3EM extends Shelly {
     
     return Behaviors.same();
   }
-  
+
+  /**
+   * Handle the EM.GetStatus HTTP request
+   * @param request Request to get the EM status
+   * @return Same behavior
+   */
   protected @NotNull Behavior<Command> onEmGetStatus(@NotNull EmGetStatus request) {
     logger.trace("ShellyPro3EM.onEmGetStatus()");
     
@@ -96,6 +103,11 @@ public class ShellyPro3EM extends Shelly {
     return Behaviors.same();
   }
 
+  /**
+   * Handle the EMData.GetStatus HTTP request
+   * @param request Request to get the EM data status
+   * @return Same behavior
+   */
   protected @NotNull Behavior<Command> onEmDataGetStatus(@NotNull EmDataGetStatus request) {
     logger.trace("ShellyPro3EM.onEmDataGetStatus()");
 
@@ -126,6 +138,22 @@ public class ShellyPro3EM extends Shelly {
     
     return Behaviors.same();
   }
+  
+  /**
+   * Handle the Sys.GetConfig HTTP request
+   * @param request Request to get the device's configuration
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onSysGetConfig(@NotNull SysGetConfig request) {
+    logger.trace("ShellyPro3EM.onSysGetConfig()");
+    
+    request.replyTo().tell(
+          new SysGetConfigOrFailureResponse(
+                null,
+                rpcSysGetConfig()));
+    
+    return Behaviors.same();
+  }
 
   /**
    * Create the HTTP route of the device
@@ -153,9 +181,10 @@ public class ShellyPro3EM extends Shelly {
    
   protected Rpc.Response createRpcResult(Rpc.Request request) {
     return switch (request.method()) {
-      case "Shelly.GetDeviceInfo" -> rpcGetDeviceInfo();
       case "EM.GetStatus" -> rpcEmGetStatus();
       case "EMData.GetStatus" -> rpcEmDataGetStatus();
+      case "Shelly.GetDeviceInfo" -> rpcGetDeviceInfo();
+      case "Sys.GetConfig" -> rpcSysGetConfig();
       default -> rpcUnknownMethod(request);
     };
   }
@@ -235,11 +264,51 @@ public class ShellyPro3EM extends Shelly {
           null);
   }
   
+  private Rpc.SysGetConfigResponse rpcSysGetConfig() {
+    logger.trace("ShellyPro3EM.rpcSysGetConfig()");
+    
+    return new Rpc.SysGetConfigResponse(
+          new Rpc.Device(
+                getHostname(),
+                getMac(),
+                getSettings().getFw(),
+                false,
+                "",
+                false),
+          new Rpc.Location(
+                TimeZone.getDefault().getID(),
+                54.306f,
+                9.663f),
+          new Rpc.Debug(
+                new Rpc.Mqtt(false),
+                new Rpc.Websocket(false),
+                new Rpc.Udp(new Rpc.RpcNull())
+          ),
+          new Rpc.UiData(),
+          new Rpc.RpcUdp(
+                null,
+                getUdpPort() > 0 ? getUdpPort() : null),
+          new Rpc.Sntp(
+                "pool.ntp.org"
+          ),
+          10
+    );
+  }
+  
   private Rpc.Response rpcUnknownMethod(Rpc.Request request) {
     logger.error("ShellyPro3EM.rpcUnknownMethod()");
     throw new IllegalArgumentException("Unknown method: " + request.method());
   }
-  
+
+  public record SysGetConfig(
+        @JsonProperty("replyTo") ActorRef<SysGetConfigOrFailureResponse> replyTo
+  ) implements Command {}
+
+  public record SysGetConfigOrFailureResponse(
+        @JsonProperty("failure") RuntimeException failure,
+        @JsonProperty("config") Rpc.SysGetConfigResponse config
+  ) {}
+
   public record EmGetStatus(
         @JsonProperty("id") int id,
         @JsonProperty("replyTo") ActorRef<EmGetStatusOrFailureResponse> replyTo
