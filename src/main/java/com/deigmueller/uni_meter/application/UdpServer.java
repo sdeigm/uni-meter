@@ -26,7 +26,7 @@ public class UdpServer {
                 Objects::isNull,
                 object -> Optional.empty(),
                 10,
-                OverflowStrategy.dropNew()
+                OverflowStrategy.dropHead()
           ).map(
                 datagram -> {
                   if (logger.isDebugEnabled()) {
