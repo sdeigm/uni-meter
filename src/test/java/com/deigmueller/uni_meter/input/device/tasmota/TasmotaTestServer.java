@@ -1,6 +1,8 @@
 package com.deigmueller.uni_meter.input.device.tasmota;
 
-import com.deigmueller.uni_meter.input.device.shelly._3em.Shelly3EM;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.pekko.actor.typed.ActorSystem;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.*;
@@ -14,8 +16,6 @@ import org.apache.pekko.http.javadsl.unmarshalling.StringUnmarshallers;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.List;
 
 class TasmotaTestServer {
   public static Logger LOGGER = LoggerFactory.getLogger(TasmotaTestServer.class);
@@ -63,19 +63,17 @@ class TasmotaTestServer {
     public Route create() {
       return path("cm", () -> 
             get(() -> 
-                  parameter(StringUnmarshallers.STRING, "cmnd", cmnd ->
-                        onGetCm(cmnd)
-                  )
+                  parameter(StringUnmarshallers.STRING, "cmnd", this::onGetCm)
             )
       );
     }
     
     private Route onGetCm(String cmnd) {
       return completeOK(
-            new Tasmota.StatusResponse(
-                  new Tasmota.StatusSNS(
+            new StatusResponse(
+                  new StatusSNS(
                         "2025-01-22T12:00:00",
-                        new Tasmota.SML(
+                        new SML(
                               "abcdef1234567890abcdef",
                               9003,
                               20003,
@@ -94,4 +92,35 @@ class TasmotaTestServer {
       );
     }
   }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record StatusResponse(
+        @JsonProperty("StatusSNS") StatusSNS statusSNS
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record StatusSNS(
+        @JsonProperty("Time") String time,
+        @JsonProperty("SML") SML sml
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record SML(
+        @JsonProperty("server_id") String serverId,
+        @JsonProperty("export_total_kwh") double exportTotalKwh,
+        @JsonProperty("total_kwh") double totalKwh,
+        @JsonProperty("curr_w") double currW,
+        @JsonProperty("volt_p1") double voltP1,
+        @JsonProperty("volt_p2") double voltP2,
+        @JsonProperty("volt_p3") double voltP3,
+
+        @JsonProperty("amp_p1") double ampP1,
+        @JsonProperty("amp_p2") double ampP2,
+        @JsonProperty("amp_p3") double ampP3,
+
+        @JsonProperty("freq") double freq
+  ) {}
 }

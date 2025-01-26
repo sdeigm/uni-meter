@@ -1,5 +1,6 @@
 package com.deigmueller.uni_meter.input.device.tasmota;
 
+import com.deigmueller.uni_meter.common.utils.Json;
 import com.deigmueller.uni_meter.input.device.common.http.HttpInputDevice;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -29,6 +30,12 @@ public class Tasmota extends HttpInputDevice {
   private final Duration statusPollingInterval = getConfig().getDuration("polling-interval");
   private final double defaultVoltage = getConfig().getDouble("default-voltage");
   private final double defaultFrequency = getConfig().getDouble("default-frequency");
+  private final String powerJsonPath = getConfig().getString("power-json-path");
+  private final double powerScale = getConfig().getDouble("power-scale");
+  private final String energyConsumptionJsonPath = getConfig().getString("energy-consumption-json-path");
+  private final double energyConsumptionScale = getConfig().getDouble("energy-consumption-scale");
+  private final String energyProductionJsonPath = getConfig().getString("energy-production-json-path");
+  private final double energyProductionScale = getConfig().getDouble("energy-production-scale");
   private final HttpCredentials credentials;    
 
 
@@ -98,29 +105,40 @@ public class Tasmota extends HttpInputDevice {
 
     try {
       logger.debug("status response: {}", message.entity().getData().utf8String());
-
-      StatusResponse response =
-            getObjectMapper().readValue(message.entity().getData().toArray(), StatusResponse.class);
-
-      getOutputDevice().tell(
-            new OutputDevice.NotifyTotalPowerData(
-                  getNextMessageId(),
-                  new OutputDevice.PowerData(
-                        response.statusSNS().sml().currW(),
-                        response.statusSNS().sml().currW(),
-                        1.0,
-                        response.statusSNS().sml().currW() / defaultVoltage,
-                        defaultVoltage,
-                        defaultFrequency),
-                  getOutputDeviceAckAdapter()));
-
-      getOutputDevice().tell(
-            new OutputDevice.NotifyTotalEnergyData(
-                  getNextMessageId(),
-                  new OutputDevice.EnergyData(
-                        response.statusSNS().sml().totalKwh(),
-                        response.statusSNS().sml().exportTotalKwh()),
-                  getOutputDeviceAckAdapter()));
+      
+      if (! powerJsonPath.isEmpty()) {
+        Double power = Json.readDoubleValue(powerJsonPath, message.entity().getData().utf8String(), powerScale);
+        if (power != null) {
+          getOutputDevice().tell(
+                new OutputDevice.NotifyTotalPowerData(
+                      getNextMessageId(),
+                      new OutputDevice.PowerData(
+                            power,
+                            power,
+                            1.0,
+                            power / defaultVoltage,
+                            defaultVoltage,
+                            defaultFrequency),
+                      getOutputDeviceAckAdapter()));
+          
+        } else {
+          logger.debug("no power data available: {}", powerJsonPath);
+        }
+      }
+      
+      if (! energyConsumptionJsonPath.isEmpty() && ! energyProductionJsonPath.isEmpty()) {
+        Double energyConsumption = Json.readDoubleValue(energyConsumptionJsonPath, message.entity().getData().utf8String(), energyConsumptionScale);
+        Double energyProduction = Json.readDoubleValue(energyProductionJsonPath, message.entity().getData().utf8String(), energyProductionScale);
+        if (energyConsumption != null && energyProduction != null) {
+          getOutputDevice().tell(
+                new OutputDevice.NotifyTotalEnergyData(
+                      getNextMessageId(),
+                      new OutputDevice.EnergyData(
+                            energyConsumption,
+                            energyProduction),
+                      getOutputDeviceAckAdapter()));
+        }
+      }
     } catch (Exception e) {
       logger.error("Failed to parse status response: {}", e.getMessage());
     }
@@ -195,36 +213,4 @@ public class Tasmota extends HttpInputDevice {
   protected enum ExecuteNextStatusPolling implements Command {
     INSTANCE
   }
-  
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  public record StatusResponse(
-    @JsonProperty("StatusSNS") StatusSNS statusSNS    
-  ) {}
-  
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  public record StatusSNS(
-    @JsonProperty("Time") String time,
-    @JsonProperty("SML") SML sml
-  ) {}
-  
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  public record SML(
-    @JsonProperty("server_id") String serverId,
-    @JsonProperty("export_total_kwh") double exportTotalKwh,
-    @JsonProperty("total_kwh") double totalKwh,
-    @JsonProperty("curr_w") double currW,
-    @JsonProperty("volt_p1") double voltP1,
-    @JsonProperty("volt_p2") double voltP2,
-    @JsonProperty("volt_p3") double voltP3,
-    
-    @JsonProperty("amp_p1") double ampP1,
-    @JsonProperty("amp_p2") double ampP2,
-    @JsonProperty("amp_p3") double ampP3,
-    
-    @JsonProperty("freq") double freq
-  ) {}
-
 }
