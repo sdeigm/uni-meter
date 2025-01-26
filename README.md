@@ -166,13 +166,38 @@ uni-meter {
   # ...
   output-devices {
     shelly-pro3em {
-      udp-port = 1214
+      #...
+      udp-port = 1010
       udp-interface = "0.0.0.0" # default, can be omitted
+      #...
     }
   }
   #...
 }
 ```  
+
+### Throttling the sampling frequency of the Shelly device
+
+In some setups with a higher latency until the real electrical meter readings are available on the output side, it might
+be necessary to throttle the sampling frequency of the output data. Otherwise, it might be possible that the storage
+oversteer the power production and consumption values and that they are fluctuating too much around 0.
+
+To throttle the sampling frequency you can configure a `min-sampling-period` in the `/etc/uni-meter.conf` file. This 
+configuration value specifies the minimum time until the next output data is delivered to the storage.
+
+```hocon
+uni-meter {
+  #...
+  output-devices {
+    shelly-pro3em {
+      #...
+      min-sample-period = 5000ms
+      #...
+    }
+  }
+  #...
+}
+```
 
 ### Using MQTT as input source
 
