@@ -391,6 +391,12 @@ uni-meter {
         url = "http://<tasmota-ir-read-head-ip>"
         # username=""
         # password=""
+        power-json-path = "$..curr_w"
+        power-scale = 1.0 # default, can be omitted
+        energy-consumption-json-path = "$..total_kwh"
+        energy-consumption-scale = 1.0 # default, can be omitted
+        energy-production-json-path = "$..export_total_kwh"
+        energy-production-scale = 1.0 # default, can be omitted
       }
     }
   }
@@ -399,6 +405,10 @@ uni-meter {
 
 Replace the `<tasmota-ir-read-head-ip>` placeholder with the actual IP address of your Tasmota IR read head device.
 If you have set a username and password for the device, you have to provide them as well.
+
+Additionally, you have to configure the JSON paths for the power, energy consumption and energy production values to
+access the actual values within the JSON data. If you have to scale these values, you can provide a scale factor which
+is 1.0 as a default.
 
 ### Using Tibber Pulse as input source
 
