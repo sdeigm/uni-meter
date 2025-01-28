@@ -3,9 +3,6 @@ package com.deigmueller.uni_meter.input.device.tasmota;
 import com.deigmueller.uni_meter.common.utils.Json;
 import com.deigmueller.uni_meter.input.device.common.http.HttpInputDevice;
 import com.deigmueller.uni_meter.output.OutputDevice;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.typesafe.config.Config;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
@@ -37,8 +34,7 @@ public class Tasmota extends HttpInputDevice {
   private final String energyProductionJsonPath = getConfig().getString("energy-production-json-path");
   private final double energyProductionScale = getConfig().getDouble("energy-production-scale");
   private final HttpCredentials credentials;    
-
-
+  
   /**
    * Static factory method to create a new Shelly3EM actor.
    * @param outputDevice The output device actor reference
