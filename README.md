@@ -247,7 +247,7 @@ uni-meter {
   input = "uni-meter.input-devices.generic-http"
 
   input-devices {
-    mqtt {
+    generic-http {
       url = "http://vzlogger-server:8088"
       
       #username = "username"
