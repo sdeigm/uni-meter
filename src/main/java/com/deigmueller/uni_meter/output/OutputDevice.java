@@ -172,7 +172,10 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
 
     EnergyData data = message.data();
 
-    EnergyData phaseEnergyData = new EnergyData(data.totalConsumption() / 3.0, data.totalProduction() / 3.0); 
+    double phaseConsumption = Math.round(data.totalConsumption() / 3.0 * 100.0) / 100.0;
+    double phaseProduction = Math.round(data.totalProduction() / 3.0 * 100.0) / 100.0;
+
+    EnergyData phaseEnergyData = new EnergyData(phaseConsumption, phaseProduction); 
     setEnergyPhase0(phaseEnergyData);
     setEnergyPhase1(phaseEnergyData);
     setEnergyPhase2(phaseEnergyData);

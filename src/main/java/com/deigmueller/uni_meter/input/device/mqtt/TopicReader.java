@@ -1,13 +1,8 @@
 package com.deigmueller.uni_meter.input.device.mqtt;
 
-import org.apache.pekko.util.ByteString;
+import com.deigmueller.uni_meter.input.device.common.generic.ChannelReader;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-public interface TopicReader {
+public interface TopicReader extends ChannelReader {
   @NotNull String getTopic();
-  
-  @NotNull String getChannel();
-  
-  @Nullable Double getValue(@NotNull ByteString payload);
 }
