@@ -249,10 +249,12 @@ uni-meter {
   input-devices {
     generic-http {
       url = "http://vzlogger-server:8088"
-      
       #username = "username"
       #password = "password"
-      
+
+      power-phase-mode = "mono-phase"
+      energy-phase-mode = "mono-phase"
+
       channels = [{
         type = "json"
         channel = "energy-consumption-total"
@@ -317,8 +319,6 @@ uni-meter {
 
   input-devices {
     mqtt {
-      type = "MQTT"
-
       url = "tcp://127.0.0.1:1883"
       #username = "username"
       #password = "password"
