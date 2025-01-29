@@ -513,7 +513,7 @@ public abstract class Shelly extends OutputDevice {
 
   protected Route createCommonRoute() {
     HttpRoute commonRoute = new HttpRoute(
-          logger,
+          LoggerFactory.getLogger(logger.getName() + ".http"),
           getContext().getSystem(), 
           getMaterializer(),
           getContext().getSelf(),

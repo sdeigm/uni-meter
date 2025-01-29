@@ -9,28 +9,32 @@ import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Properties;
+
 public class Application {
   public static final Logger LOGGER = LoggerFactory.getLogger("uni-meter");
   
-    public static void main(String[] args) {
-      Config config = ConfigFactory.load();
+  public static void main(String[] args) {
+    Config config = ConfigFactory
+          .parseProperties(configurationOverrides())
+          .withFallback(ConfigFactory.load());
       
-      logStartupBanner();
+    logStartupBanner();
       
-      try {
-        LOGGER.info("initializing actor system");
-        ActorSystem<UniMeter.Command> actorSystem = ActorSystem.create(
-              Behaviors.setup(context -> UniMeter.create()), "uni-meter", config);
+    try {
+      LOGGER.info("initializing actor system");
+      ActorSystem<UniMeter.Command> actorSystem = ActorSystem.create(
+            Behaviors.setup(context -> UniMeter.create()), "uni-meter", config);
         
-        actorSystem.getWhenTerminated().whenComplete((done, throwable) -> {
-          LOGGER.info("actor system terminated");
-        });
+      actorSystem.getWhenTerminated().whenComplete((done, throwable) -> {
+        LOGGER.info("actor system terminated");
+      });
         
-        Thread.sleep(1000);
-      } catch (Exception e) {
-        LOGGER.error("failed to initialize the actor system", e);
-      }
+      Thread.sleep(1000);
+    } catch (Exception e) {
+      LOGGER.error("failed to initialize the actor system", e);
     }
+  }
 
   private static void logStartupBanner() {
     String product   = "# Universal electric meter converter " + Version.getVersion() + " (" + Version.getBuildTime() + ") #";
@@ -39,5 +43,13 @@ public class Application {
     LOGGER.info(hLine);
     LOGGER.info(product);
     LOGGER.info(hLine);
+  }
+  
+  private static Properties configurationOverrides() {
+    Properties properties = new Properties();
+
+    properties.setProperty("pekko.http.parsing.illegal-header-warnings", "off");
+    
+    return properties;
   }
 }
