@@ -630,7 +630,7 @@ public abstract class Shelly extends OutputDevice {
     private final long unixtime;
     private final int serial;
     private final boolean has_update;
-    private final String max;
+    private final String mac;
     private final long ram_total;
     private final long ram_free;
     private final long ram_lwm;
