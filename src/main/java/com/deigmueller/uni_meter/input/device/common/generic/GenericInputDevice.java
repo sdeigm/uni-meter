@@ -183,7 +183,7 @@ public abstract class GenericInputDevice extends InputDevice {
 
     if (PHASE_MODE_MONO.compareToIgnoreCase(value) == 0) {
       return PhaseMode.MONO;
-    } else if (PHASE_MODE_TRI.compareToIgnoreCase(key) == 0) {
+    } else if (PHASE_MODE_TRI.compareToIgnoreCase(value) == 0) {
       return PhaseMode.TRI;
     } else {
       throw new IllegalArgumentException("unknown phase mode: " + value);
