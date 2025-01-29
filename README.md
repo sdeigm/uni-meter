@@ -221,13 +221,12 @@ uni-meter {
     #...
     shelly-pro3em {
       #...
-	  power-offset-total =0
+      power-offset-total =0
       
       power-offset-l1 = 0
       power-offset-l2 = 0
       power-offset-l3 = 0
-      #...
-	}
+    }
   }
 }
 ```
