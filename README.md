@@ -115,6 +115,8 @@ sudo cp /opt/uni-meter/config/uni-meter.conf /etc/uni-meter.conf
 
 Then use your favorite editor to adjust the configuration file to your needs as described in the following sections.
 
+## Configuring the output device
+
 ### Configuring the Shelly device id
 
 It seems as if the Hoymiles storage expects a global unique identifier for the Shelly device. This Shelly device id
@@ -200,6 +202,37 @@ uni-meter {
   #...
 }
 ```
+
+### Configuring a static power offset
+
+In some setups, it might be necessary to add a static offset to the power values. This can be the case if the real
+electrical meter readings are not 100% accurate to your household's electrical meter readings.
+
+You can either configure a power offset for the single phases or a total power offset. The phase power offsets take
+precedence over the total power offset. If at least one phase power offset is configured, the total power offset is
+ignored.
+
+Setting the power offset is done in the `/etc/uni-meter.conf` file:
+
+```hocon
+uni-meter {
+  #...
+  output-devices {
+    #...
+    shelly-pro3em {
+      #...
+	  power-offset-total =0
+      
+      power-offset-l1 = 0
+      power-offset-l2 = 0
+      power-offset-l3 = 0
+      #...
+	}
+  }
+}
+```
+
+## Configuring the input sources
 
 ### Using the generic HTTP input source
 

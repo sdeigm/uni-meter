@@ -37,10 +37,13 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   private final List<TimerOverride> timerOverrides = new ArrayList<>();
   
   private Instant lastPowerPhase0Update = Instant.now();
+  private double offsetPhase0 = 0;
   private PowerData powerPhase0 = new PowerData(0, 0, 0, 0, 230.0, 50.0);
   private Instant lastPowerPhase1Update = Instant.now();
+  private double offsetPhase1 = 0;
   private PowerData powerPhase1 = new PowerData(0, 0, 0, 0, 230.0, 50.0);
   private Instant lastPowerPhase2Update = Instant.now();
+  private double offsetPhase2 = 0;
   private PowerData powerPhase2 = new PowerData(0, 0, 0, 0, 230.0, 50.0);
 
   private Instant lastEnergyPhase0Update = Instant.now();
@@ -49,8 +52,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   private EnergyData energyPhase1 = new EnergyData(0, 0);
   private Instant lastEnergyPhase2Update = Instant.now();
   private EnergyData energyPhase2 = new EnergyData(0, 0);
-
-
+  
   protected OutputDevice(@NotNull ActorContext<Command> context,
                          @NotNull ActorRef<UniMeter.Command> controller,
                          @NotNull Config config) {
@@ -66,6 +68,8 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
         timerOverrides.add(new TimerOverride(timerOverrideConfig));
       }
     }
+    
+    initPowerOffsets(config);
   }
   
   @Override
@@ -185,8 +189,8 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   
   protected void setPowerPhase0(@NotNull PowerData powerPhase0) {
     this.lastPowerPhase0Update = Instant.now();
-    this.powerPhase0 = powerPhase0;
-    logger.debug("power phase 0: {}", powerPhase0);
+    this.powerPhase0 = powerPhase0.adjustPower(offsetPhase0);
+    logger.debug("power phase 0: {}", this.powerPhase0);
   }
   
   protected @NotNull PowerData getPowerPhase0() {
@@ -204,8 +208,8 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   
   protected void setPowerPhase1(@NotNull PowerData powerPhase1) {
     this.lastPowerPhase1Update = Instant.now();
-    this.powerPhase1 = powerPhase1;
-    logger.debug("power phase 1: {}", powerPhase1);
+    this.powerPhase1 = powerPhase1.adjustPower(offsetPhase1);
+    logger.debug("power phase 1: {}", this.powerPhase1);
   }
   
   protected @NotNull PowerData getPowerPhase1() {
@@ -223,8 +227,8 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   
   protected void setPowerPhase2(@NotNull PowerData powerPhase2) {
     this.lastPowerPhase2Update = Instant.now();
-    this.powerPhase2 = powerPhase2;
-    logger.debug("power phase 2: {}", powerPhase2);
+    this.powerPhase2 = powerPhase2.adjustPower(offsetPhase2);
+    logger.debug("power phase 2: {}", this.powerPhase2);
   }
   
   protected @NotNull PowerData getPowerPhase2() {
@@ -300,6 +304,24 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     return null;  
   }
   
+  protected void initPowerOffsets(@NotNull Config config) {
+    offsetPhase0 = config.getDouble("power-offset-l1");
+    offsetPhase1 = config.getDouble("power-offset-l2");
+    offsetPhase2 = config.getDouble("power-offset-l3");
+    
+    if (offsetPhase0 == 0 && offsetPhase1 == 0 && offsetPhase2 == 0) {
+      double totalOffset = config.getDouble("power-offset-total");
+      if (totalOffset != 0) {
+        offsetPhase0 = totalOffset / 3.0;
+        offsetPhase1 = totalOffset / 3.0;
+        offsetPhase2 = totalOffset / 3.0;
+        logger.info("using total power offset of {}", totalOffset);
+      }
+    } else {
+      logger.info("using phase power offsets: L1={}, L2={}, L3={}", offsetPhase0, offsetPhase1, offsetPhase2);
+    }
+  }
+  
   public interface Command {}
 
   public record NotifyPhasePowerData(
@@ -322,7 +344,18 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
         double current,
         double voltage,
         double frequency
-  ) {}
+  ) {
+    public PowerData adjustPower(double offset) {
+      if (offset == 0) {
+        return this;
+      } else {
+        double adjustedPower = power + offset;
+        double adjustedApparentPower = adjustedPower * powerFactor;
+        double adjustedCurrent = adjustedPower / voltage;
+        return new PowerData(adjustedPower, adjustedApparentPower, powerFactor, adjustedCurrent, voltage, frequency);
+      }
+    }
+  }
   
   public record NotifyPhaseEnergyData(
         int messageId,
