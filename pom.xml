@@ -182,6 +182,14 @@
             </resource>
         </resources>
 
+        <extensions>
+          <extension>
+            <groupId>com.spotify</groupId>
+            <artifactId>dockerfile-maven-extension</artifactId>
+            <version>1.4.13</version>
+          </extension>
+        </extensions>
+
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
