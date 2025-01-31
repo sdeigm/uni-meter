@@ -1,4 +1,4 @@
-FROM --platform=linux/arm64 debian:bookworm-slim
+FROM debian:bookworm-slim
 
 ARG version="1.0.4-SNAPSHOT"
 

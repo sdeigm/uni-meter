@@ -1,0 +1,18 @@
+services:
+  uni-meter:
+    image: sdeigm/uni-meter:latest
+    container_name: uni-meter
+    restart: unless-stopped
+    environment:
+      - FB_BASEURL=/filebrowser
+    ports:
+      - 80:80
+      - 1010:1010
+    expose:
+      - 80
+      - 1010
+    volumes:
+      - ./uni-meter.conf:/etc/uni-meter.conf
+      - ./logback.xml:/opt/uni-meter/config/logback.xml
+      - ./shellypro3em.http.tcp.service:/etc/avahi/services/shellypro3em.http.tcp.service
+      - ./shellypro3em.https.tcp.service:/etc/avahi/services/shellypro3em.https.tcp.service
