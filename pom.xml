@@ -273,7 +273,7 @@
                     <tag>${project.version}</tag>
                     <pullNewerImage>false</pullNewerImage>
                     <buildArgs>
-                        <VERSION>${project.version}</VERSION>
+                        <version>${project.version}</version>
                     </buildArgs>
                 </configuration>
             </plugin>
