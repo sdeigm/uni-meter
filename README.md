@@ -186,7 +186,7 @@ be necessary to throttle the sampling frequency of the output data. Otherwise, i
 oversteer the power production and consumption values and that they are fluctuating too much around 0 (see the comments
 and findings to this [issue](https://github.com/sdeigm/uni-meter/issues/12)).
 
-To throttle the sampling frequency you can configure a `min-sampling-period` in the `/etc/uni-meter.conf` file. This 
+To throttle the sampling frequency you can configure a `min-sample-period` in the `/etc/uni-meter.conf` file. This 
 configuration value specifies the minimum time until the next output data is delivered to the storage.
 
 ```hocon
