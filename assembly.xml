@@ -6,28 +6,35 @@
     <includeBaseDirectory>true</includeBaseDirectory>
     <dependencySets>
         <dependencySet>
-            <outputDirectory>${file.separator}lib</outputDirectory>
+            <outputDirectory>/lib</outputDirectory>
         </dependencySet>
     </dependencySets>
 
     <fileSets>
         <fileSet>
             <lineEnding>unix</lineEnding>
-            <directory>${project.build.outputDirectory}${file.separator}config</directory>
-            <outputDirectory>${file.separator}config</outputDirectory>
+            <directory>${project.build.outputDirectory}/config</directory>
+            <outputDirectory>/config</outputDirectory>
         </fileSet>
         <fileSet>
             <lineEnding>unix</lineEnding>
-            <directory>${project.build.outputDirectory}${file.separator}bin</directory>
-            <outputDirectory>${file.separator}bin</outputDirectory>
+            <directory>${project.build.outputDirectory}/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
         </fileSet>
     </fileSets>
 
     <files>
         <file>
-            <source>${project.build.outputDirectory}${file.separator}bin${file.separator}uni-meter.sh</source>
-            <outputDirectory>${file.separator}bin</outputDirectory>
+            <source>${project.build.outputDirectory}/bin/uni-meter.sh</source>
+            <outputDirectory>/bin</outputDirectory>
             <destName>uni-meter.sh</destName>
+            <lineEnding>unix</lineEnding>
+            <fileMode>0755</fileMode>
+        </file>
+        <file>
+            <source>${project.build.outputDirectory}/bin$/uni-meter-and-avahi.sh</source>
+            <outputDirectory>/bin</outputDirectory>
+            <destName>uni-meter-and-avahi.sh</destName>
             <lineEnding>unix</lineEnding>
             <fileMode>0755</fileMode>
         </file>
