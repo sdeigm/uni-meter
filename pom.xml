@@ -11,7 +11,11 @@
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
+
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <dockerfile.skip>true</dockerfile.skip>
+        <docker.push.latest.phase>none</docker.push.latest.phase>
 
         <pekko.version>1.1.2</pekko.version>
         <pekko.http.version>1.1.0</pekko.http.version>
@@ -30,6 +34,18 @@
                     <url>https://maven.pkg.github.com/sdeigm/uni-meter</url>
                 </repository>
             </distributionManagement>
+        </profile>
+        <profile>
+            <id>Docker</id>
+            <properties>
+                <dockerfile.skip>false</dockerfile.skip>
+            </properties>
+        </profile>
+        <profile>
+            <id>Docker-Latest</id>
+            <properties>
+                <docker.push.latest.phase>deploy</docker.push.latest.phase>
+            </properties>
         </profile>
     </profiles>
     
@@ -166,6 +182,14 @@
             </resource>
         </resources>
 
+        <extensions>
+          <extension>
+            <groupId>com.spotify</groupId>
+            <artifactId>dockerfile-maven-extension</artifactId>
+            <version>1.4.13</version>
+          </extension>
+        </extensions>
+
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -236,6 +260,29 @@
                 </executions>
                 <configuration>
                     <revisionOnScmFailure>no.scm.config.in.pom</revisionOnScmFailure>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>com.spotify</groupId>
+                <artifactId>dockerfile-maven-plugin</artifactId>
+                <version>1.4.13</version>
+                <executions>
+                    <execution>
+                        <id>default</id>
+                        <goals>
+                            <goal>build</goal>
+                            <goal>push</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <repository>sdeigm/uni-meter</repository>
+                    <tag>${project.version}</tag>
+                    <pullNewerImage>false</pullNewerImage>
+                    <buildArgs>
+                        <version>${project.version}</version>
+                    </buildArgs>
                 </configuration>
             </plugin>
         </plugins>
