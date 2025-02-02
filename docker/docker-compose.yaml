@@ -2,15 +2,16 @@ services:
   uni-meter:
     image: sdeigm/uni-meter:latest
     container_name: uni-meter
+    network_mode: host
     restart: unless-stopped
-    environment:
-      - FB_BASEURL=/filebrowser
     ports:
-      - 80:80
-      - 1010:1010
+      - 80:80/tcp
+      - 1010:1010/udp
+      - 5353:5353/udp
     expose:
       - 80
       - 1010
+      - 5353
     volumes:
       - ./uni-meter.conf:/etc/uni-meter.conf
       - ./logback.xml:/opt/uni-meter/config/logback.xml
