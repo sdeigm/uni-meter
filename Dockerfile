@@ -4,17 +4,17 @@ ARG version="1.0.4-SNAPSHOT"
 
 ENV VERSION=$version
 
-run apt-get update 
+RUN apt-get update 
 
 #
 # Install Java 17
 #
-run apt install -y openjdk-17-jre
+RUN apt install -y openjdk-17-jre
 
 #
 # Install avahi
 #
-run apt-get install -y avahi-daemon
+RUN apt-get install -y avahi-daemon
 
 # disable d-bus
 RUN sed -i 's/.*enable-dbus=.*/enable-dbus=no/' /etc/avahi/avahi-daemon.conf
