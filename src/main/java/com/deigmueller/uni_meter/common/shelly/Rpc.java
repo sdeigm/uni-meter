@@ -83,6 +83,7 @@ public class Rpc {
     return switch (method) {
       case "EM.GetStatus" -> objectMapper.treeToValue(tree, EmGetStatus.class);
       case "EMData.GetStatus" -> objectMapper.treeToValue(tree, EmDataGetStatus.class);
+      case "Shelly.GetStatus" -> objectMapper.treeToValue(tree, ShellyGetStatus.class);
       case "Shelly.GetDeviceInfo" -> objectMapper.treeToValue(tree, GetDeviceInfo.class);
       case "Sys.GetConfig" -> objectMapper.treeToValue(tree, SysGetConfig.class);
       default -> throw new RuntimeException("unhandled RPC method '" + method + "'");
@@ -157,7 +158,16 @@ public class Rpc {
   public interface NotificationParam {
     Double ts();
   }
-  
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ShellyGetStatus(
+        @JsonProperty("id") Integer id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dest") String dest
+  ) implements Request {}
+
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record GetDeviceInfo(

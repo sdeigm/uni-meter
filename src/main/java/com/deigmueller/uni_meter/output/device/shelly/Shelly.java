@@ -148,7 +148,10 @@ public abstract class Shelly extends OutputDevice {
                 32968,
                 233681,
                 174194,
-                getUptime()));
+                getUptime(),
+                28.08,
+                false,
+                createTempStatus()));
 
     return Behaviors.same();
   }
@@ -511,6 +514,10 @@ public abstract class Shelly extends OutputDevice {
     return new MqttStatus(false);
   }
 
+  protected TempStatus createTempStatus() {
+    return new TempStatus(28.08, 82.54, true);
+  }
+
   protected Route createCommonRoute() {
     HttpRoute commonRoute = new HttpRoute(
           LoggerFactory.getLogger(logger.getName() + ".http"),
@@ -622,7 +629,7 @@ public abstract class Shelly extends OutputDevice {
 
   @Getter
   @AllArgsConstructor
-  public static class Status {
+  public static class Status implements Rpc.Response{
     private final @NotNull WiFiStatus wifi_sta;
     private final @NotNull CloudStatus cloud;
     private final @NotNull MqttStatus mqtt;
@@ -637,6 +644,9 @@ public abstract class Shelly extends OutputDevice {
     private final long fs_size;
     private final long fs_free;
     private final long uptime;
+    private final double temperature;
+    private final boolean overtemperature;
+    private final TempStatus tmp;
   }
 
   public record WiFiStatus(
@@ -657,6 +667,12 @@ public abstract class Shelly extends OutputDevice {
 
   public record MqttStatus(
         @JsonProperty("connected") boolean connected
+  ) {}
+  
+  public record TempStatus(
+        @JsonProperty("tC") double tC,
+        @JsonProperty("tF") double tF,
+        @JsonProperty("is_valid") boolean isValid
   ) {}
 
   @Getter
