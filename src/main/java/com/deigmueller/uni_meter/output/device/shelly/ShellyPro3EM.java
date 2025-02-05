@@ -48,6 +48,7 @@ public class ShellyPro3EM extends Shelly {
           .onMessage(EmGetStatus.class, this::onEmGetStatus)
           .onMessage(EmDataGetStatus.class, this::onEmDataGetStatus)
           .onMessage(ResetData.class, this::onResetData)
+          .onMessage(ShellyGetStatus.class, this::onShellyGetStatus)
           .onMessage(SysGetConfig.class, this::onSysGetConfig);
   }
   
@@ -55,27 +56,7 @@ public class ShellyPro3EM extends Shelly {
   protected @NotNull Behavior<Command> onStatusGet(@NotNull StatusGet request) {
     logger.trace("ShellyPro3EM.onStatusGet()");
     
-    request.replyTo().tell(new Status(
-          createWiFiStatus(),
-          createCloudStatus(),
-          createMqttStatus(),
-          getTime(),
-          Instant.now().getEpochSecond(),
-          1,
-          false,
-          getMac(),
-          50648,
-          38376,
-          32968,
-          233681,
-          174194,
-          getUptime(),
-          List.of(
-                EMeterStatus.of(getPowerPhase0(), getEnergyPhase0()), 
-                EMeterStatus.of(getPowerPhase1(), getEnergyPhase1()), 
-                EMeterStatus.of(getPowerPhase2(), getEnergyPhase2())),
-          getPowerPhase0().power() + getPowerPhase1().power() + getPowerPhase2().power(),
-          true));
+    request.replyTo().tell(createStatus());
     
     return Behaviors.same();
   }
@@ -138,7 +119,20 @@ public class ShellyPro3EM extends Shelly {
     
     return Behaviors.same();
   }
-  
+
+  /**
+   * Handle the Shelly.GetStatus HTTP request
+   * @param request Request to get the device's status
+   * @return Same behavior               
+   */
+  protected @NotNull Behavior<Command> onShellyGetStatus(@NotNull ShellyGetStatus request) {
+    logger.trace("ShellyPro3EM.onShellyGetStatus()");
+    
+    request.replyTo().tell(createStatus());
+    
+    return Behaviors.same();
+  }
+
   /**
    * Handle the Sys.GetConfig HTTP request
    * @param request Request to get the device's configuration
@@ -147,10 +141,7 @@ public class ShellyPro3EM extends Shelly {
   protected @NotNull Behavior<Command> onSysGetConfig(@NotNull SysGetConfig request) {
     logger.trace("ShellyPro3EM.onSysGetConfig()");
     
-    request.replyTo().tell(
-          new SysGetConfigOrFailureResponse(
-                null,
-                rpcSysGetConfig()));
+    request.replyTo().tell(rpcSysGetConfig());
     
     return Behaviors.same();
   }
@@ -183,10 +174,16 @@ public class ShellyPro3EM extends Shelly {
     return switch (request.method()) {
       case "EM.GetStatus" -> rpcEmGetStatus();
       case "EMData.GetStatus" -> rpcEmDataGetStatus();
+      case "Shelly.GetStatus" -> rpcShellyGetStatus();
       case "Shelly.GetDeviceInfo" -> rpcGetDeviceInfo();
       case "Sys.GetConfig" -> rpcSysGetConfig();
       default -> rpcUnknownMethod(request);
     };
+  }
+
+  private Rpc.Response rpcShellyGetStatus() {
+    logger.trace("Shelly.rpcShellyGetStatus()");
+    return createStatus();
   }
 
   private Rpc.GetDeviceInfoResponse rpcGetDeviceInfo() {
@@ -295,19 +292,49 @@ public class ShellyPro3EM extends Shelly {
     );
   }
   
+  /**
+   * Create the device's status
+   * @return Device's status
+   */
+  private Status createStatus() {
+    return new Status(
+          createWiFiStatus(),
+          createCloudStatus(),
+          createMqttStatus(),
+          getTime(),
+          Instant.now().getEpochSecond(),
+          1,
+          false,
+          getMac(),
+          50648,
+          38376,
+          32968,
+          233681,
+          174194,
+          getUptime(),
+          28.08,
+          false,
+          createTempStatus(),
+          List.of(
+                EMeterStatus.of(getPowerPhase0(), getEnergyPhase0()),
+                EMeterStatus.of(getPowerPhase1(), getEnergyPhase1()),
+                EMeterStatus.of(getPowerPhase2(), getEnergyPhase2())),
+          getPowerPhase0().power() + getPowerPhase1().power() + getPowerPhase2().power(),
+          true);
+  }
+  
   private Rpc.Response rpcUnknownMethod(Rpc.Request request) {
     logger.error("ShellyPro3EM.rpcUnknownMethod()");
     throw new IllegalArgumentException("Unknown method: " + request.method());
   }
 
-  public record SysGetConfig(
-        @JsonProperty("replyTo") ActorRef<SysGetConfigOrFailureResponse> replyTo
+  public record ShellyGetStatus(
+        @JsonProperty("replyTo") ActorRef<Shelly.Status> replyTo
   ) implements Command {}
-
-  public record SysGetConfigOrFailureResponse(
-        @JsonProperty("failure") RuntimeException failure,
-        @JsonProperty("config") Rpc.SysGetConfigResponse config
-  ) {}
+  
+  public record SysGetConfig(
+        @JsonProperty("replyTo") ActorRef<Rpc.SysGetConfigResponse> replyTo
+  ) implements Command {}
 
   public record EmGetStatus(
         @JsonProperty("id") int id,
@@ -359,10 +386,14 @@ public class ShellyPro3EM extends Shelly {
                   int fs_size,
                   int fs_free,
                   long uptime,
+                  double temperature,
+                  boolean overtemperature,
+                  @NotNull TempStatus temp,
                   @NotNull List<EMeterStatus> emeters,
                   double total_power,
                   boolean fs_mounted) {
-      super(wifi_sta, cloud, mqtt, time, unixtime, serial, has_update, mac, ram_total, ram_free, ram_lwm, fs_size, fs_free, uptime);
+      super(wifi_sta, cloud, mqtt, time, unixtime, serial, has_update, mac, ram_total, ram_free, ram_lwm, fs_size, 
+            fs_free, uptime, temperature, overtemperature, temp);
       this.emeters = emeters;
       this.total_power = total_power;
       this.fs_mounted = fs_mounted;

@@ -74,6 +74,9 @@ class HttpRoute extends AllDirectives {
           pathPrefix("rpc", () -> 
                 get(() ->
                       concat(
+                            path("Shelly.GetStatus" ,
+                                  this::onShellyGetStatus
+                            ),
                             path("Sys.GetConfig" ,  
                                   this::onSysGetConfig
                             ),
@@ -117,7 +120,19 @@ class HttpRoute extends AllDirectives {
           ), 
           Jackson.marshaller());
   }
-  
+
+  private Route onShellyGetStatus() {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                ShellyPro3EM.ShellyGetStatus::new,
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller());
+  }
+
+
   private Route onSysGetConfig() {
     return completeOKWithFuture(
           AskPattern.ask(
@@ -125,13 +140,7 @@ class HttpRoute extends AllDirectives {
                 ShellyPro3EM.SysGetConfig::new, 
                 timeout, 
                 system.scheduler()
-          ).thenApply(response -> {
-            if (response.failure() != null) {
-              throw response.failure();
-            }
-            
-            return response.config();
-          }),
+          ),
           Jackson.marshaller());
   }
   
@@ -168,7 +177,7 @@ class HttpRoute extends AllDirectives {
           }),
           Jackson.marshaller());
   }
-
+  
   /**
    * Create a Pekko flow which handles the WebSocket connection
    *
