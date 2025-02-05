@@ -95,7 +95,7 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
     
     String outputDeviceConfigPath = getContext().getSystem().settings().config().getString("uni-meter.output");
     
-    String outputDeviceType = getContext().getSystem().settings().config().getString(outputDeviceConfigPath + ".device.type");
+    String outputDeviceType = getContext().getSystem().settings().config().getString(outputDeviceConfigPath + ".type");
     
     if (outputDeviceType.equals("ShellyPro3EM")) {
       logger.info("creating Shelly3EM output device");
