@@ -39,7 +39,7 @@ public class ShellyPro3EM extends Shelly {
     
     this.setSettings(new Settings(config));
     
-    controller.tell(new UniMeter.RegisterHttpRoute(getBindPort(), createRoute()));
+    controller.tell(new UniMeter.RegisterHttpRoute(getBindInterface(), getBindPort(), createRoute()));
   }
 
   @Override

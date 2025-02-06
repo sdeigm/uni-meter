@@ -34,12 +34,16 @@ public class HttpServerController extends AbstractBehavior<HttpServerController.
   }
   
   private @NotNull Behavior<Command> onRegisterHttpRoute(@NotNull RegisterHttpRoute command) {
-    ActorRef<HttpServer.Command> server = servers.get(command.port);
+    ActorRef<HttpServer.Command> server = servers.get(command.bindPort());
     if (server == null) {
-      server = getContext().spawn(HttpServer.create(bindInterface, command.port), "http-server-" + command.port);
+      server = getContext().spawn(
+            HttpServer.create(
+                  command.bindInterface(), 
+                  command.bindPort()), 
+            "http-server-" + command.bindPort());
       getContext().watch(server);
       
-      servers.put(command.port, server);
+      servers.put(command.bindPort(), server);
     }
     
     server.tell(new HttpServer.RegisterRoute(command.route));
@@ -50,7 +54,8 @@ public class HttpServerController extends AbstractBehavior<HttpServerController.
   public interface Command {}
   
   public record RegisterHttpRoute(
-        @NotNull int port,
+        @NotNull String bindInterface,
+        int bindPort,
         @NotNull Route route
   ) implements Command {}
 }

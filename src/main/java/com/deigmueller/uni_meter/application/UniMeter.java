@@ -73,7 +73,11 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
   private @NotNull Behavior<Command> onRegisterHttpRoute(@NotNull RegisterHttpRoute message) {
     logger.trace("UniMeter.onRegisterHttpRoute()");
     
-    httpServerController.tell(new HttpServerController.RegisterHttpRoute(message.port(), message.route()));
+    httpServerController.tell(
+          new HttpServerController.RegisterHttpRoute(
+                message.bindInterface(),
+                message.bindPort(), 
+                message.route()));
     
     return Behaviors.same();
   }
@@ -242,7 +246,8 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
   public interface Command {}
   
   public record RegisterHttpRoute(
-        int port,
+        @NotNull String bindInterface,
+        int bindPort,
         @NotNull Route route
   ) implements Command {}
 }

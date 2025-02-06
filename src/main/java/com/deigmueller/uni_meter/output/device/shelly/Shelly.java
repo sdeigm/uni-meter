@@ -54,6 +54,7 @@ public abstract class Shelly extends OutputDevice {
   private ActorRef<Datagram> udpOutput = null;
 
   private final Instant startTime = Instant.now();
+  private final String bindInterface = getConfig().getString("interface");
   private final int bindPort = getConfig().getInt("port");
   private final int udpPort = getConfig().getInt("udp-port");
   private final String udpInterface = getConfig().getString("udp-interface");
