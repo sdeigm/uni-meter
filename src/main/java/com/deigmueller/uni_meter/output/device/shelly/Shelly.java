@@ -239,10 +239,7 @@ public abstract class Shelly extends OutputDevice {
     logger.trace("Shelly.onWebsocketInputClosed()");
     
     logger.debug("incoming websocket connection {} closed", message.connectionId());
-    WebsocketContext websocketContext = websocketConnections.remove(message.connectionId());
-    if (websocketContext != null) {
-      websocketContext.close();
-    }
+    websocketConnections.remove(message.connectionId());
   }
 
   /**
@@ -253,10 +250,7 @@ public abstract class Shelly extends OutputDevice {
     logger.trace("Shelly.onWebsocketInputFailed()");
 
     logger.error("incoming websocket connection {} failed: {}", message.connectionId(), message.failure().getMessage());
-    WebsocketContext websocketContext = websocketConnections.remove(message.connectionId());
-    if (websocketContext != null) {
-      websocketContext.close();
-    }
+    websocketConnections.remove(message.connectionId());
   }
 
   /**
@@ -597,9 +591,11 @@ public abstract class Shelly extends OutputDevice {
     @Getter
     @AllArgsConstructor
     public static class Device {
-      public final String type;
-      public final String mac;
-      public final String hostname;
+      private final String type;
+      private final String mac;
+      private final String hostname;
+      private final int num_outputs = 1;
+      private final int num_meters = 3;
 
       public Device(@NotNull Config config) {
         this.type = config.getString("type");

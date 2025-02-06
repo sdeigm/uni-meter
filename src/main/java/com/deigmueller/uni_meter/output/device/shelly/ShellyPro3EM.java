@@ -360,6 +360,7 @@ public class ShellyPro3EM extends Shelly {
         @NotNull ActorRef<Done> replyTo
   ) implements Command {}
   
+  @Getter
   public static class Settings extends Shelly.Settings {
     public Settings(@NotNull Config config) {
       super(config);

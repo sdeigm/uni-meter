@@ -79,15 +79,20 @@ public class Rpc {
   }
   
   private static Request treeToRequest(@NotNull JsonNode tree) throws JsonProcessingException {
-    String method = tree.get("method").asText();
-    return switch (method) {
-      case "EM.GetStatus" -> objectMapper.treeToValue(tree, EmGetStatus.class);
-      case "EMData.GetStatus" -> objectMapper.treeToValue(tree, EmDataGetStatus.class);
-      case "Shelly.GetStatus" -> objectMapper.treeToValue(tree, ShellyGetStatus.class);
-      case "Shelly.GetDeviceInfo" -> objectMapper.treeToValue(tree, GetDeviceInfo.class);
-      case "Sys.GetConfig" -> objectMapper.treeToValue(tree, SysGetConfig.class);
-      default -> throw new RuntimeException("unhandled RPC method '" + method + "'");
-    };
+    JsonNode methodNode = tree.get("method");
+    if (methodNode != null) {
+      String method = tree.get("method").asText();
+      return switch (method) {
+        case "EM.GetStatus" -> objectMapper.treeToValue(tree, EmGetStatus.class);
+        case "EMData.GetStatus" -> objectMapper.treeToValue(tree, EmDataGetStatus.class);
+        case "Shelly.GetStatus" -> objectMapper.treeToValue(tree, ShellyGetStatus.class);
+        case "Shelly.GetDeviceInfo" -> objectMapper.treeToValue(tree, GetDeviceInfo.class);
+        case "Sys.GetConfig" -> objectMapper.treeToValue(tree, SysGetConfig.class);
+        default -> throw new IllegalArgumentException("unhandled RPC method '" + method + "'");
+      };
+    } else {
+      throw new IllegalArgumentException("missing 'method' property in RPC request");
+    }
   }
 
   public interface Request {
