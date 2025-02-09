@@ -482,20 +482,11 @@ public abstract class Shelly extends OutputDevice {
     return Duration.between(startTime, Instant.now()).getSeconds();
   }
 
-  @Override
-  protected Route createRoute() {
-    return null;
-  }
+  protected abstract Route createRoute();
 
-  @Override
-  protected int getNumOutputs() {
-    return 0;
-  }
+  protected abstract int getNumOutputs();
 
-  @Override
-  protected int getNumMeters() {
-    return 0;
-  }
+  protected abstract int getNumMeters();
   
   protected WiFiStatus createWiFiStatus() {
     return new WiFiStatus(getConfig().getConfig("wifi-status"));
@@ -679,10 +670,6 @@ public abstract class Shelly extends OutputDevice {
     private final ActorRef<WebsocketOutput.Command> output;
     private final SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest> throttlingQueue;
     private Rpc.Request lastEmGetStatusRequest;
-    
-    public void close() {
-      output.tell(WebsocketOutput.Close.INSTANCE);
-    }
     
     public void handleEmGetStatusRequest(@NotNull Message wsMessage, @NotNull Rpc.Request emGetStatusRequest) {
       lastEmGetStatusRequest = emGetStatusRequest;

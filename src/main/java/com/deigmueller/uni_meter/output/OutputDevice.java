@@ -9,7 +9,6 @@ import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.PostStop;
 import org.apache.pekko.actor.typed.javadsl.*;
-import org.apache.pekko.http.javadsl.server.Route;
 import org.apache.pekko.stream.Materializer;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -52,7 +51,13 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   private EnergyData energyPhase1 = new EnergyData(0, 0);
   private Instant lastEnergyPhase2Update = Instant.now();
   private EnergyData energyPhase2 = new EnergyData(0, 0);
-  
+
+  /**
+   * Protected constructor
+   * @param context The actor context
+   * @param controller The controller actor
+   * @param config The output device configuration
+   */
   protected OutputDevice(@NotNull ActorContext<Command> context,
                          @NotNull ActorRef<UniMeter.Command> controller,
                          @NotNull Config config) {
@@ -71,12 +76,20 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     
     initPowerOffsets(config);
   }
-  
+
+  /**
+   * Create the actor's Receive instance
+   * @return The actor's Receive instance
+   */
   @Override
   public Receive<Command> createReceive() {
     return newReceiveBuilder().build();
   }
 
+  /**
+   * Create the actor's ReceiveBuilder
+   * @return The actor's ReceiveBuilder
+   */
   @Override
   public ReceiveBuilder<Command> newReceiveBuilder() {
     return super.newReceiveBuilder()
@@ -285,12 +298,6 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
       return this.energyPhase2;
     }
   }
-  
-  protected abstract Route createRoute();
-  
-  protected abstract int getNumOutputs();
-  
-  protected abstract int getNumMeters();
   
   private @Nullable PowerData getPowerTimerOverride() {
     LocalDateTime now = LocalDateTime.now();

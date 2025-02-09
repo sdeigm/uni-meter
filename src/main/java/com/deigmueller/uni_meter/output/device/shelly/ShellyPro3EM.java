@@ -26,12 +26,26 @@ import java.util.NoSuchElementException;
 import java.util.TimeZone;
 
 public class ShellyPro3EM extends Shelly {
-  // Instance members
+  // Class members
+  public static final String TYPE = "ShellyPro3EM";
+  
+  /**
+   * Static setup method to create a new instance of the ShellyPro3EM device
+   * @param controller The controller actor
+   * @param config The configuration for the ShellyPro3EM device
+   * @return Behavior of the ShellyPro3EM device
+   */
   public static Behavior<Command> create(@NotNull ActorRef<UniMeter.Command> controller,
                                          @NotNull Config config) {
     return Behaviors.setup(context -> new ShellyPro3EM(context, controller, config));
   }
 
+  /**
+   * Protected constructor called by the setup method
+   * @param context Actor context
+   * @param controller Controller actor
+   * @param config Configuration for the ShellyPro3EM device
+   */
   protected ShellyPro3EM(@NotNull ActorContext<Command> context,
                          @NotNull ActorRef<UniMeter.Command> controller,
                          @NotNull Config config) {
@@ -154,6 +168,11 @@ public class ShellyPro3EM extends Shelly {
   protected Route createRoute() {
     return createCommonRoute()
           .orElse(Shelly3EMRoute.of(getContext().getSystem(), getContext().getSelf()).createRoute());
+  }
+
+  @Override
+  protected int getNumOutputs() {
+    return 0;
   }
 
   @Override
