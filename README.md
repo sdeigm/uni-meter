@@ -231,6 +231,35 @@ uni-meter {
 }
 ```
 
+### Configuring a default power value
+
+If the physical input device is not reachable and no power values are available for a certain time, the uni-meter will 
+fall back to default power values. Without any configuration that happens after one minute and the power will default to 
+0 watts. If you need a different behaviour, you can configure this using the following configuration below. Single phase
+power values take precedence over the total power value. If at least one phase power value is configured, the total power
+value is ignored.
+
+```hocon
+uni-meter {
+  #...
+  output-devices {
+    #...
+    shelly-pro3em {
+      #...
+      
+      # These are the defaults used without any configuration: 
+      forget-interval = 1m
+
+      default-power-total = 0
+
+      default-power-l1 = 0
+      default-power-l2 = 0
+      default-power-l3 = 0
+    }
+  }
+}
+```
+
 ## Configuring the input sources
 
 ### Using the generic HTTP input source
