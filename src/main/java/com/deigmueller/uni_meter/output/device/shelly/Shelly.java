@@ -22,8 +22,12 @@ import org.apache.pekko.http.javadsl.model.ws.BinaryMessage;
 import org.apache.pekko.http.javadsl.model.ws.Message;
 import org.apache.pekko.http.javadsl.model.ws.TextMessage;
 import org.apache.pekko.http.javadsl.server.Route;
+import org.apache.pekko.japi.Pair;
+import org.apache.pekko.stream.KillSwitches;
 import org.apache.pekko.stream.OverflowStrategy;
+import org.apache.pekko.stream.UniqueKillSwitch;
 import org.apache.pekko.stream.connectors.udp.Datagram;
+import org.apache.pekko.stream.javadsl.Keep;
 import org.apache.pekko.stream.javadsl.Sink;
 import org.apache.pekko.stream.javadsl.Source;
 import org.apache.pekko.stream.javadsl.SourceQueueWithComplete;
@@ -38,7 +42,9 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 @Getter(AccessLevel.PROTECTED)
 @Setter(AccessLevel.PROTECTED)
@@ -175,13 +181,16 @@ public abstract class Shelly extends OutputDevice {
 
     logger.debug("outgoing websocket connection {} created", message.connectionId());
 
-    SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest> throttlingQueue =
+    Pair<SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest>,UniqueKillSwitch> queueSwitchPair =
           Source.<WebsocketProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
+                .viaMat(KillSwitches.single(), Keep.both())
                 .throttle(1, minSamplePeriod)
                 .to(Sink.actorRef(Adapter.toClassic(getContext().getSelf()), ThrottlingQueueClosed.INSTANCE))
                 .run(getMaterializer());
     
-    websocketConnections.put(message.connectionId(), WebsocketContext.create(message.sourceActor(), throttlingQueue, null));
+    websocketConnections.put(
+          message.connectionId(), 
+          WebsocketContext.create(message.sourceActor(), queueSwitchPair.second(), queueSwitchPair.first(), null));
     
     return Behaviors.same();
   }
@@ -240,7 +249,10 @@ public abstract class Shelly extends OutputDevice {
     logger.trace("Shelly.onWebsocketInputClosed()");
     
     logger.debug("incoming websocket connection {} closed", message.connectionId());
-    websocketConnections.remove(message.connectionId());
+    WebsocketContext context = websocketConnections.remove(message.connectionId());
+    if (context != null) {
+      context.close();
+    }
   }
 
   /**
@@ -251,7 +263,10 @@ public abstract class Shelly extends OutputDevice {
     logger.trace("Shelly.onWebsocketInputFailed()");
 
     logger.error("incoming websocket connection {} failed: {}", message.connectionId(), message.failure().getMessage());
-    websocketConnections.remove(message.connectionId());
+    WebsocketContext context = websocketConnections.remove(message.connectionId());
+    if (context != null) {
+      context.close();
+    }
   }
 
   /**
@@ -371,20 +386,31 @@ public abstract class Shelly extends OutputDevice {
       return udpClientContext;
     }
 
-    SourceQueueWithComplete<UdpClientProcessPendingEmGetStatusRequest> throttlingQueue =
+    Pair<SourceQueueWithComplete<UdpClientProcessPendingEmGetStatusRequest>, UniqueKillSwitch> queueSwitchPair =
           Source.<UdpClientProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
+                .viaMat(KillSwitches.single(), Keep.both())
                 .throttle(1, minSamplePeriod)
                 .to(Sink.actorRef(Adapter.toClassic(getContext().getSelf()), ThrottlingQueueClosed.INSTANCE))
                 .run(getMaterializer());
 
-    udpClientContext = UdpClientContext.of(remote, throttlingQueue);
+    udpClientContext = UdpClientContext.of(remote, queueSwitchPair.second(), queueSwitchPair.first());
 
     udpClients.put(remote, udpClientContext);
     
     // Cleanup unused UDP client contexts
-    udpClients.entrySet().removeIf(
-          entry -> 
-                Duration.between(entry.getValue().getLastEmGetStatusRequestTime(), Instant.now()).getSeconds() > 60);
+    Set<InetSocketAddress> toToRemove = new HashSet<>();
+    for (Map.Entry<InetSocketAddress, UdpClientContext> entry : udpClients.entrySet()) {
+      if (Duration.between(entry.getValue().getLastEmGetStatusRequestTime(), Instant.now()).getSeconds() > 60) {
+        toToRemove.add(entry.getKey());
+      }
+    }
+    
+    for (InetSocketAddress key : toToRemove) {
+      UdpClientContext context = udpClients.remove(key);
+      if (context != null) {
+        context.close();
+      }
+    }
     
     return udpClientContext;
   }
@@ -677,11 +703,12 @@ public abstract class Shelly extends OutputDevice {
   @AllArgsConstructor(staticName = "create")
   protected static class WebsocketContext {
     private final ActorRef<WebsocketOutput.Command> output;
+    private final UniqueKillSwitch killSwitch;
     private final SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest> throttlingQueue;
     private Rpc.Request lastEmGetStatusRequest;
     
     public void close() {
-      output.tell(WebsocketOutput.Close.INSTANCE);
+      killSwitch.shutdown();
     }
     
     public void handleEmGetStatusRequest(@NotNull Message wsMessage, @NotNull Rpc.Request emGetStatusRequest) {
@@ -695,19 +722,25 @@ public abstract class Shelly extends OutputDevice {
   @AllArgsConstructor
   protected static class UdpClientContext {
     private final InetSocketAddress remote;
+    private final UniqueKillSwitch killSwitch;
     private final SourceQueueWithComplete<UdpClientProcessPendingEmGetStatusRequest> throttlingQueue;
     private Rpc.Request lastEmGetStatusRequest;
     private Instant lastEmGetStatusRequestTime;
     
     public static UdpClientContext of(@NotNull InetSocketAddress remote,
+                                      @NotNull UniqueKillSwitch killSwitch,
                                       @NotNull SourceQueueWithComplete<UdpClientProcessPendingEmGetStatusRequest> throttlingQueue) {
-      return new UdpClientContext(remote, throttlingQueue, null, Instant.now());
+      return new UdpClientContext(remote, killSwitch, throttlingQueue, null, Instant.now());
     }
 
     public void handleEmGetStatusRequest(@NotNull Datagram datagram, @NotNull Rpc.Request emGetStatusRequest) {
       lastEmGetStatusRequest = emGetStatusRequest;
       lastEmGetStatusRequestTime = Instant.now();
         throttlingQueue.offer(new UdpClientProcessPendingEmGetStatusRequest(this, datagram));
+    }
+    
+    public void close() {
+      killSwitch.shutdown();
     }
   }
 }
