@@ -7,19 +7,30 @@ package com.deigmueller.uni_meter.output.device.mqtt;
 import com.deigmueller.uni_meter.application.UniMeter;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import com.typesafe.config.Config;
+import org.apache.commons.text.StringSubstitutor;
 import org.apache.commons.text.lookup.StringLookup;
 import org.apache.commons.text.lookup.StringLookupFactory;
+import org.apache.pekko.Done;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.ActorContext;
 import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
+import org.apache.pekko.stream.OverflowStrategy;
+import org.apache.pekko.stream.connectors.mqtt.MqttConnectionSettings;
+import org.apache.pekko.stream.connectors.mqtt.MqttQoS;
+import org.apache.pekko.stream.connectors.mqtt.javadsl.MqttSink;
+import org.apache.pekko.stream.javadsl.Source;
+import org.apache.pekko.stream.javadsl.SourceQueueWithComplete;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionStage;
 
 /**
  * MQTT output device.
@@ -30,7 +41,7 @@ public class Mqtt extends OutputDevice {
   
   // Instance members
   private final List<TopicWriter> topicWriters = new ArrayList<>();
-  private final StringLookup stringLookup;
+  private final StringSubstitutor stringSubstitutor;
 
   /**
    * Static setup method
@@ -54,7 +65,7 @@ public class Mqtt extends OutputDevice {
               @NotNull Config config) {
     super(context, controller, config);
     
-    stringLookup = createStringLookup();
+    stringSubstitutor = createStringSubstitutor();
 
     initTopicWriters();
   }
@@ -68,17 +79,28 @@ public class Mqtt extends OutputDevice {
     return super.newReceiveBuilder();
   }
   
-  private StringLookup createStringLookup() {
+
+  @Override
+  protected void powerDataUpdated() {
+    for (TopicWriter topicWriter : topicWriters) {
+      String value = topicWriter.getValue(stringSubstitutor);
+      System.out.println("Writing value " + value + " to topic " + topicWriter.getTopic());
+    }
+  }
+  
+  
+  private StringSubstitutor createStringSubstitutor() {
     Map<String, StringLookup> stringStringLookupMap = new HashMap<>();
     stringStringLookupMap.put("date", StringLookupFactory.INSTANCE.dateStringLookup());
     stringStringLookupMap.put("env", StringLookupFactory.INSTANCE.environmentVariableStringLookup());
     stringStringLookupMap.put("sys", StringLookupFactory.INSTANCE.systemPropertyStringLookup());
     stringStringLookupMap.put("uni-meter", StringLookupFactory.INSTANCE.functionStringLookup(this::stringLookup));
 
-    return StringLookupFactory.INSTANCE.interpolatorStringLookup(
-          stringStringLookupMap,
-          StringLookupFactory.INSTANCE.environmentVariableStringLookup() ,
-          true);
+    return new StringSubstitutor(
+          StringLookupFactory.INSTANCE.interpolatorStringLookup(
+                stringStringLookupMap,
+                stringStringLookupMap.get("uni-meter"),
+                true));
   }
   
   private String stringLookup(String key) {
@@ -150,6 +172,63 @@ public class Mqtt extends OutputDevice {
    */
   private void initTopicWriters() {
     for (Config topicConfig : getConfig().getConfigList("topics")) {
+      topicWriters.add(new TopicWriter(topicConfig));
     }
+  }
+
+  /**
+   * Create the connection settings for the MQTT connection.
+   * @return The connection settings.
+   */
+  private MqttConnectionSettings createConnectionSettings() {
+    MqttConnectionSettings settings = MqttConnectionSettings
+          .create(getConfig().getString("url"),
+                getConfig().getString("client-id"),
+                new MemoryPersistence()
+          );
+
+    if (!getConfig().getString("username").isEmpty() || !getConfig().getString("password").isEmpty()) {
+      settings = settings.withAuth(getConfig().getString("username"), getConfig().getString("password"));
+    }
+
+    return settings;
+  }
+  
+  /**
+   * Start the MQTT stream.
+   */
+  private void startMqttStream() {
+    final ActorRef<Command> self = getContext().getSelf();
+
+    SourceQueueWithComplete<MqttMessage> throttlingQueue = Source
+          .<MqttMessage>queue(1, OverflowStrategy.dropHead())
+          .runWith(
+                MqttSink.create(createConnectionSettings(), MqttQoS.atLeastOnce()),
+                getMaterializer());
+                      
+                .mapAsync(5, message -> AskPattern.ask(
+                self,
+                (ActorRef<AckTopicData> replyTo) -> new NotifyTopicData(message.topic(), message.payload(), replyTo),
+                Duration.ofSeconds(5),
+                getContext().getSystem().scheduler()))
+          .toMat(Sink.ignore(), Keep.both())
+          .run(getMaterializer());
+
+    result.first().whenComplete((done, throwable) -> {
+      if (throwable != null) {
+        self.tell(new NotifyMqttStreamFailed(throwable));
+      } else {
+        self.tell(new NotifyMqttStreamConnected());
+      }
+    });
+
+    result.second().whenComplete((done, throwable) -> {
+      if (throwable != null) {
+        self.tell(new NotifyMqttStreamFailed(throwable));
+      } else {
+        self.tell(new NotifyMqttStreamFinished());
+      }
+    });
+
   }
 }

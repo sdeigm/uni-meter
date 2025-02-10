@@ -123,8 +123,10 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
       case 1 -> setPowerPhase1(message.data());
       case 2 -> setPowerPhase2(message.data());
     }
-
+    
     message.replyTo().tell(new Ack(message.messageId()));
+
+    powerDataUpdated();
 
     return Behaviors.same();
   }
@@ -157,6 +159,8 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
 
     message.replyTo().tell(new Ack(message.messageId()));
 
+    powerDataUpdated();
+    
     return Behaviors.same();
   }
 
@@ -198,6 +202,9 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     setEnergyPhase2(phaseEnergyData);
 
     return Behaviors.same();
+  }
+  
+  protected void powerDataUpdated() {
   }
   
   protected void setPowerPhase0(@NotNull PowerData powerPhase0) {
