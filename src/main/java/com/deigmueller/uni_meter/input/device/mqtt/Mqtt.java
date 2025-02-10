@@ -145,10 +145,11 @@ public class Mqtt extends GenericInputDevice {
       boolean changes = false;
       
       String payload = message.payload().utf8String();
+      logger.debug("received data for MQTT topic {}: {}", message.topic(), payload);
       
       for (TopicReader topicReader : topicReaders) {
         if (Objects.equals(topicReader.getTopic(), message.topic())) {
-          Double value = topicReader.getValue(payload);
+          Double value = topicReader.getValue(logger, payload);
           if (value != null) {
             setChannelData(topicReader.getChannel(), value);
             changes = true;
