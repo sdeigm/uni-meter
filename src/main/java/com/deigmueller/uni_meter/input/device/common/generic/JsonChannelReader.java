@@ -5,6 +5,7 @@ import com.jayway.jsonpath.PathNotFoundException;
 import com.typesafe.config.Config;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 
 import java.util.List;
 
@@ -18,7 +19,8 @@ public class JsonChannelReader extends BaseChannelReader {
   }
 
   @Override
-  public @Nullable Double getValue(@NotNull String payload) {
+  public @Nullable Double getValue(@NotNull Logger logger,
+                                   @NotNull String payload) {
     try {
       Object value = JsonPath.read(payload, jsonPath);
       if (value == null) {
@@ -39,6 +41,7 @@ public class JsonChannelReader extends BaseChannelReader {
       
       return Double.parseDouble(value.toString()) * getScale();
     } catch (PathNotFoundException | NumberFormatException exception) {
+      logger.debug("Failed to parse value <{}>: {}", payload, exception.getMessage());
       return null;
     }
   }

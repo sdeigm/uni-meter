@@ -37,12 +37,15 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   
   private Instant lastPowerPhase0Update = Instant.now();
   private double offsetPhase0 = 0;
+  private double defaultPowerPhase0 = 0;
   private PowerData powerPhase0 = new PowerData(0, 0, 0, 0, 230.0, 50.0);
   private Instant lastPowerPhase1Update = Instant.now();
   private double offsetPhase1 = 0;
+  private double defaultPowerPhase1 = 0;
   private PowerData powerPhase1 = new PowerData(0, 0, 0, 0, 230.0, 50.0);
   private Instant lastPowerPhase2Update = Instant.now();
   private double offsetPhase2 = 0;
+  private double defaultPowerPhase2 = 0;
   private PowerData powerPhase2 = new PowerData(0, 0, 0, 0, 230.0, 50.0);
 
   private Instant lastEnergyPhase0Update = Instant.now();
@@ -75,6 +78,8 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     }
     
     initPowerOffsets(config);
+
+    initDefaultPowerValues(config);
   }
 
   /**
@@ -220,7 +225,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     }
     
     if (Duration.between(this.lastPowerPhase0Update, Instant.now()).compareTo(forgetInterval) > 0) {
-      return new PowerData(0, 0, 0, 0, defaultVoltage, defaultFrequency);
+      return getDefaultPowerData(defaultPowerPhase0);
     } else {
       return this.powerPhase0;
     }
@@ -239,7 +244,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     }
 
     if (Duration.between(this.lastPowerPhase1Update, Instant.now()).compareTo(forgetInterval) > 0) {
-      return new PowerData(0, 0, 0, 0, defaultVoltage, defaultFrequency);
+      return getDefaultPowerData(defaultPowerPhase0);
     } else {
       return this.powerPhase1;
     }
@@ -258,7 +263,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     }
 
     if (Duration.between(this.lastPowerPhase2Update, Instant.now()).compareTo(forgetInterval) > 0) {
-      return new PowerData(0, 0, 0, 0, defaultVoltage, defaultFrequency);
+      return getDefaultPowerData(defaultPowerPhase0);
     } else {
       return this.powerPhase2;
     }
@@ -335,7 +340,29 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
       logger.info("using phase power offsets: L1={}, L2={}, L3={}", offsetPhase0, offsetPhase1, offsetPhase2);
     }
   }
+
+  protected void initDefaultPowerValues(@NotNull Config config) {
+    defaultPowerPhase0 = config.getDouble("default-power-l1");
+    defaultPowerPhase1 = config.getDouble("default-power-l2");
+    defaultPowerPhase2 = config.getDouble("default-power-l3");
+    
+    if (defaultPowerPhase0 == 0 && defaultPowerPhase1 == 0 && defaultPowerPhase2 == 0) {
+      double totalPower = config.getDouble("default-power-total");
+      if (totalPower != 0) {
+        defaultPowerPhase0 = Math.round(totalPower * 100.0 / 3.0) / 100.0;
+        defaultPowerPhase1 = Math.round(totalPower * 100.0 / 3.0) / 100.0;
+        defaultPowerPhase2 = Math.round(totalPower * 100.0 / 3.0) / 100.0;
+        logger.info("using total default power of {}", totalPower);
+      }
+    } else {
+      logger.info("using phase default powers: L1={}, L2={}, L3={}", defaultPowerPhase0, defaultPowerPhase1, defaultPowerPhase2);
+    }
+  }
   
+  protected PowerData getDefaultPowerData(double power) {
+    return new PowerData(power, power, 1.0, power / defaultVoltage, defaultVoltage, defaultFrequency);
+  }
+
   public interface Command {}
 
   public record NotifyPhasePowerData(

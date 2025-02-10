@@ -110,7 +110,7 @@ public class GenericHttp extends GenericInputDevice {
 
       boolean changes = false;
       for (ChannelReader channelReader : channelReaders) {
-        Double value = channelReader.getValue(response);
+        Double value = channelReader.getValue(logger, response);
         if (value != null) {
           setChannelData(channelReader.getChannel(), value);
           changes = true;
