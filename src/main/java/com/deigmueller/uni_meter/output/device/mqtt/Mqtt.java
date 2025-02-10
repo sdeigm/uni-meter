@@ -16,13 +16,19 @@ import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.ActorContext;
 import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
+import org.apache.pekko.japi.Pair;
+import org.apache.pekko.stream.KillSwitches;
 import org.apache.pekko.stream.OverflowStrategy;
+import org.apache.pekko.stream.QueueOfferResult;
+import org.apache.pekko.stream.UniqueKillSwitch;
 import org.apache.pekko.stream.connectors.mqtt.MqttConnectionSettings;
+import org.apache.pekko.stream.connectors.mqtt.MqttMessage;
 import org.apache.pekko.stream.connectors.mqtt.MqttQoS;
 import org.apache.pekko.stream.connectors.mqtt.javadsl.MqttSink;
+import org.apache.pekko.stream.javadsl.Keep;
 import org.apache.pekko.stream.javadsl.Source;
 import org.apache.pekko.stream.javadsl.SourceQueueWithComplete;
-import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.apache.pekko.util.ByteString;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.jetbrains.annotations.NotNull;
 
@@ -42,6 +48,8 @@ public class Mqtt extends OutputDevice {
   // Instance members
   private final List<TopicWriter> topicWriters = new ArrayList<>();
   private final StringSubstitutor stringSubstitutor;
+  private UniqueKillSwitch mqttStreamKillSwitch;
+  private SourceQueueWithComplete<MqttMessage> mqttStreamMessageQueue;
 
   /**
    * Static setup method
@@ -68,6 +76,8 @@ public class Mqtt extends OutputDevice {
     stringSubstitutor = createStringSubstitutor();
 
     initTopicWriters();
+    
+    startMqttOutputStream();
   }
 
   /**
@@ -76,15 +86,127 @@ public class Mqtt extends OutputDevice {
    */
   @Override
   public ReceiveBuilder<Command> newReceiveBuilder() {
-    return super.newReceiveBuilder();
+    return super.newReceiveBuilder()
+          .onMessage(NotifyMqttStreamFailed.class, this::onNotifyMqttStreamFailed)
+          .onMessage(NotifyMqttStreamFinished.class, this::onNotifyMqttStreamFinished)
+          .onMessage(NotifyQueueOfferFailed.class, this::onNotifyQueueOfferFailed)
+          .onMessage(NotifyQueueClosed.class, this::onNotifyQueueClosed)
+          .onMessage(NotifyRestartMqttStream.class, this::onRestartMqttStream);
+  }
+
+  /**
+   * Handle the notification that the MQTT stream failed.
+   * @param message Notification that the MQTT stream failed.
+   * @return Same behavior
+   */
+  private Behavior<Command> onNotifyMqttStreamFailed(@NotNull NotifyMqttStreamFailed message) {
+    logger.trace("Mqtt.onNotifyMqttStreamFailed()");
+    
+    logger.error("failed to create the MQTT stream", message.throwable());
+    
+    closeMqttStreamAndRestart(message.queue());
+    
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the notification that the MQTT stream finished.
+   * @param message Notification that the MQTT stream finished.
+   * @return Same behavior
+   */
+  private Behavior<Command> onNotifyMqttStreamFinished(@NotNull NotifyMqttStreamFinished message) {
+    logger.trace("Mqtt.onNotifyMqttStreamFinished()");
+    
+    logger.info("MQTT stream finished");
+
+    closeMqttStreamAndRestart(message.queue());
+    
+    return Behaviors.same();
   }
   
+  /**
+   * Handle the notification that the queue offer failed.
+   * @param message Notification that the queue offer failed.
+   * @return Same behavior
+   */
+  private Behavior<Command> onNotifyQueueOfferFailed(@NotNull NotifyQueueOfferFailed message) {
+    logger.trace("Mqtt.onNotifyQueueOfferFailed()");
 
+    logger.error("MQTT queue offer failed", message.throwable());
+
+    closeMqttStreamAndRestart(message.queue());
+    
+    return Behaviors.same();
+  }
+  
+  /**
+   * Handle the notification that the queue closed.
+   * @param message Notification that the queue closed.
+   * @return Same behavior
+   */
+  private Behavior<Command> onNotifyQueueClosed(@NotNull NotifyQueueClosed message) {
+    logger.trace("Mqtt.onNotifyQueueClosed()");
+    
+    logger.info("MQTT queue closed");
+    
+    closeMqttStreamAndRestart(message.queue());
+    
+    return Behaviors.same();
+  }
+  
+  /**
+   * Handle the request to restart the MQTT stream.
+   * @param message Request to restart the MQTT stream.
+   * @return Same behavior
+   */
+  private Behavior<Command> onRestartMqttStream(@NotNull NotifyRestartMqttStream message) {
+    logger.trace("Mqtt.onRestartMqttStream()");
+    
+    startMqttOutputStream();
+    
+    return Behaviors.same();
+  }
+  
   @Override
   protected void powerDataUpdated() {
-    for (TopicWriter topicWriter : topicWriters) {
-      String value = topicWriter.getValue(stringSubstitutor);
-      System.out.println("Writing value " + value + " to topic " + topicWriter.getTopic());
+    logger.trace("Mqtt.powerDataUpdated()");
+    
+    if (mqttStreamMessageQueue != null) {
+      for (TopicWriter topicWriter : topicWriters) {
+        String value = topicWriter.getValue(stringSubstitutor);
+        logger.debug("writing value '{}' to topic '{}'", value, topicWriter.getTopic());
+        
+        final SourceQueueWithComplete<MqttMessage> queue = this.mqttStreamMessageQueue;
+  
+        queue.offer(
+              MqttMessage.create(topicWriter.getTopic(), ByteString.fromString(value)).withQos(MqttQoS.atMostOnce())
+        ).whenComplete((offerResult, failure) -> {
+          if (failure != null) {
+            getContext().getSelf().tell(new NotifyQueueOfferFailed(queue, failure));
+          } else if (offerResult == QueueOfferResult.closed()) {
+            getContext().getSelf().tell(new NotifyQueueClosed(queue));
+          } else if (offerResult == QueueOfferResult.dropped()){
+            logger.warn("MQTT message dropped");
+          } else if (offerResult == QueueOfferResult.enqueued()) {
+            logger.debug("MQTT message enqueued");
+          }
+        });
+      }
+    }
+  }
+  
+  private void closeMqttStreamAndRestart(SourceQueueWithComplete<MqttMessage> queue) {
+    if (mqttStreamMessageQueue == queue) {
+      if (mqttStreamKillSwitch != null) {
+        mqttStreamKillSwitch.shutdown();
+      }
+      mqttStreamMessageQueue = null;
+      mqttStreamKillSwitch = null;
+      
+      getContext().getSystem().scheduler().scheduleOnce(
+            getConfig().getDuration("restart-delay"),
+            () -> getContext().getSelf().tell(NotifyRestartMqttStream.INSTANCE),
+            getContext().getSystem().executionContext());
     }
   }
   
@@ -197,38 +319,53 @@ public class Mqtt extends OutputDevice {
   /**
    * Start the MQTT stream.
    */
-  private void startMqttStream() {
+  private void startMqttOutputStream() {
+    logger.trace("Mqtt.createMqttOutputStream()");
+    
+    if (mqttStreamMessageQueue != null) {
+      throw new IllegalStateException("MQTT stream already running");
+    }
+    
     final ActorRef<Command> self = getContext().getSelf();
-
-    SourceQueueWithComplete<MqttMessage> throttlingQueue = Source
+    
+    Pair<Pair<SourceQueueWithComplete<MqttMessage>, UniqueKillSwitch>,CompletionStage<Done>> resultPair = Source
           .<MqttMessage>queue(1, OverflowStrategy.dropHead())
-          .runWith(
-                MqttSink.create(createConnectionSettings(), MqttQoS.atLeastOnce()),
-                getMaterializer());
-                      
-                .mapAsync(5, message -> AskPattern.ask(
-                self,
-                (ActorRef<AckTopicData> replyTo) -> new NotifyTopicData(message.topic(), message.payload(), replyTo),
-                Duration.ofSeconds(5),
-                getContext().getSystem().scheduler()))
-          .toMat(Sink.ignore(), Keep.both())
-          .run(getMaterializer());
-
-    result.first().whenComplete((done, throwable) -> {
+          .viaMat(KillSwitches.single(), Keep.both())
+          .toMat(MqttSink.create(createConnectionSettings(), MqttQoS.atLeastOnce()), Keep.both())
+          .run(getContext().getSystem());
+    
+    mqttStreamMessageQueue = resultPair.first().first();
+    mqttStreamKillSwitch = resultPair.first().second();
+    
+    final SourceQueueWithComplete<MqttMessage> queue = mqttStreamMessageQueue;
+    resultPair.second().whenComplete((done, throwable) -> {
       if (throwable != null) {
-        self.tell(new NotifyMqttStreamFailed(throwable));
+        self.tell(new NotifyMqttStreamFailed(queue, throwable));
       } else {
-        self.tell(new NotifyMqttStreamConnected());
+        self.tell(new NotifyMqttStreamFinished(queue));
       }
     });
-
-    result.second().whenComplete((done, throwable) -> {
-      if (throwable != null) {
-        self.tell(new NotifyMqttStreamFailed(throwable));
-      } else {
-        self.tell(new NotifyMqttStreamFinished());
-      }
-    });
-
   }
+  
+  private record NotifyMqttStreamFailed(
+        @NotNull SourceQueueWithComplete<MqttMessage> queue,
+        @NotNull Throwable throwable
+  ) implements Command {}
+  
+  private record NotifyMqttStreamFinished(
+        @NotNull SourceQueueWithComplete<MqttMessage> queue
+  ) implements Command {}
+  
+  private record NotifyQueueOfferFailed(
+        @NotNull SourceQueueWithComplete<MqttMessage> queue,
+        @NotNull Throwable throwable
+  ) implements Command {}
+
+  private record NotifyQueueClosed(
+        @NotNull SourceQueueWithComplete<MqttMessage> queue
+  ) implements Command {}
+ 
+  private enum NotifyRestartMqttStream implements Command {
+    INSTANCE
+  } 
 }

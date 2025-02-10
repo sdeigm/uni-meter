@@ -508,17 +508,14 @@ public abstract class Shelly extends OutputDevice {
     return Duration.between(startTime, Instant.now()).getSeconds();
   }
 
-  @Override
   protected Route createRoute() {
     return null;
   }
 
-  @Override
   protected int getNumOutputs() {
     return 0;
   }
 
-  @Override
   protected int getNumMeters() {
     return 0;
   }
