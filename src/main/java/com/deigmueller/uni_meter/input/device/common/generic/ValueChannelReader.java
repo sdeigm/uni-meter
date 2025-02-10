@@ -5,8 +5,10 @@
 package com.deigmueller.uni_meter.input.device.common.generic;
 
 import com.typesafe.config.Config;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 
 public class ValueChannelReader extends BaseChannelReader {
   public ValueChannelReader(@NotNull Config config) {
@@ -14,10 +16,12 @@ public class ValueChannelReader extends BaseChannelReader {
   }
 
   @Override
-  public @Nullable Double getValue(@NotNull String payload) {
+  public @Nullable Double getValue(@NotNull Logger logger,
+                                   @NotNull String payload) {
     try {
-      return Double.parseDouble(payload) * getScale();
+      return Double.parseDouble(StringUtils.strip(payload, "\"'")) * getScale();
     } catch (NumberFormatException exception) {
+      logger.debug("Failed to parse value <{}>: {}", payload, exception.getMessage());
       return null;
     }
   }
