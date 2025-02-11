@@ -2,6 +2,7 @@ package com.deigmueller.uni_meter.input.device.sma.energy_meter;
 
 import com.deigmueller.uni_meter.input.InputDevice;
 import com.deigmueller.uni_meter.output.OutputDevice;
+import com.digitalpetri.modbus.internal.util.Hex;
 import com.typesafe.config.Config;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
@@ -14,6 +15,7 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
 import java.net.*;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -364,6 +366,9 @@ public class EnergyMeter extends InputDevice {
             socket.receive(datagramPacket);
             
             try  {
+              if (logger.isDebugEnabled()) {
+                logger.debug("received packet {}", Hex.format(ByteBuffer.wrap(datagramPacket.getData(), 0, datagramPacket.getLength())));
+              }
               Telegram energyMeterPacket = ProtocolParser.parse(datagramPacket.getData(), datagramPacket.getLength());
               
               getContext().getSelf().tell(new NotifyEnergyMeterPacket(energyMeterPacket));
