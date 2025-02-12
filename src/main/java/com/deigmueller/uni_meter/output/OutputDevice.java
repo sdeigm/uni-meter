@@ -161,9 +161,9 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     logger.trace("OutputDevice.onNotifyPhaseEnergyData()");
 
     switch (message.phaseId()) {
-      case 0 -> energyPhase0 = message.data();
-      case 1 -> energyPhase1 = message.data();
-      case 2 -> energyPhase2 = message.data();
+      case 0 -> setEnergyPhase0(message.data());
+      case 1 -> setEnergyPhase1(message.data());
+      case 2 -> setEnergyPhase2(message.data());
     }
 
     message.replyTo().tell(new Ack(message.messageId()));

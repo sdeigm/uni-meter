@@ -2,6 +2,7 @@ package com.deigmueller.uni_meter.output.device.shelly;
 
 import com.deigmueller.uni_meter.application.UniMeter;
 import com.deigmueller.uni_meter.common.shelly.Rpc;
+import com.deigmueller.uni_meter.common.utils.MathUtils;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.typesafe.config.Config;
 import lombok.AllArgsConstructor;
@@ -225,21 +226,21 @@ public class ShellyPro3EM extends Shelly {
           getPowerPhase1().voltage(),
           getPowerPhase1().power(),
           getPowerPhase1().apparentPower(),
-          0.98,
+          getPowerPhase1().powerFactor(),
           getPowerPhase1().frequency(),
           null,
           getPowerPhase2().current(),
           getPowerPhase2().voltage(),
           getPowerPhase2().power(),
           getPowerPhase2().apparentPower(),
-          0.98,
+          getPowerPhase2().powerFactor(),
           getPowerPhase2().frequency(),
           null, //Collections.emptyList(),
           null, // 0.0,
           null, //Collections.emptyList(),
-          getPowerPhase0().current() + getPowerPhase1().current() + getPowerPhase2().current(),
-          getPowerPhase0().power() + getPowerPhase1().power() + getPowerPhase2().power(),
-          getPowerPhase0().apparentPower() + getPowerPhase1().apparentPower() + getPowerPhase2().apparentPower(),
+          MathUtils.round(getPowerPhase0().current() + getPowerPhase1().current() + getPowerPhase2().current(), 2),
+          MathUtils.round(getPowerPhase0().power() + getPowerPhase1().power() + getPowerPhase2().power(), 2),
+          MathUtils.round(getPowerPhase0().apparentPower() + getPowerPhase1().apparentPower() + getPowerPhase2().apparentPower(), 2),
           null, //Collections.emptyList()
           null
     );
@@ -256,8 +257,8 @@ public class ShellyPro3EM extends Shelly {
           getEnergyPhase1().totalProduction(),
           getEnergyPhase2().totalConsumption(),
           getEnergyPhase2().totalProduction(),
-          getEnergyPhase0().totalConsumption() + getEnergyPhase1().totalConsumption() + getEnergyPhase2().totalConsumption(),
-          getEnergyPhase0().totalProduction() + getEnergyPhase1().totalProduction() + getEnergyPhase2().totalProduction(),
+          MathUtils.round(getEnergyPhase0().totalConsumption() + getEnergyPhase1().totalConsumption() + getEnergyPhase2().totalConsumption(), 2),
+          MathUtils.round(getEnergyPhase0().totalProduction() + getEnergyPhase1().totalProduction() + getEnergyPhase2().totalProduction(), 2),
           null);
   }
   
