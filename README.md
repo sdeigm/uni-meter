@@ -8,9 +8,9 @@ The real electrical meter data currently can be gathered from the following devi
 
 - Fronius smart meter
 - Generic HTTP (configurable HTTP interface, usable for many devices)
-- ioBroker datapoints (using the simple API adapter)
+- ioBroker datapoints (via simple API adapter)
 - MQTT
-- Shelly 3EM (totally untested, I have no test device)
+- Shelly 3EM
 - SHRDZM smartmeter interface module (UDP)
 - SMA energy meter / Sunny Home Manager (UDP protocol)
 - SMD120 modbus energy meter (via Protos PE11) (SMD630 could be added, I have no test device)
