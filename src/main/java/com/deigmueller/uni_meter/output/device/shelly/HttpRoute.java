@@ -4,6 +4,7 @@ import com.deigmueller.uni_meter.application.WebsocketInput;
 import com.deigmueller.uni_meter.application.WebsocketOutput;
 import com.deigmueller.uni_meter.common.shelly.Rpc;
 import com.deigmueller.uni_meter.output.OutputDevice;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.pekko.NotUsed;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.ActorSystem;
@@ -32,6 +33,7 @@ class HttpRoute extends AllDirectives {
   private final ActorRef<OutputDevice.Command> shelly;
   private final ActorRef<WebsocketInput.Notification> websocketInput;
   private final Duration timeout = Duration.ofSeconds(5);
+  private final ObjectMapper objectMapper = Rpc.createObjectMapper();
 
   public HttpRoute(Logger logger, 
                    ActorSystem<?> system, 
@@ -80,6 +82,9 @@ class HttpRoute extends AllDirectives {
                             path("Sys.GetConfig" ,  
                                   this::onSysGetConfig
                             ),
+                            path("EM.GetConfig", () ->
+                                  parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmGetConfig(id.orElse(0)))
+                            ),
                             path("EM.GetStatus", () ->
                                   parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmGetStatus(id.orElse(0)))
                             ),
@@ -101,15 +106,15 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onShellyGet() {
-    return completeOKWithFuture(AskPattern.ask(shelly, Shelly.ShellyGet::new, timeout, system.scheduler()), Jackson.marshaller());
+    return completeOKWithFuture(AskPattern.ask(shelly, Shelly.ShellyGet::new, timeout, system.scheduler()), Jackson.marshaller(objectMapper));
   }
 
   private Route onSettingsGet() {
-    return completeOKWithFuture(AskPattern.ask(shelly, Shelly.SettingsGet::new, timeout, system.scheduler()), Jackson.marshaller());
+    return completeOKWithFuture(AskPattern.ask(shelly, Shelly.SettingsGet::new, timeout, system.scheduler()), Jackson.marshaller(objectMapper));
   }
 
   private Route onStatusGet() {
-    return completeOKWithFuture(AskPattern.ask(shelly, Shelly.StatusGet::new, timeout, system.scheduler()), Jackson.marshaller());
+    return completeOKWithFuture(AskPattern.ask(shelly, Shelly.StatusGet::new, timeout, system.scheduler()), Jackson.marshaller(objectMapper));
   }
 
   private Route onRpcRequest(Rpc.Request request) {
@@ -118,7 +123,7 @@ class HttpRoute extends AllDirectives {
                 (ActorRef<Rpc.ResponseFrame> replyTo) -> new Shelly.HttpRpcRequest(request, replyTo), timeout, 
                 system.scheduler()
           ), 
-          Jackson.marshaller());
+          Jackson.marshaller(objectMapper));
   }
 
   private Route onShellyGetStatus() {
@@ -129,7 +134,7 @@ class HttpRoute extends AllDirectives {
                 timeout,
                 system.scheduler()
           ),
-          Jackson.marshaller());
+          Jackson.marshaller(objectMapper));
   }
 
 
@@ -141,9 +146,26 @@ class HttpRoute extends AllDirectives {
                 timeout, 
                 system.scheduler()
           ),
-          Jackson.marshaller());
+          Jackson.marshaller(objectMapper));
   }
-  
+
+  private Route onEmGetConfig(int id) {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<ShellyPro3EM.EmGetConfigOrFailureResponse> replyTo) -> new ShellyPro3EM.EmGetConfig(id, replyTo),
+                timeout,
+                system.scheduler()
+          ).thenApply(response -> {
+            if (response.failure() != null) {
+              throw response.failure();
+            }
+
+            return response.status();
+          }),
+          Jackson.marshaller(objectMapper));
+  }
+
   private Route onEmGetStatus(int id) {
     return completeOKWithFuture(
           AskPattern.ask(
@@ -158,7 +180,7 @@ class HttpRoute extends AllDirectives {
             
             return response.status();
           }),
-          Jackson.marshaller());
+          Jackson.marshaller(objectMapper));
   }
 
   private Route onEmDataGetStatus(int id) {
@@ -175,7 +197,7 @@ class HttpRoute extends AllDirectives {
 
             return response.status();
           }),
-          Jackson.marshaller());
+          Jackson.marshaller(objectMapper));
   }
   
   /**

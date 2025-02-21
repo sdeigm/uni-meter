@@ -41,10 +41,10 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
       httpServerController = createHttpServerController();
       getContext().watch(httpServerController);
 
-        ActorRef<OutputDevice.Command> output = createOutput();
+      ActorRef<OutputDevice.Command> output = createOutput();
       getContext().watch(output);
 
-        ActorRef<InputDevice.Command> input = createInput(output);
+      ActorRef<InputDevice.Command> input = createInput(output);
       getContext().watch(input);       
     } catch (Exception e) {
       logger.error("failed to initialize the main controller", e);
@@ -102,7 +102,7 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
     String outputDeviceType = getContext().getSystem().settings().config().getString(outputDeviceConfigPath + ".type");
     
     if (outputDeviceType.equals("ShellyPro3EM")) {
-      logger.info("creating Shelly3EM output device");
+      logger.info("creating ShellyPro3EM output device");
       return getContext().spawn(
             Behaviors.supervise(
               ShellyPro3EM.create(
