@@ -27,12 +27,13 @@ import java.util.Locale;
 public class Rpc {
   private static final Logger LOGGER = LoggerFactory.getLogger("uni-meter.rpc"); 
   private static final ObjectMapper objectMapper = createObjectMapper();
-  private static ObjectMapper createObjectMapper() {
+  public static ObjectMapper createObjectMapper() {
     ObjectMapper objectMapper = new ObjectMapper();
     SimpleModule simpleModule = new SimpleModule("RpcModule", new Version(1,0,0, "", "com.deigmueller", "uni-meter"));
     simpleModule.addSerializer(Float.class, new FloatSerializer());
     simpleModule.addSerializer(Double.class, new DoubleSerializer());
     simpleModule.addSerializer(RpcNull.class, new RpcNullSerializer());
+    simpleModule.addSerializer(RpcStringOrNull.class, new RpcStringOrNullSerializer());
     objectMapper.registerModule(simpleModule);    
     return objectMapper.findAndRegisterModules();
   }
@@ -83,6 +84,7 @@ public class Rpc {
     if (methodNode != null) {
       String method = tree.get("method").asText();
       return switch (method) {
+        case "EM.GetConfig" -> objectMapper.treeToValue(tree, EmGetConfig.class);
         case "EM.GetStatus" -> objectMapper.treeToValue(tree, EmGetStatus.class);
         case "EMData.GetStatus" -> objectMapper.treeToValue(tree, EmDataGetStatus.class);
         case "Shelly.GetStatus" -> objectMapper.treeToValue(tree, ShellyGetStatus.class);
@@ -230,7 +232,8 @@ public class Rpc {
   @JsonPropertyOrder({"id", "a_current", "a_voltage", "a_act_power", "a_aprt_power", "a_pf", "a_freq", "a_errors",
                      "b_current", "b_voltage", "b_act_power", "b_aprt_power", "b_pf", "b_freq", "b_errors",
                      "c_current", "c_voltage", "c_act_power", "c_aprt_power", "c_pf", "c_freq", "c_errors",
-                     "n_current", "n_errors", "total_current", "total_act_power", "total_aprt_power", "user_calibrated_phase", "errors"})
+                     "n_current", "n_errors", "total_current", "total_act_power", "total_aprt_power", 
+                     "user_calibrated_phase", "errors"})
   public record EmGetStatusResponse(
         @JsonProperty("id") Integer id,
         @JsonProperty("a_current") Double a_current,
@@ -265,7 +268,45 @@ public class Rpc {
     @Override public String toString() { return Rpc.toString(this); }
   }
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record EmGetConfig(
+        @JsonProperty("id") Integer id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dest") String dest,
+        @JsonProperty("params") EmGetConfigParams params
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record EmGetConfigParams(
+        @JsonProperty("id") int id
+  ) {}
   
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonPropertyOrder({"id", "name", "blink_mode_selector", "phase_selector", "monitor_phase_sequence", "reverse", "ct_type"})
+  public record EmGetConfigResponse(
+        @JsonProperty("id") Integer id,
+        @JsonProperty("name") RpcStringOrNull name,
+        @JsonProperty("blink_mode_selector") String blink_mode_selector,
+        @JsonProperty("phase_selector") String phase_selector,
+        @JsonProperty("monitor_phase_sequence") Boolean monitor_phase_sequence,
+        @JsonProperty("reverse") ReverseConfig reverse,
+        @JsonProperty("ct_type") String ct_type
+  ) implements Response {
+    @Override public String toString() { return Rpc.toString(this); }
+  }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ReverseConfig(
+        @JsonProperty("a") Boolean a,
+        @JsonProperty("b") Boolean b,
+        @JsonProperty("c") Boolean c
+  ) {}
+
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   @JsonPropertyOrder({"ts", "em:0"})
@@ -398,6 +439,10 @@ public class Rpc {
   ) {}
   
   public record RpcNull() {}
+  
+  public record RpcStringOrNull(
+        String value
+  ) {}
 
   private static class LongSerializer extends JsonSerializer<Long> {
     @Override
@@ -441,6 +486,17 @@ public class Rpc {
     @Override
     public void serialize(RpcNull value, JsonGenerator jsonGenerator, SerializerProvider provider) throws IOException {
       jsonGenerator.writeNull();
+    }
+  }
+
+  private static class RpcStringOrNullSerializer extends JsonSerializer<RpcStringOrNull> {
+    @Override
+    public void serialize(RpcStringOrNull value, JsonGenerator jsonGenerator, SerializerProvider provider) throws IOException {
+      if (value != null && value.value() != null) {
+        jsonGenerator.writeString(value.value());
+      } else {
+        jsonGenerator.writeNull();
+      }
     }
   }
 }

@@ -46,6 +46,7 @@ public class ShellyPro3EM extends Shelly {
   @Override
   public @NotNull ReceiveBuilder<Command> newReceiveBuilder() {
     return super.newReceiveBuilder()
+          .onMessage(EmGetConfig.class, this::onEmGetConfig)
           .onMessage(EmGetStatus.class, this::onEmGetStatus)
           .onMessage(EmDataGetStatus.class, this::onEmDataGetStatus)
           .onMessage(ResetData.class, this::onResetData)
@@ -82,6 +83,29 @@ public class ShellyPro3EM extends Shelly {
                   null));
     } 
     
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the EM.GetConfig HTTP request
+   * @param request Request to get the EM configuration
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onEmGetConfig(@NotNull EmGetConfig request) {
+    logger.trace("ShellyPro3EM.onEmGetConfig()");
+
+    if (request.id() == 0) {
+      request.replyTo().tell(
+            new EmGetConfigOrFailureResponse(
+                  null,
+                  rpcEmGetConfig()));
+    } else  {
+      request.replyTo().tell(
+            new EmGetConfigOrFailureResponse(
+                  new NoSuchElementException("unknown EM with id " + request.id()),
+                  null));
+    }
+
     return Behaviors.same();
   }
 
@@ -173,6 +197,7 @@ public class ShellyPro3EM extends Shelly {
    
   protected Rpc.Response createRpcResult(Rpc.Request request) {
     return switch (request.method()) {
+      case "EM.GetConfig" -> rpcEmGetConfig();
       case "EM.GetStatus" -> rpcEmGetStatus();
       case "EMData.GetStatus" -> rpcEmDataGetStatus();
       case "Shelly.GetStatus" -> rpcShellyGetStatus();
@@ -209,6 +234,21 @@ public class ShellyPro3EM extends Shelly {
     
     return response;
   }
+  
+  private Rpc.EmGetConfigResponse rpcEmGetConfig() {
+    logger.trace("ShellyPro3EM.rpcEmGetConfig()");
+    
+    return new Rpc.EmGetConfigResponse(
+          0,
+          new Rpc.RpcStringOrNull(null),
+          "active_energy",
+          "a",
+          true,
+          new Rpc.ReverseConfig(null, null, null),
+          "120A"
+    );
+  }
+  
 
   private Rpc.EmGetStatusResponse rpcEmGetStatus() {
     logger.trace("ShellyPro3EM.rpcEmGetStatus()");
@@ -346,7 +386,17 @@ public class ShellyPro3EM extends Shelly {
         @JsonProperty("failure") RuntimeException failure,
         @JsonProperty("status") Rpc.EmGetStatusResponse status
   ) {}
-  
+
+  public record EmGetConfig(
+        @JsonProperty("id") int id,
+        @JsonProperty("replyTo") ActorRef<EmGetConfigOrFailureResponse> replyTo
+  ) implements Command {}
+
+  public record EmGetConfigOrFailureResponse(
+        @JsonProperty("failure") RuntimeException failure,
+        @JsonProperty("status") Rpc.EmGetConfigResponse status
+  ) {}
+
   public record EmDataGetStatus(
         @JsonProperty("id") int id,
         @JsonProperty("replyTo") ActorRef<EmDataGetStatusOrFailureResponse> replyTo
