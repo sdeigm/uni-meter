@@ -23,8 +23,8 @@ converter between different electrical meters, inverters and storage systems.
 
 ## Download
 
-The release versions are packaged as [GitHub release](https://github.com/sdeigm/uni-meter/releases).
-You just have to download the `uni-meter-<version>.tgz` archive.
+The release versions can be downloaded from the  [GitHub releases](https://github.com/sdeigm/uni-meter/releases).
+You just have to download the `uni-meter-<version>.tgz` archive. 
 
 ## Building
 
@@ -38,6 +38,26 @@ within the project's root directory.
 
 Afterward you will find a `uni-meter-<version>.tgz` archive in the `target` 
 directory which can be used to deploy the tool to the target system which most likely is a Raspberry Pi.
+
+Since some people asked, it is not necessary to build the tool yourself. For a normal user, that does not want to
+modify the source code, the provided prebuild releases are sufficient.
+
+## Preliminary remarks
+
+Not all the steps mentioned in this documentation are necessary for every setup. A lot of configuration options like
+throttling of the sampling frequency and default power values are optional and not necessary for most of the users. Only
+for fine-tuning the system, these options may be specified.
+
+For a Marstek Venus storage you just have to enable JSON RPC over UDP port 1010. It is not necessary to change the
+device id of the virtual Shelly and announce the tool via mDNS using the Avahi daemon. These steps can just be skipped.
+
+For a Hoymiles MS-A2 storage you have to announce the tool via mDNS using the Avahi daemon. You also have to change the
+device id of the virtual Shelly to a unique value. Otherwise, the Hoymiles app refuses to attach the Shelly to your
+system. Enabling JSON RPC over UDP is not necessary for the Hoymiles storage.
+
+If you want to use an ESP32 or a similar system which does not support Java 17, there is a similar project called
+[Energy2Shelly](https://github.com/TheRealMoeder/Energy2Shelly_ESP) which is written in C++ and can be used as an 
+alternative on such systems.
 
 ## Installation
 
