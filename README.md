@@ -55,7 +55,7 @@ For a Hoymiles MS-A2 storage you have to announce the tool via mDNS using the Av
 device id of the virtual Shelly to a unique value. Otherwise, the Hoymiles app refuses to attach the Shelly to your
 Hoymiles system. Enabling JSON RPC over UDP is not necessary for the Hoymiles storage.
 
-If you want to use an ESP32 or a similar system which does not support Java 17, there is a similar project called
+If you want to use an ESP32 or a similar system which does not support Java 17, there is another project called
 [Energy2Shelly](https://github.com/TheRealMoeder/Energy2Shelly_ESP) which is written in C++ and can be used as an 
 alternative on such systems.
 
