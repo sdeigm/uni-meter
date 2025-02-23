@@ -110,7 +110,6 @@ public abstract class Modbus extends InputDevice {
               | ((response.registers()[0] & 0xFF) << 24);
 
         float asFloat = Float.intBitsToFloat(asInt);
-        System.out.println("Value: " + asFloat);
 
         response = client.readInputRegisters(
               1,
@@ -123,7 +122,6 @@ public abstract class Modbus extends InputDevice {
               | ((response.registers()[0] & 0xFF) << 24);
 
         asFloat = Float.intBitsToFloat(asInt);
-        System.out.println("Value: " + asFloat);
         getContext().getSelf().tell(new NotifyConnectSucceeded(client));
       } catch (Exception e) {
         getContext().getSelf().tell(new NotifyConnectFailed(e));

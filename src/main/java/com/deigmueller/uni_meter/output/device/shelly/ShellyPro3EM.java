@@ -16,10 +16,13 @@ import org.apache.pekko.actor.typed.javadsl.AskPattern;
 import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
 import org.apache.pekko.http.javadsl.marshallers.jackson.Jackson;
+import org.apache.pekko.http.javadsl.model.RemoteAddress;
 import org.apache.pekko.http.javadsl.server.AllDirectives;
 import org.apache.pekko.http.javadsl.server.Route;
 
 import org.jetbrains.annotations.NotNull;
+
+import java.net.InetAddress;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -75,7 +78,7 @@ public class ShellyPro3EM extends Shelly {
       request.replyTo().tell(
             new EmGetStatusOrFailureResponse(
                   null, 
-                  rpcEmGetStatus()));
+                  rpcEmGetStatus(getPowerFactoryForRemoteAddress(request.remoteAddress()))));
     } else  {
       request.replyTo().tell(
             new EmGetStatusOrFailureResponse(
@@ -187,18 +190,20 @@ public class ShellyPro3EM extends Shelly {
   }
   
   @Override
-  protected Rpc.ResponseFrame createRpcResponse(Rpc.Request request) {
+  protected Rpc.ResponseFrame createRpcResponse(@NotNull InetAddress remoteAddress,
+                                                @NotNull Rpc.Request request) {
     return new Rpc.ResponseFrame(
           request.id(), 
           getHostname(), 
           request.src(),
-          createRpcResult(request));
+          createRpcResult(remoteAddress, request));
   }
    
-  protected Rpc.Response createRpcResult(Rpc.Request request) {
+  protected Rpc.Response createRpcResult(@NotNull InetAddress remoteAddress,
+                                         @NotNull Rpc.Request request) {
     return switch (request.method()) {
       case "EM.GetConfig" -> rpcEmGetConfig();
-      case "EM.GetStatus" -> rpcEmGetStatus();
+      case "EM.GetStatus" -> rpcEmGetStatus(getPowerFactoryForRemoteAddress(remoteAddress));
       case "EMData.GetStatus" -> rpcEmDataGetStatus();
       case "Shelly.GetStatus" -> rpcShellyGetStatus();
       case "Shelly.GetDeviceInfo" -> rpcGetDeviceInfo();
@@ -250,38 +255,44 @@ public class ShellyPro3EM extends Shelly {
   }
   
 
-  private Rpc.EmGetStatusResponse rpcEmGetStatus() {
+  private Rpc.EmGetStatusResponse rpcEmGetStatus(double factor) {
     logger.trace("ShellyPro3EM.rpcEmGetStatus()");
     
     return new Rpc.EmGetStatusResponse(
           0,
-          getPowerPhase0().current(),
-          getPowerPhase0().voltage(),
-          getPowerPhase0().power(),
-          getPowerPhase0().apparentPower(),
+          MathUtils.round(getPowerPhase0().current() * factor, 2),
+          MathUtils.round(getPowerPhase0().voltage(), 2),
+          MathUtils.round(getPowerPhase0().power() * factor, 2),
+          MathUtils.round(getPowerPhase0().apparentPower() * factor, 2),
           getPowerPhase0().powerFactor(),
           getPowerPhase0().frequency(),
-          null, //Collections.emptyList(),
-          getPowerPhase1().current(),
-          getPowerPhase1().voltage(),
-          getPowerPhase1().power(),
-          getPowerPhase1().apparentPower(),
+          null,
+          MathUtils.round(getPowerPhase1().current() * factor, 2),
+          MathUtils.round(getPowerPhase1().voltage(), 2),
+          MathUtils.round(getPowerPhase1().power() * factor, 2),
+          MathUtils.round(getPowerPhase1().apparentPower(), 2),
           getPowerPhase1().powerFactor(),
           getPowerPhase1().frequency(),
           null,
-          getPowerPhase2().current(),
-          getPowerPhase2().voltage(),
-          getPowerPhase2().power(),
-          getPowerPhase2().apparentPower(),
+          MathUtils.round(getPowerPhase2().current(), 2),
+          MathUtils.round(getPowerPhase2().voltage(), 2),
+          MathUtils.round(getPowerPhase2().power(), 2),
+          MathUtils.round(getPowerPhase2().apparentPower(), 2),
           getPowerPhase2().powerFactor(),
           getPowerPhase2().frequency(),
-          null, //Collections.emptyList(),
-          null, // 0.0,
-          null, //Collections.emptyList(),
-          MathUtils.round(getPowerPhase0().current() + getPowerPhase1().current() + getPowerPhase2().current(), 2),
-          MathUtils.round(getPowerPhase0().power() + getPowerPhase1().power() + getPowerPhase2().power(), 2),
-          MathUtils.round(getPowerPhase0().apparentPower() + getPowerPhase1().apparentPower() + getPowerPhase2().apparentPower(), 2),
-          null, //Collections.emptyList()
+          null,
+          null,
+          null,
+          MathUtils.round(
+                (getPowerPhase0().current() + getPowerPhase1().current() + getPowerPhase2().current()) * factor, 
+                2),
+          MathUtils.round(
+                (getPowerPhase0().power() + getPowerPhase1().power() + getPowerPhase2().power()) * factor, 
+                2),
+          MathUtils.round(
+                (getPowerPhase0().apparentPower() + getPowerPhase1().apparentPower() + getPowerPhase2().apparentPower()) * factor, 
+                2),
+          null,
           null
     );
   }
@@ -378,6 +389,7 @@ public class ShellyPro3EM extends Shelly {
   ) implements Command {}
 
   public record EmGetStatus(
+        @JsonProperty("remoteAddress") InetAddress remoteAddress,
         @JsonProperty("id") int id,
         @JsonProperty("replyTo") ActorRef<EmGetStatusOrFailureResponse> replyTo
   ) implements Command {}
@@ -398,6 +410,7 @@ public class ShellyPro3EM extends Shelly {
   ) {}
 
   public record EmDataGetStatus(
+        @JsonProperty("remoteAddress") RemoteAddress remoteAddress,
         @JsonProperty("id") int id,
         @JsonProperty("replyTo") ActorRef<EmDataGetStatusOrFailureResponse> replyTo
   ) implements Command {}

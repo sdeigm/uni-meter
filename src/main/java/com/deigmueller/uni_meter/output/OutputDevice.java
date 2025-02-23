@@ -17,11 +17,15 @@ import org.slf4j.LoggerFactory;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Getter(AccessLevel.PROTECTED)
 @Setter(AccessLevel.PROTECTED)
@@ -34,6 +38,8 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   private final Duration forgetInterval;
   private final double defaultVoltage;
   private final double defaultFrequency;
+  private final double defaultRemotePowerFactor;
+  private final Map<InetAddress,Double> remotePowerFactors = new HashMap<>();
   private final List<TimerOverride> timerOverrides = new ArrayList<>();
   
   private Instant lastPowerPhase0Update = Instant.now();
@@ -65,6 +71,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     this.forgetInterval = config.getDuration("forget-interval");
     this.defaultVoltage = config.getDouble("default-voltage");
     this.defaultFrequency = config.getDouble("default-frequency");
+    this.defaultRemotePowerFactor = config.getDouble("default-remote-power-factor");
     
     if (config.hasPath("timer-overrides")) {
       for (Config timerOverrideConfig : config.getConfigList("timer-overrides")) {
@@ -75,6 +82,8 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     initPowerOffsets(config);
 
     initDefaultPowerValues(config);
+
+    initRemotePowerFactors(config);
   }
   
   @Override
@@ -348,7 +357,35 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   protected PowerData getDefaultPowerData(double power) {
     return new PowerData(power, power, 1.0, power / defaultVoltage, defaultVoltage, defaultFrequency);
   }
+  
+  protected void initRemotePowerFactors(@NotNull Config config) {
+    if (config.hasPath("remote-power-factors")) {
+      for (Config remoteConfig : getConfig().getConfigList("remote-power-factors")) {
+        try {
+          remotePowerFactors.put(
+                InetAddress.getByName(remoteConfig.getString("address")), 
+                remoteConfig.getDouble("factor"));
+        } catch (UnknownHostException ignore) {
+          logger.debug("unknown host: {}", remoteConfig.getString("address"));
+        }
+      }
+      
+    }
+  }
 
+  /**
+   * Get the power factor for the given remote address
+   * @param remoteAddress Remote address
+   * @return Power factor
+   */
+  protected double getPowerFactoryForRemoteAddress(@NotNull InetAddress remoteAddress) {
+    double powerFactor = remotePowerFactors.getOrDefault(remoteAddress, defaultRemotePowerFactor);
+    
+    logger.trace("power factor for {} is {}", remoteAddress, powerFactor);
+    
+    return powerFactor;
+  }
+  
   public interface Command {}
 
   public record NotifyPhasePowerData(

@@ -11,6 +11,7 @@ import org.apache.pekko.actor.typed.ActorSystem;
 import org.apache.pekko.actor.typed.javadsl.AskPattern;
 import org.apache.pekko.http.javadsl.marshallers.jackson.Jackson;
 import org.apache.pekko.http.javadsl.model.HttpEntity;
+import org.apache.pekko.http.javadsl.model.RemoteAddress;
 import org.apache.pekko.http.javadsl.model.StatusCodes;
 import org.apache.pekko.http.javadsl.model.ws.Message;
 import org.apache.pekko.http.javadsl.model.ws.WebSocketUpgrade;
@@ -20,13 +21,18 @@ import org.apache.pekko.http.javadsl.unmarshalling.StringUnmarshallers;
 import org.apache.pekko.stream.Materializer;
 import org.apache.pekko.stream.javadsl.Sink;
 import org.apache.pekko.stream.javadsl.Source;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetAddress;
 import java.time.Duration;
 import java.util.UUID;
 
 class HttpRoute extends AllDirectives {
+  // Class members
+  private static final InetAddress DEFAULT_ADDRESS = InetAddress.getLoopbackAddress();
+  
   private final Logger logger;
   private final ActorSystem<?> system;
   private final Materializer materializer;
@@ -48,60 +54,61 @@ class HttpRoute extends AllDirectives {
   }
 
   public Route createRoute() {
-    return concat(
-          path("shelly", () -> 
-                get(this::onShellyGet)
-          ), 
-          path("settings", () -> 
-                get(this::onSettingsGet)
-          ), 
-          path("status", () -> 
-                get(this::onStatusGet)
-          ),
-          path("rpc", () ->
-                concat(
-                      post(() -> extractEntity(entity -> {
-                        HttpEntity.Strict strict = (HttpEntity.Strict) entity;
-                        strict.discardBytes(materializer);
-
-                        logger.trace("POST RpcRequest: {}", strict.getData().utf8String());
-                        return onRpcRequest(Rpc.parseRequest(strict.getData().toArray()));
-                      })),
-                      extractWebSocketUpgrade(upgrade -> {
-                        logger.trace("incoming websocket upgrade");
-                        return createWebsocketFlow(upgrade);
-                      })
-                )
-          ),
-          pathPrefix("rpc", () -> 
-                get(() ->
+    return extractClientIP(remoteAddress -> 
+          concat(
+                path("shelly", () -> 
+                      get(this::onShellyGet)
+                ), 
+                path("settings", () -> 
+                      get(this::onSettingsGet)
+                ), 
+                path("status", () -> 
+                      get(this::onStatusGet)
+                ),
+                path("rpc", () ->
                       concat(
-                            path("Shelly.GetStatus" ,
-                                  this::onShellyGetStatus
-                            ),
-                            path("Sys.GetConfig" ,  
-                                  this::onSysGetConfig
-                            ),
-                            path("EM.GetConfig", () ->
-                                  parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmGetConfig(id.orElse(0)))
-                            ),
-                            path("EM.GetStatus", () ->
-                                  parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmGetStatus(id.orElse(0)))
-                            ),
-                            path("EMData.GetStatus", () ->
-                                  parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmDataGetStatus(id.orElse(0)))
-                            ),
-                            extractUnmatchedPath(unmatchedPath -> {
-                              logger.error("unknown RPC method: {}", unmatchedPath.substring(1));
-                              return complete(StatusCodes.NOT_FOUND);
-                            })
+                            post(() -> extractEntity(entity -> {
+                              HttpEntity.Strict strict = (HttpEntity.Strict) entity;
+                              strict.discardBytes(materializer);
+
+                              logger.trace("POST RpcRequest: {}", strict.getData().utf8String());
+                              return onRpcRequest(remoteAddress, Rpc.parseRequest(strict.getData().toArray()));
+                            })),
+                            extractWebSocketUpgrade(upgrade ->
+                                  createWebsocketFlow(remoteAddress, upgrade)
+                            )
                       )
-                )
-          ),
-          extractUnmatchedPath(unmatchedPath -> {
-            logger.debug("unhandled HTTP path: {}", unmatchedPath.substring(1));
-            return complete(StatusCodes.NOT_FOUND);
-          })
+                ),
+                pathPrefix("rpc", () -> 
+                      get(() ->
+                            concat(
+                                  path("Shelly.GetStatus" ,
+                                        this::onShellyGetStatus
+                                  ),
+                                  path("Sys.GetConfig" ,  
+                                        this::onSysGetConfig
+                                  ),
+                                  path("EM.GetConfig", () ->
+                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmGetConfig(id.orElse(0)))
+                                  ),
+                                  path("EM.GetStatus", () ->
+                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmGetStatus(remoteAddress, id.orElse(0)))
+                                  ),
+                                  path("EMData.GetStatus", () ->
+                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmDataGetStatus(remoteAddress, id.orElse(0)))
+                                  ),
+                                  extractUnmatchedPath(unmatchedPath -> {
+                                    logger.error("unknown RPC method: {}", unmatchedPath.substring(1));
+                                    return complete(StatusCodes.NOT_FOUND);
+                                  })
+                            )
+                      )
+                ),
+                extractUnmatchedPath(unmatchedPath -> {
+                  logger.debug("unhandled HTTP path: {}", unmatchedPath.substring(1));
+                  return complete(StatusCodes.NOT_FOUND);
+                })
+          )
     );
   }
 
@@ -117,10 +124,12 @@ class HttpRoute extends AllDirectives {
     return completeOKWithFuture(AskPattern.ask(shelly, Shelly.StatusGet::new, timeout, system.scheduler()), Jackson.marshaller(objectMapper));
   }
 
-  private Route onRpcRequest(Rpc.Request request) {
+  private Route onRpcRequest(@NotNull RemoteAddress remoteAddress,
+                             @NotNull Rpc.Request request) {
     return completeOKWithFuture(AskPattern.ask(
                 shelly, 
-                (ActorRef<Rpc.ResponseFrame> replyTo) -> new Shelly.HttpRpcRequest(request, replyTo), timeout, 
+                (ActorRef<Rpc.ResponseFrame> replyTo) -> 
+                      new Shelly.HttpRpcRequest(remoteAddress.getAddress().orElse(DEFAULT_ADDRESS), request, replyTo), timeout, 
                 system.scheduler()
           ), 
           Jackson.marshaller(objectMapper));
@@ -166,11 +175,13 @@ class HttpRoute extends AllDirectives {
           Jackson.marshaller(objectMapper));
   }
 
-  private Route onEmGetStatus(int id) {
+  private Route onEmGetStatus(@NotNull RemoteAddress remoteAddress,
+                              int id) {
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly, 
-                (ActorRef<ShellyPro3EM.EmGetStatusOrFailureResponse> replyTo) -> new ShellyPro3EM.EmGetStatus(id, replyTo), 
+                (ActorRef<ShellyPro3EM.EmGetStatusOrFailureResponse> replyTo) -> 
+                      new ShellyPro3EM.EmGetStatus(remoteAddress.getAddress().orElse(DEFAULT_ADDRESS), id, replyTo), 
                 timeout, 
                 system.scheduler()
           ).thenApply(response -> {
@@ -183,11 +194,13 @@ class HttpRoute extends AllDirectives {
           Jackson.marshaller(objectMapper));
   }
 
-  private Route onEmDataGetStatus(int id) {
+  private Route onEmDataGetStatus(@NotNull RemoteAddress remoteAddress,
+                                  int id) {
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
-                (ActorRef<ShellyPro3EM.EmDataGetStatusOrFailureResponse> replyTo) -> new ShellyPro3EM.EmDataGetStatus(id, replyTo),
+                (ActorRef<ShellyPro3EM.EmDataGetStatusOrFailureResponse> replyTo) -> 
+                      new ShellyPro3EM.EmDataGetStatus(remoteAddress, id, replyTo),
                 timeout,
                 system.scheduler()
           ).thenApply(response -> {
@@ -205,7 +218,8 @@ class HttpRoute extends AllDirectives {
    *
    * @return Route of the WebSocket connection
    */
-  private Route createWebsocketFlow(WebSocketUpgrade upgrade) {
+  private Route createWebsocketFlow(@NotNull RemoteAddress remoteAddress,
+                                    @NotNull WebSocketUpgrade upgrade) {
     final String connectionId = UUID.randomUUID().toString();
     
     final Logger connectionLogger = LoggerFactory.getLogger("uni-meter.websocket." + connectionId);
@@ -214,12 +228,14 @@ class HttpRoute extends AllDirectives {
           WebsocketOutput.createSource(
                 connectionLogger,
                 materializer, 
-                (sourceActor) -> shelly.tell(new Shelly.WebsocketOutputOpened(connectionId, sourceActor)));
+                (sourceActor) -> shelly.tell(
+                      new Shelly.WebsocketOutputOpened(connectionId, remoteAddress.getAddress().orElse(DEFAULT_ADDRESS), sourceActor)));
 
     Sink<Message, NotUsed> sink = 
           WebsocketInput.createSink(
                 connectionLogger,
-                connectionId, 
+                connectionId,
+                remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
                 materializer, 
                 websocketInput);
 

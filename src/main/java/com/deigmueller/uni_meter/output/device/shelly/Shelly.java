@@ -36,6 +36,7 @@ import org.apache.pekko.util.ByteString;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.time.Instant;
@@ -49,6 +50,9 @@ import java.util.Set;
 @Getter(AccessLevel.PROTECTED)
 @Setter(AccessLevel.PROTECTED)
 public abstract class Shelly extends OutputDevice {
+  // Class members
+  private static InetAddress DEFAULT_ADDRESS = InetAddress.getLoopbackAddress();
+  
   // Instance members
   private final ActorRef<WebsocketInput.Notification> websocketInputNotificationAdapter =
         getContext().messageAdapter(WebsocketInput.Notification.class, WrappedWebsocketInputNotification::new);
@@ -171,7 +175,10 @@ public abstract class Shelly extends OutputDevice {
   protected Behavior<Command> onHttpRpcRequest(HttpRpcRequest request) {
     logger.trace("Shelly.onRpcRequest()");
     
-    request.replyTo().tell(createRpcResponse(request.request()));
+    request.replyTo().tell(
+          createRpcResponse(
+                request.remoteAddress(), 
+                request.request()));
 
     return Behaviors.same();
   }
@@ -179,7 +186,7 @@ public abstract class Shelly extends OutputDevice {
   protected Behavior<Command> onWebsocketOutputOpened(WebsocketOutputOpened message) {
     logger.trace("Shelly.onWebsocketOutputOpened()");
 
-    logger.debug("outgoing websocket connection {} created", message.connectionId());
+    logger.debug("outgoing websocket connection {} to {} created", message.connectionId(), message.remoteAddress());
 
     Pair<SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest>,UniqueKillSwitch> queueSwitchPair =
           Source.<WebsocketProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
@@ -190,7 +197,12 @@ public abstract class Shelly extends OutputDevice {
     
     websocketConnections.put(
           message.connectionId(), 
-          WebsocketContext.create(message.sourceActor(), queueSwitchPair.second(), queueSwitchPair.first(), null));
+          WebsocketContext.create(
+                message.remoteAddress(),
+                message.sourceActor(), 
+                queueSwitchPair.second(), 
+                queueSwitchPair.first(), 
+                null));
     
     return Behaviors.same();
   }
@@ -298,7 +310,7 @@ public abstract class Shelly extends OutputDevice {
     if ("EM.GetStatus".equals(request.method())) {
       websocketContext.handleEmGetStatusRequest(wsMessage, request);
     } else {
-      processRpcRequest(request, wsMessage.isText(), websocketContext.getOutput());
+      processRpcRequest(message.remoteAddress(), request, wsMessage.isText(), websocketContext.getOutput());
     }
   }
 
@@ -311,6 +323,7 @@ public abstract class Shelly extends OutputDevice {
     logger.trace("Shelly.onProcessPendingEmGetStatusRequest()");
 
     processRpcRequest(
+          message.websocketContext().getRemoteAddress(),
           message.websocketContext().getLastEmGetStatusRequest(),
           message.websocketMessage().isText(),
           message.websocketContext().getOutput());
@@ -369,7 +382,7 @@ public abstract class Shelly extends OutputDevice {
     if ("EM.GetStatus".equals(request.method())) {
       udpClientContext.handleEmGetStatusRequest(message.datagram(), request);
     } else {
-      processUdpRpcRequest(request, message.datagram().remote());
+      processUdpRpcRequest(message.datagram().remote(), request);
     }
   }
 
@@ -437,7 +450,7 @@ public abstract class Shelly extends OutputDevice {
     
     UdpClientContext udpClientContext = message.udpClientContext();
 
-    processUdpRpcRequest(udpClientContext.getLastEmGetStatusRequest(), udpClientContext.getRemote());
+    processUdpRpcRequest(udpClientContext.getRemote(), udpClientContext.getLastEmGetStatusRequest());
           
     return Behaviors.same();
   }
@@ -448,12 +461,13 @@ public abstract class Shelly extends OutputDevice {
    * @param createTextResponse Flag indicating whether to create a text or binary response
    * @param output Actor reference to the websocket output actor
    */
-  protected void processRpcRequest(@NotNull Rpc.Request request,
+  protected void processRpcRequest(@NotNull InetAddress remoteAddress,
+                                   @NotNull Rpc.Request request,
                                    boolean createTextResponse,
                                    @NotNull ActorRef<WebsocketOutput.Command> output) {
     logger.trace("Shelly.processRpcRequest()");
     
-    Rpc.ResponseFrame response = createRpcResponse(request);
+    Rpc.ResponseFrame response = createRpcResponse(remoteAddress, request);
 
     Message wsResponse;
     if (createTextResponse) {
@@ -467,13 +481,14 @@ public abstract class Shelly extends OutputDevice {
 
   /**
    * Process an RPC request received via UDP
+   * @param remote Remote IP address
    * @param request Incoming RPC request to process
    */
-  protected void processUdpRpcRequest(@NotNull Rpc.Request request,
-                                      @NotNull InetSocketAddress remote) {
+  protected void processUdpRpcRequest(@NotNull InetSocketAddress remote,
+                                      @NotNull Rpc.Request request) {
     logger.trace("Shelly.processUdpRpcRequest()");
 
-    Rpc.ResponseFrame response = createRpcResponse(request);
+    Rpc.ResponseFrame response = createRpcResponse(remote.getAddress(), request);
     
     udpOutput.tell(Datagram.create(ByteString.fromArrayUnsafe(Rpc.responseToBytes(response)), remote));
   }
@@ -496,7 +511,8 @@ public abstract class Shelly extends OutputDevice {
     }
   }
   
-  protected abstract Rpc.ResponseFrame createRpcResponse(Rpc.Request request);
+  protected abstract Rpc.ResponseFrame createRpcResponse(@NotNull InetAddress remoteAddress,
+                                                         @NotNull Rpc.Request request);
   
   private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
   
@@ -554,12 +570,14 @@ public abstract class Shelly extends OutputDevice {
   ) implements Command {}
   
   public record HttpRpcRequest(
+        @NotNull InetAddress remoteAddress,
         @NotNull Rpc.Request request,
         @NotNull ActorRef<Rpc.ResponseFrame> replyTo
   ) implements Command {}
   
   public record WebsocketOutputOpened(
         @NotNull String connectionId,
+        @NotNull InetAddress remoteAddress,
         @NotNull ActorRef<WebsocketOutput.Command> sourceActor
   ) implements Command {}
 
@@ -702,6 +720,7 @@ public abstract class Shelly extends OutputDevice {
   @Setter
   @AllArgsConstructor(staticName = "create")
   protected static class WebsocketContext {
+    private final InetAddress remoteAddress;
     private final ActorRef<WebsocketOutput.Command> output;
     private final UniqueKillSwitch killSwitch;
     private final SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest> throttlingQueue;
