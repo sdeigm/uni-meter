@@ -224,7 +224,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     }
 
     if (Duration.between(this.lastPowerPhase1Update, Instant.now()).compareTo(forgetInterval) > 0) {
-      return getDefaultPowerData(defaultPowerPhase0);
+      return getDefaultPowerData(defaultPowerPhase1);
     } else {
       return this.powerPhase1;
     }
@@ -243,7 +243,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     }
 
     if (Duration.between(this.lastPowerPhase2Update, Instant.now()).compareTo(forgetInterval) > 0) {
-      return getDefaultPowerData(defaultPowerPhase0);
+      return getDefaultPowerData(defaultPowerPhase2);
     } else {
       return this.powerPhase2;
     }
