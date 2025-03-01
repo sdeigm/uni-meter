@@ -6,6 +6,7 @@ import com.deigmueller.uni_meter.application.WebsocketInput;
 import com.deigmueller.uni_meter.application.WebsocketOutput;
 import com.deigmueller.uni_meter.common.shelly.Rpc;
 import com.deigmueller.uni_meter.output.OutputDevice;
+import com.deigmueller.uni_meter.output.ClientContext;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.typesafe.config.Config;
 import lombok.AccessLevel;
@@ -34,17 +35,18 @@ import org.apache.pekko.stream.javadsl.SourceQueueWithComplete;
 import org.apache.pekko.util.ByteString;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Getter(AccessLevel.PROTECTED)
 @Setter(AccessLevel.PROTECTED)
@@ -64,16 +66,14 @@ public abstract class Shelly extends OutputDevice {
   private final int bindPort = getConfig().getInt("port");
   private final int udpPort = getConfig().getInt("udp-port");
   private final String udpInterface = getConfig().getString("udp-interface");
-  private final String mac = getConfig().getString("device.mac");
-  private final String hostname = getConfig().getString("device.hostname");
+  private final String defaultMac = getConfig().getString("device.mac");
+  private final String defaultHostname = getConfig().getString("device.hostname");
   private final Duration minSamplePeriod = getConfig().getDuration("min-sample-period");
-  
-  private Settings settings = new Settings(getConfig());
   
   protected Shelly(@NotNull ActorContext<Command> context,
                    @NotNull ActorRef<UniMeter.Command> controller,
                    @NotNull Config config) {
-    super(context, controller, config);
+    super(context, controller, config, Shelly::initRemoteContexts);
     
     startUdpServer();
   }
@@ -107,11 +107,11 @@ public abstract class Shelly extends OutputDevice {
 
     request.response.tell(
           new ShellyInfo(
-                settings.getDevice().getType(),
-                settings.getDevice().getMac(),
-                settings.getLogin().isEnabled(),
-                settings.getFw(),
-                settings.isDiscoverable(),
+                getConfig().getString("device.type"),
+                getMac(request.remoteAddress()),
+                false,
+                getConfig().getString("fw"),
+                true,
                 1,
                 getNumOutputs(),
                 getNumMeters()));
@@ -127,7 +127,17 @@ public abstract class Shelly extends OutputDevice {
   protected Behavior<Command> onSettingsGet(SettingsGet request) {
     logger.trace("Shelly.onSettingsGet()");
 
-    request.replyTo().tell(settings);
+    request.replyTo().tell(
+          new Settings(
+                new Device(
+                      getConfig().getString("device.type"),
+                      getMac(request.remoteAddress()),
+                      getHostname(request.remoteAddress()),
+                      getNumOutputs(),
+                      getNumMeters()),
+                new Login(false, false, null),
+                getConfig().getString("fw"),
+                true));
 
     return Behaviors.same();
   }
@@ -137,7 +147,7 @@ public abstract class Shelly extends OutputDevice {
    * @param request Request for the Shelly device status
    * @return Same behavior
    */
-  protected Behavior<Command> onStatusGet(StatusGet request) {
+  protected Behavior<Command> onStatusGet(@NotNull StatusGet request) {
     logger.trace("Shelly.onStatusGet()");
 
     request.replyTo().tell(
@@ -149,7 +159,7 @@ public abstract class Shelly extends OutputDevice {
                 Instant.now().getEpochSecond(),
                 1,
                 false,
-                getMac(),
+                getMac(request.remoteAddress()),
                 50648,
                 38376,
                 32968,
@@ -171,7 +181,10 @@ public abstract class Shelly extends OutputDevice {
   protected Behavior<Command> onHttpRpcRequest(HttpRpcRequest request) {
     logger.trace("Shelly.onRpcRequest()");
     
-    request.replyTo().tell(createRpcResponse(request.request()));
+    request.replyTo().tell(
+          createRpcResponse(
+                request.remoteAddress(), 
+                request.request()));
 
     return Behaviors.same();
   }
@@ -179,7 +192,7 @@ public abstract class Shelly extends OutputDevice {
   protected Behavior<Command> onWebsocketOutputOpened(WebsocketOutputOpened message) {
     logger.trace("Shelly.onWebsocketOutputOpened()");
 
-    logger.debug("outgoing websocket connection {} created", message.connectionId());
+    logger.debug("outgoing websocket connection {} to {} created", message.connectionId(), message.remoteAddress());
 
     Pair<SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest>,UniqueKillSwitch> queueSwitchPair =
           Source.<WebsocketProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
@@ -190,7 +203,12 @@ public abstract class Shelly extends OutputDevice {
     
     websocketConnections.put(
           message.connectionId(), 
-          WebsocketContext.create(message.sourceActor(), queueSwitchPair.second(), queueSwitchPair.first(), null));
+          WebsocketContext.create(
+                message.remoteAddress(),
+                message.sourceActor(), 
+                queueSwitchPair.second(), 
+                queueSwitchPair.first(), 
+                null));
     
     return Behaviors.same();
   }
@@ -298,7 +316,7 @@ public abstract class Shelly extends OutputDevice {
     if ("EM.GetStatus".equals(request.method())) {
       websocketContext.handleEmGetStatusRequest(wsMessage, request);
     } else {
-      processRpcRequest(request, wsMessage.isText(), websocketContext.getOutput());
+      processRpcRequest(message.remoteAddress(), request, wsMessage.isText(), websocketContext.getOutput());
     }
   }
 
@@ -311,6 +329,7 @@ public abstract class Shelly extends OutputDevice {
     logger.trace("Shelly.onProcessPendingEmGetStatusRequest()");
 
     processRpcRequest(
+          message.websocketContext().getRemoteAddress(),
           message.websocketContext().getLastEmGetStatusRequest(),
           message.websocketMessage().isText(),
           message.websocketContext().getOutput());
@@ -369,7 +388,7 @@ public abstract class Shelly extends OutputDevice {
     if ("EM.GetStatus".equals(request.method())) {
       udpClientContext.handleEmGetStatusRequest(message.datagram(), request);
     } else {
-      processUdpRpcRequest(request, message.datagram().remote());
+      processUdpRpcRequest(message.datagram().remote(), request);
     }
   }
 
@@ -437,7 +456,7 @@ public abstract class Shelly extends OutputDevice {
     
     UdpClientContext udpClientContext = message.udpClientContext();
 
-    processUdpRpcRequest(udpClientContext.getLastEmGetStatusRequest(), udpClientContext.getRemote());
+    processUdpRpcRequest(udpClientContext.getRemote(), udpClientContext.getLastEmGetStatusRequest());
           
     return Behaviors.same();
   }
@@ -448,12 +467,13 @@ public abstract class Shelly extends OutputDevice {
    * @param createTextResponse Flag indicating whether to create a text or binary response
    * @param output Actor reference to the websocket output actor
    */
-  protected void processRpcRequest(@NotNull Rpc.Request request,
+  protected void processRpcRequest(@NotNull InetAddress remoteAddress,
+                                   @NotNull Rpc.Request request,
                                    boolean createTextResponse,
                                    @NotNull ActorRef<WebsocketOutput.Command> output) {
     logger.trace("Shelly.processRpcRequest()");
     
-    Rpc.ResponseFrame response = createRpcResponse(request);
+    Rpc.ResponseFrame response = createRpcResponse(remoteAddress, request);
 
     Message wsResponse;
     if (createTextResponse) {
@@ -467,13 +487,14 @@ public abstract class Shelly extends OutputDevice {
 
   /**
    * Process an RPC request received via UDP
+   * @param remote Remote IP address
    * @param request Incoming RPC request to process
    */
-  protected void processUdpRpcRequest(@NotNull Rpc.Request request,
-                                      @NotNull InetSocketAddress remote) {
+  protected void processUdpRpcRequest(@NotNull InetSocketAddress remote,
+                                      @NotNull Rpc.Request request) {
     logger.trace("Shelly.processUdpRpcRequest()");
 
-    Rpc.ResponseFrame response = createRpcResponse(request);
+    Rpc.ResponseFrame response = createRpcResponse(remote.getAddress(), request);
     
     udpOutput.tell(Datagram.create(ByteString.fromArrayUnsafe(Rpc.responseToBytes(response)), remote));
   }
@@ -496,7 +517,8 @@ public abstract class Shelly extends OutputDevice {
     }
   }
   
-  protected abstract Rpc.ResponseFrame createRpcResponse(Rpc.Request request);
+  protected abstract Rpc.ResponseFrame createRpcResponse(@NotNull InetAddress remoteAddress,
+                                                         @NotNull Rpc.Request request);
   
   private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
   
@@ -548,22 +570,81 @@ public abstract class Shelly extends OutputDevice {
           websocketInputNotificationAdapter);
     return commonRoute.createRoute();
   }
+
+  /**
+   * Get the hostname to use for the specified remote address
+   * @param remoteAddress Remote address
+   * @return Hostname to use
+   */
+  protected String getHostname(@NotNull InetAddress remoteAddress) {
+    ClientContext clientContext = getClientContexts().get(remoteAddress);
+    if (clientContext instanceof ShellyClientContext shellyRemoteContext && shellyRemoteContext.hostname() != null) {
+      return shellyRemoteContext.hostname();
+    }
+    
+    return defaultHostname;
+  }
+  
+  /**
+   * Get the MAC address to use for the specified remote address
+   * @param remoteAddress Remote address
+   * @return MAC address to use
+   */
+  protected String getMac(@NotNull InetAddress remoteAddress) {
+    ClientContext clientContext = getClientContexts().get(remoteAddress);
+    if (clientContext instanceof ShellyClientContext shellyRemoteContext && shellyRemoteContext.mac() != null) {
+      return shellyRemoteContext.mac();
+    }
+
+    return defaultMac;
+  }
+
+  protected static void initRemoteContexts(@NotNull Logger logger,
+                                           @NotNull List<? extends Config> remoteContexts,
+                                           @NotNull Map<InetAddress, ClientContext> remoteContextMap) {
+    for (Config remoteContext : remoteContexts) {
+      try {
+        String address = remoteContext.getString("address");
+        String mac = remoteContext.hasPath("mac")
+              ? remoteContext.getString("mac").toUpperCase()
+              : null;
+        String hostname = mac != null
+              ? "shellypro3em-" + mac.toLowerCase()
+              : null;
+        
+        Double powerFactor = remoteContext.hasPath("power-factor") 
+              ? remoteContext.getDouble("power-factor")
+              : null;
+        
+        remoteContextMap.put(
+              InetAddress.getByName(address),
+              new ShellyClientContext(mac, hostname, powerFactor));
+      } catch (UnknownHostException ignore) {
+        logger.debug("unknown host: {}", remoteContext.getString("address"));
+      }
+    }
+  }
+  
   
   public record ShellyGet(
+        @NotNull InetAddress remoteAddress,
         @NotNull ActorRef<ShellyInfo> response
   ) implements Command {}
   
   public record HttpRpcRequest(
+        @NotNull InetAddress remoteAddress,
         @NotNull Rpc.Request request,
         @NotNull ActorRef<Rpc.ResponseFrame> replyTo
   ) implements Command {}
   
   public record WebsocketOutputOpened(
         @NotNull String connectionId,
+        @NotNull InetAddress remoteAddress,
         @NotNull ActorRef<WebsocketOutput.Command> sourceActor
   ) implements Command {}
 
   public record SettingsGet(
+        @NotNull InetAddress remoteAddress,
         @NotNull ActorRef<Settings> replyTo
   ) implements Command {}
   
@@ -590,63 +671,39 @@ public abstract class Shelly extends OutputDevice {
   }
 
   public record ShellyInfo(
-    String type,
-    String mac,
-    boolean auth,
-    String fw,
-    boolean discoverable,
-    int longid,
-    int num_outputs,
-    int num_meters
+        String type,
+        String mac,
+        boolean auth,
+        String fw,
+        boolean discoverable,
+        int longid,
+        int num_outputs,
+        int num_meters
   ) {}
 
-  @Getter
-  @AllArgsConstructor
-  public static class Settings {
-    public final Device device;
-    public final Login login;
-    public final String fw;
-    public final boolean discoverable;
+  public record Settings(
+        Device device,
+        Login login,
+        String fw, 
+        boolean discoverable
+  ) {}
 
-    public Settings(@NotNull Config config) {
-      this.device = new Device(config.getConfig("device"));
-      this.login = new Login(config.getConfig("login"));
-      this.fw = config.getString("fw");
-      this.discoverable = config.getBoolean("discoverable");
-    }
-
-    @Getter
-    @AllArgsConstructor
-    public static class Device {
-      private final String type;
-      private final String mac;
-      private final String hostname;
-      private final int num_outputs = 1;
-      private final int num_meters = 3;
-
-      public Device(@NotNull Config config) {
-        this.type = config.getString("type");
-        this.mac = config.getString("mac").toUpperCase();
-        this.hostname = config.getString("hostname").toLowerCase();
-      }
-    }
-
-    @Getter
-    @AllArgsConstructor
-    public static class Login {
-      public final boolean enabled;
-      public final boolean unprotected;
-      public final String username;
-
-      public Login(@NotNull Config config) {
-        this.enabled = config.getBoolean("enabled");
-        this.unprotected = config.getBoolean("unprotected");
-        this.username = config.getString("username");
-      }
-    }
-  }
+  public record Device(
+      String type,
+      String mac,
+      String hostname,
+      int num_outputs,
+      int num_meters
+  ) {}
+  
+  public record Login(
+        boolean enabled,
+        boolean unprotected,
+        String username
+  ) {}
 
   public record StatusGet(
+        @NotNull InetAddress remoteAddress,
         @NotNull ActorRef<Status> replyTo
   ) implements Command {}
 
@@ -697,11 +754,18 @@ public abstract class Shelly extends OutputDevice {
         @JsonProperty("tF") double tF,
         @JsonProperty("is_valid") boolean isValid
   ) {}
+  
+  public record ShellyClientContext(
+        @Nullable String mac,
+        @Nullable String hostname,
+        @Nullable Double powerFactor
+  ) implements ClientContext {}
 
   @Getter
   @Setter
   @AllArgsConstructor(staticName = "create")
   protected static class WebsocketContext {
+    private final InetAddress remoteAddress;
     private final ActorRef<WebsocketOutput.Command> output;
     private final UniqueKillSwitch killSwitch;
     private final SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest> throttlingQueue;

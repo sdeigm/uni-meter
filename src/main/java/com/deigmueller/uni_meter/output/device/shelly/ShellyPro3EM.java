@@ -20,6 +20,8 @@ import org.apache.pekko.http.javadsl.server.AllDirectives;
 import org.apache.pekko.http.javadsl.server.Route;
 
 import org.jetbrains.annotations.NotNull;
+
+import java.net.InetAddress;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -37,8 +39,6 @@ public class ShellyPro3EM extends Shelly {
                          @NotNull ActorRef<UniMeter.Command> controller,
                          @NotNull Config config) {
     super(context, controller, config);
-    
-    this.setSettings(new Settings(config));
     
     controller.tell(new UniMeter.RegisterHttpRoute(getBindInterface(), getBindPort(), createRoute()));
   }
@@ -58,7 +58,7 @@ public class ShellyPro3EM extends Shelly {
   protected @NotNull Behavior<Command> onStatusGet(@NotNull StatusGet request) {
     logger.trace("ShellyPro3EM.onStatusGet()");
     
-    request.replyTo().tell(createStatus());
+    request.replyTo().tell(createStatus(request.remoteAddress()));
     
     return Behaviors.same();
   }
@@ -75,7 +75,7 @@ public class ShellyPro3EM extends Shelly {
       request.replyTo().tell(
             new EmGetStatusOrFailureResponse(
                   null, 
-                  rpcEmGetStatus()));
+                  rpcEmGetStatus(getPowerFactorForRemoteAddress(request.remoteAddress()))));
     } else  {
       request.replyTo().tell(
             new EmGetStatusOrFailureResponse(
@@ -153,7 +153,7 @@ public class ShellyPro3EM extends Shelly {
   protected @NotNull Behavior<Command> onShellyGetStatus(@NotNull ShellyGetStatus request) {
     logger.trace("ShellyPro3EM.onShellyGetStatus()");
     
-    request.replyTo().tell(createStatus());
+    request.replyTo().tell(createStatus(request.remoteAddress()));
     
     return Behaviors.same();
   }
@@ -166,7 +166,7 @@ public class ShellyPro3EM extends Shelly {
   protected @NotNull Behavior<Command> onSysGetConfig(@NotNull SysGetConfig request) {
     logger.trace("ShellyPro3EM.onSysGetConfig()");
     
-    request.replyTo().tell(rpcSysGetConfig());
+    request.replyTo().tell(rpcSysGetConfig(request.remoteAddress()));
     
     return Behaviors.same();
   }
@@ -187,38 +187,40 @@ public class ShellyPro3EM extends Shelly {
   }
   
   @Override
-  protected Rpc.ResponseFrame createRpcResponse(Rpc.Request request) {
+  protected Rpc.ResponseFrame createRpcResponse(@NotNull InetAddress remoteAddress,
+                                                @NotNull Rpc.Request request) {
     return new Rpc.ResponseFrame(
           request.id(), 
-          getHostname(), 
+          getHostname(remoteAddress), 
           request.src(),
-          createRpcResult(request));
+          createRpcResult(remoteAddress, request));
   }
    
-  protected Rpc.Response createRpcResult(Rpc.Request request) {
+  protected Rpc.Response createRpcResult(@NotNull InetAddress remoteAddress,
+                                         @NotNull Rpc.Request request) {
     return switch (request.method()) {
       case "EM.GetConfig" -> rpcEmGetConfig();
-      case "EM.GetStatus" -> rpcEmGetStatus();
+      case "EM.GetStatus" -> rpcEmGetStatus(getPowerFactorForRemoteAddress(remoteAddress));
       case "EMData.GetStatus" -> rpcEmDataGetStatus();
-      case "Shelly.GetStatus" -> rpcShellyGetStatus();
-      case "Shelly.GetDeviceInfo" -> rpcGetDeviceInfo();
-      case "Sys.GetConfig" -> rpcSysGetConfig();
+      case "Shelly.GetStatus" -> rpcShellyGetStatus(remoteAddress);
+      case "Shelly.GetDeviceInfo" -> rpcGetDeviceInfo(remoteAddress);
+      case "Sys.GetConfig" -> rpcSysGetConfig(remoteAddress);
       default -> rpcUnknownMethod(request);
     };
   }
 
-  private Rpc.Response rpcShellyGetStatus() {
+  private Rpc.Response rpcShellyGetStatus(@NotNull InetAddress remoteAddress) {
     logger.trace("Shelly.rpcShellyGetStatus()");
-    return createStatus();
+    return createStatus(remoteAddress);
   }
 
-  private Rpc.GetDeviceInfoResponse rpcGetDeviceInfo() {
+  private Rpc.GetDeviceInfoResponse rpcGetDeviceInfo(@NotNull InetAddress remoteAddress) {
     logger.trace("Shelly.rpcGetDeviceInfo()");
 
     Rpc.GetDeviceInfoResponse response = new Rpc.GetDeviceInfoResponse(
-          getHostname(),
-          getHostname(),
-          getMac(),
+          null,
+          getHostname(remoteAddress),
+          getMac(remoteAddress),
           1,
           "SPEM-003CEBEU",
           2,
@@ -250,38 +252,48 @@ public class ShellyPro3EM extends Shelly {
   }
   
 
-  private Rpc.EmGetStatusResponse rpcEmGetStatus() {
+  private Rpc.EmGetStatusResponse rpcEmGetStatus(double factor) {
     logger.trace("ShellyPro3EM.rpcEmGetStatus()");
+    
+    PowerData powerPhase0 = getPowerPhase0();
+    PowerData powerPhase1 = getPowerPhase1();
+    PowerData powerPhase2 = getPowerPhase2();
     
     return new Rpc.EmGetStatusResponse(
           0,
-          getPowerPhase0().current(),
-          getPowerPhase0().voltage(),
-          getPowerPhase0().power(),
-          getPowerPhase0().apparentPower(),
-          getPowerPhase0().powerFactor(),
-          getPowerPhase0().frequency(),
-          null, //Collections.emptyList(),
-          getPowerPhase1().current(),
-          getPowerPhase1().voltage(),
-          getPowerPhase1().power(),
-          getPowerPhase1().apparentPower(),
-          getPowerPhase1().powerFactor(),
-          getPowerPhase1().frequency(),
+          MathUtils.round(powerPhase0.current() * factor, 2),
+          MathUtils.round(powerPhase0.voltage(), 2),
+          MathUtils.round(powerPhase0.power() * factor, 2),
+          MathUtils.round(powerPhase0.apparentPower() * factor, 2),
+          powerPhase0.powerFactor(),
+          powerPhase0.frequency(),
           null,
-          getPowerPhase2().current(),
-          getPowerPhase2().voltage(),
-          getPowerPhase2().power(),
-          getPowerPhase2().apparentPower(),
-          getPowerPhase2().powerFactor(),
-          getPowerPhase2().frequency(),
-          null, //Collections.emptyList(),
-          null, // 0.0,
-          null, //Collections.emptyList(),
-          MathUtils.round(getPowerPhase0().current() + getPowerPhase1().current() + getPowerPhase2().current(), 2),
-          MathUtils.round(getPowerPhase0().power() + getPowerPhase1().power() + getPowerPhase2().power(), 2),
-          MathUtils.round(getPowerPhase0().apparentPower() + getPowerPhase1().apparentPower() + getPowerPhase2().apparentPower(), 2),
-          null, //Collections.emptyList()
+          MathUtils.round(powerPhase1.current() * factor, 2),
+          MathUtils.round(powerPhase1.voltage(), 2),
+          MathUtils.round(powerPhase1.power() * factor, 2),
+          MathUtils.round(powerPhase1.apparentPower() * factor, 2),
+          powerPhase1.powerFactor(),
+          powerPhase1.frequency(),
+          null,
+          MathUtils.round(powerPhase2.current() * factor, 2),
+          MathUtils.round(powerPhase2.voltage(), 2),
+          MathUtils.round(powerPhase2.power() * factor, 2),
+          MathUtils.round(powerPhase2.apparentPower() * factor, 2),
+          powerPhase2.powerFactor(),
+          powerPhase2.frequency(),
+          null,
+          null,
+          null,
+          MathUtils.round(
+                (powerPhase0.current() + powerPhase1.current() + powerPhase2.current()) * factor, 
+                2),
+          MathUtils.round(
+                (powerPhase0.power() + powerPhase1.power() + powerPhase2.power()) * factor, 
+                2),
+          MathUtils.round(
+                (powerPhase0.apparentPower() + powerPhase1.apparentPower() + powerPhase2.apparentPower()) * factor, 
+                2),
+          null,
           null
     );
   }
@@ -302,14 +314,14 @@ public class ShellyPro3EM extends Shelly {
           null);
   }
   
-  private Rpc.SysGetConfigResponse rpcSysGetConfig() {
+  private Rpc.SysGetConfigResponse rpcSysGetConfig(@NotNull InetAddress remoteAddress) {
     logger.trace("ShellyPro3EM.rpcSysGetConfig()");
     
     return new Rpc.SysGetConfigResponse(
           new Rpc.Device(
-                getHostname(),
-                getMac(),
-                getSettings().getFw(),
+                getHostname(remoteAddress),
+                getMac(remoteAddress),
+                getConfig().getString("fw"),
                 false,
                 "",
                 false),
@@ -337,7 +349,13 @@ public class ShellyPro3EM extends Shelly {
    * Create the device's status
    * @return Device's status
    */
-  private Status createStatus() {
+  private Status createStatus(@NotNull InetAddress remoteAddress) {
+    double clientPowerFactor = getPowerFactorForRemoteAddress(remoteAddress);
+    
+    PowerData powerPhase0 = getPowerPhase0();
+    PowerData powerPhase1 = getPowerPhase1();
+    PowerData powerPhase2 = getPowerPhase2();
+    
     return new Status(
           createWiFiStatus(),
           createCloudStatus(),
@@ -346,7 +364,7 @@ public class ShellyPro3EM extends Shelly {
           Instant.now().getEpochSecond(),
           1,
           false,
-          getMac(),
+          getMac(remoteAddress),
           50648,
           38376,
           32968,
@@ -357,10 +375,10 @@ public class ShellyPro3EM extends Shelly {
           false,
           createTempStatus(),
           List.of(
-                EMeterStatus.of(getPowerPhase0(), getEnergyPhase0()),
-                EMeterStatus.of(getPowerPhase1(), getEnergyPhase1()),
-                EMeterStatus.of(getPowerPhase2(), getEnergyPhase2())),
-          getPowerPhase0().power() + getPowerPhase1().power() + getPowerPhase2().power(),
+                EMeterStatus.of(powerPhase0, clientPowerFactor, getEnergyPhase0()),
+                EMeterStatus.of(powerPhase1, clientPowerFactor, getEnergyPhase1()),
+                EMeterStatus.of(powerPhase2, clientPowerFactor, getEnergyPhase2())),
+          (powerPhase0.power() + powerPhase1.power() + powerPhase2.power()) * clientPowerFactor,
           true);
   }
   
@@ -370,14 +388,17 @@ public class ShellyPro3EM extends Shelly {
   }
 
   public record ShellyGetStatus(
+        @JsonProperty("remoteAddress") InetAddress remoteAddress,
         @JsonProperty("replyTo") ActorRef<Shelly.Status> replyTo
   ) implements Command {}
   
   public record SysGetConfig(
+        @JsonProperty("remoteAddress") InetAddress remoteAddress,
         @JsonProperty("replyTo") ActorRef<Rpc.SysGetConfigResponse> replyTo
   ) implements Command {}
 
   public record EmGetStatus(
+        @JsonProperty("remoteAddress") InetAddress remoteAddress,
         @JsonProperty("id") int id,
         @JsonProperty("replyTo") ActorRef<EmGetStatusOrFailureResponse> replyTo
   ) implements Command {}
@@ -398,6 +419,7 @@ public class ShellyPro3EM extends Shelly {
   ) {}
 
   public record EmDataGetStatus(
+        @JsonProperty("remoteAddress") InetAddress remoteAddress,
         @JsonProperty("id") int id,
         @JsonProperty("replyTo") ActorRef<EmDataGetStatusOrFailureResponse> replyTo
   ) implements Command {}
@@ -410,13 +432,6 @@ public class ShellyPro3EM extends Shelly {
   public record ResetData(
         @NotNull ActorRef<Done> replyTo
   ) implements Command {}
-  
-  @Getter
-  public static class Settings extends Shelly.Settings {
-    public Settings(@NotNull Config config) {
-      super(config);
-    }
-  }
   
   @Getter
   public static class Status extends Shelly.Status {
@@ -461,11 +476,11 @@ public class ShellyPro3EM extends Shelly {
         @JsonProperty("total") double total,
         @JsonProperty("total_returned") double total_returned
   ) {
-    public static EMeterStatus of(PowerData data, EnergyData energyData) {
+    public static EMeterStatus of(PowerData data, double clientPowerFactor, EnergyData energyData) {
       return new EMeterStatus(
-            data.power(), 
+            data.power() * clientPowerFactor, 
             data.powerFactor(), 
-            data.current(), 
+            data.current() * clientPowerFactor, 
             data.voltage(), 
             true, 
             energyData.totalConsumption(),

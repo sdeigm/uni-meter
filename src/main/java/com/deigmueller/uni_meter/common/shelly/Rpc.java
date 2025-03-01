@@ -1,9 +1,6 @@
 package com.deigmueller.uni_meter.common.shelly;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.Version;
@@ -47,7 +44,7 @@ public class Rpc {
     }
   }
   
-  public static Request parseRequest(byte[] data) {
+  public static Request parseRequest(byte@NotNull[] data) {
     try {
       return treeToRequest(objectMapper.readTree(data));
     } catch (Exception e) {
@@ -55,7 +52,7 @@ public class Rpc {
     }
   }
 
-  public static Request parseRequest(String data) {
+  public static Request parseRequest(@NotNull String data) {
     try {
       return treeToRequest(objectMapper.readTree(data));
     } catch (Exception e) {
@@ -318,11 +315,12 @@ public class Rpc {
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   @JsonPropertyOrder({"id", "method", "src", "dst", "params"})
-  public record EmDataGetStatus(@JsonProperty("id") Integer id, 
-                                @JsonProperty("method") String method,
-                                @JsonProperty("src") String src, 
-                                @JsonProperty("dest") String dest,
-                                @JsonProperty("params") EmDataGetStatusParams params) implements Request {
+  public record EmDataGetStatus(
+        @JsonProperty("id") Integer id, 
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src, 
+        @JsonProperty("dest") String dest,
+        @JsonProperty("params") EmDataGetStatusParams params) implements Request {
   }
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
