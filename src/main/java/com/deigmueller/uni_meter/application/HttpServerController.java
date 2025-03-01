@@ -12,7 +12,6 @@ import java.util.Map;
 public class HttpServerController extends AbstractBehavior<HttpServerController.Command> {
   // Instance members
   private final Map<Integer, ActorRef<HttpServer.Command>> servers = new HashMap<>();
-  private final String bindInterface = "0.0.0.0";
   
   public static Behavior<Command> create() {
     return Behaviors.setup(HttpServerController::new);

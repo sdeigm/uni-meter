@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import org.jetbrains.annotations.NotNull;
 
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -38,8 +37,8 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   private final Duration forgetInterval;
   private final double defaultVoltage;
   private final double defaultFrequency;
-  private final double defaultRemotePowerFactor;
-  private final Map<InetAddress,Double> remotePowerFactors = new HashMap<>();
+  private final double defaultClientPowerFactor;
+  private final Map<InetAddress, ClientContext> clientContexts = new HashMap<>();
   private final List<TimerOverride> timerOverrides = new ArrayList<>();
   
   private Instant lastPowerPhase0Update = Instant.now();
@@ -64,14 +63,15 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   
   protected OutputDevice(@NotNull ActorContext<Command> context,
                          @NotNull ActorRef<UniMeter.Command> controller,
-                         @NotNull Config config) {
+                         @NotNull Config config,
+                         @NotNull ClientContextsInitializer clientContextsInitializer) {
     super(context);
     this.controller = controller;
     this.config = config;
     this.forgetInterval = config.getDuration("forget-interval");
     this.defaultVoltage = config.getDouble("default-voltage");
     this.defaultFrequency = config.getDouble("default-frequency");
-    this.defaultRemotePowerFactor = config.getDouble("default-remote-power-factor");
+    this.defaultClientPowerFactor = config.getDouble("default-client-power-factor");
     
     if (config.hasPath("timer-overrides")) {
       for (Config timerOverrideConfig : config.getConfigList("timer-overrides")) {
@@ -82,8 +82,12 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     initPowerOffsets(config);
 
     initDefaultPowerValues(config);
-
-    initRemotePowerFactors(config);
+    
+    if (config.hasPath("client-contexts")) {
+      clientContextsInitializer.initClientContexts(
+            logger,
+            config.getConfigList("client-contexts"), clientContexts);
+    }
   }
   
   @Override
@@ -358,32 +362,20 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     return new PowerData(power, power, 1.0, power / defaultVoltage, defaultVoltage, defaultFrequency);
   }
   
-  protected void initRemotePowerFactors(@NotNull Config config) {
-    if (config.hasPath("remote-power-factors")) {
-      for (Config remoteConfig : getConfig().getConfigList("remote-power-factors")) {
-        try {
-          remotePowerFactors.put(
-                InetAddress.getByName(remoteConfig.getString("address")), 
-                remoteConfig.getDouble("factor"));
-        } catch (UnknownHostException ignore) {
-          logger.debug("unknown host: {}", remoteConfig.getString("address"));
-        }
-      }
-      
-    }
-  }
-
   /**
    * Get the power factor for the given remote address
    * @param remoteAddress Remote address
    * @return Power factor
    */
-  protected double getPowerFactoryForRemoteAddress(@NotNull InetAddress remoteAddress) {
-    double powerFactor = remotePowerFactors.getOrDefault(remoteAddress, defaultRemotePowerFactor);
-    
-    logger.trace("power factor for {} is {}", remoteAddress, powerFactor);
-    
-    return powerFactor;
+  protected double getPowerFactorForRemoteAddress(@NotNull InetAddress remoteAddress) {
+    ClientContext clientContext = clientContexts.get(remoteAddress);
+    if (clientContext != null && clientContext.powerFactor() != null) {
+      logger.trace("power factor for {} is {}", remoteAddress, clientContext.powerFactor());
+      return clientContext.powerFactor();
+    } else {
+      logger.trace("using default power factor {} for {}", defaultClientPowerFactor, remoteAddress);
+      return defaultClientPowerFactor;
+    }
   }
   
   public interface Command {}
