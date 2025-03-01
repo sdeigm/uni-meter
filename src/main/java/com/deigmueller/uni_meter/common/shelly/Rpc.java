@@ -52,12 +52,8 @@ public class Rpc {
     }
   }
 
-  public static Request parseRequest(@NotNull String data) {
-    try {
-      return treeToRequest(objectMapper.readTree(data));
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
+  public static Request parseRequest(@NotNull String data) throws JsonProcessingException {
+    return treeToRequest(objectMapper.readTree(data));
   }
   
   public static String responseToString(ResponseFrame response) {

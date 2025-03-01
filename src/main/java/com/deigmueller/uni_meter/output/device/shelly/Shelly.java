@@ -8,6 +8,7 @@ import com.deigmueller.uni_meter.common.shelly.Rpc;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import com.deigmueller.uni_meter.output.ClientContext;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.typesafe.config.Config;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -240,6 +241,8 @@ public abstract class Shelly extends OutputDevice {
       } else {
         logger.error("unknown websocket input notification: {}", notification);
       }
+    } catch (JsonProcessingException e) {
+      logger.debug("websocket notification contains invalid JSON: {}", e.getMessage());
     } catch (Exception e) {
       logger.error("failure while processing websocket notification: {}", e.getMessage());
     } 
@@ -291,7 +294,7 @@ public abstract class Shelly extends OutputDevice {
    * Handle an incoming websocket message
    * @param message Notification of an incoming websocket message
    */
-  protected void onWebsocketMessageReceived(WebsocketInput.NotifyMessageReceived message) {
+  protected void onWebsocketMessageReceived(WebsocketInput.NotifyMessageReceived message) throws JsonProcessingException {
     logger.trace("Shelly.onWebsocketMessageReceived()");
 
     message.replyTo().tell(WebsocketInput.Ack.INSTANCE);
@@ -365,6 +368,8 @@ public abstract class Shelly extends OutputDevice {
       } else {
         logger.error("unknown UDP server notification: {}", notification);
       }
+    } catch (JsonProcessingException e) {
+      logger.debug("UDP notification contains invalid JSON: {}", e.getMessage());
     } catch (Exception e) {
       logger.error("failure while processing UDP server notification: {}", e.getMessage());
     }
@@ -372,7 +377,7 @@ public abstract class Shelly extends OutputDevice {
     return Behaviors.same(); 
   }
   
-  protected void onUdpServerDatagramReceived(UdpServer.NotifyDatagramReceived message) {
+  protected void onUdpServerDatagramReceived(UdpServer.NotifyDatagramReceived message) throws JsonProcessingException {
     logger.trace("Shelly.onUdpServerDatagramReceived()");
 
     message.replyTo().tell(UdpServer.Ack.INSTANCE);
