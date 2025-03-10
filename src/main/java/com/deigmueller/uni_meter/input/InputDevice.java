@@ -27,7 +27,7 @@ public abstract class InputDevice extends AbstractBehavior<InputDevice.Command> 
   private final Config config;
   private int nextMessageId = 1;
 
-  protected InputDevice(@NotNull ActorContext<Command> context,
+  protected   InputDevice(@NotNull ActorContext<Command> context,
                         @NotNull ActorRef<OutputDevice.Command> outputDevice,
                         @NotNull Config config) {
     super(context);
