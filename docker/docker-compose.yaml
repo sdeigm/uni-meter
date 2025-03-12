@@ -16,4 +16,4 @@ services:
       - ./uni-meter.conf:/etc/uni-meter.conf
       - ./logback.xml:/opt/uni-meter/config/logback.xml
       - ./shellypro3em.http.tcp.service:/etc/avahi/services/shellypro3em.http.tcp.service
-      - ./shellypro3em.https.tcp.service:/etc/avahi/services/shellypro3em.https.tcp.service
+      - ./shellypro3em.shelly.tcp.service:/etc/avahi/services/shellypro3em.shelly.tcp.service
