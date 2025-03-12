@@ -1,8 +1,8 @@
 # uni-meter
 
-uni-meter is a small tool that emulates a Shelly Pro3EM device for the usage with the Hoymiles MS-A2 and the Marstek
-Venus storage. It is not a full implementation of a Shelly Pro3EM device, currently only the parts that are needed by 
-the storages are implemented.
+uni-meter is a small tool that emulates a Shelly Pro3EM device for the usage with the Hoymiles MS-A2, the Marstek
+Venus storage and the EZHI hybrid inverter. It is not a full implementation of a Shelly Pro3EM device, currently only 
+the parts that are needed by the storages are implemented.
 
 The real electrical meter data currently can be gathered from the following devices:
 
