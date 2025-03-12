@@ -282,6 +282,27 @@ uni-meter {
 }
 ```
 
+### Changing the HTTP server port
+
+In its default configuration, the uni-meter listens on port 80 for incoming HTTP requests. That port can be changed to
+for instance port 4711 by adding the following parts to your `/etc/uni-meter.conf` file:
+
+```hocon
+uni-meter {
+  # ...
+  http-server {
+    port = 4711
+  }
+  
+  output-devices {
+    shelly-pro3em {
+      # ...
+      port = 4711
+    }
+  }
+}
+```
+
 ## Configuring the input sources
 
 ### Using a Fronius smart meter as input source
