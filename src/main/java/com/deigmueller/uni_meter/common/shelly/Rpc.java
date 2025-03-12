@@ -91,6 +91,7 @@ public class Rpc {
         case "EMData.GetStatus" -> objectMapper.treeToValue(tree, EmDataGetStatus.class);
         case "Shelly.GetStatus" -> objectMapper.treeToValue(tree, ShellyGetStatus.class);
         case "Shelly.GetDeviceInfo" -> objectMapper.treeToValue(tree, GetDeviceInfo.class);
+        case "Shelly.Reboot" -> objectMapper.treeToValue(tree, ShellyReboot.class);
         case "Sys.GetConfig" -> objectMapper.treeToValue(tree, SysGetConfig.class);
         case "Ws.GetConfig" -> objectMapper.treeToValue(tree, WsGetConfig.class);
         case "Ws.SetConfig" -> objectMapper.treeToValue(tree, WsSetConfig.class);
@@ -181,6 +182,37 @@ public class Rpc {
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ShellyReboot(
+        @JsonProperty("id") Integer id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dest") String dest,
+        @JsonProperty("params") ShellyRebootParams params
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ShellyRebootParams(
+        @JsonProperty("delay_ms") int delay_ms
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ShellyRebootResponse(
+  ) implements Response {
+    @Override
+    public String toString() {
+      try {
+        return objectMapper.writeValueAsString(this);
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException(e);
+      }
+    }
+  }
+  
+  
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public record GetDeviceInfo(
         @JsonProperty("id") Integer id,
         @JsonProperty("method") String method,
@@ -202,7 +234,7 @@ public class Rpc {
         @JsonProperty("ver") String ver,
         @JsonProperty("app") String app,
         @JsonProperty("auth_en") boolean auth_en,
-        @JsonProperty("auth_domain") String auth_domain,
+        @JsonProperty("auth_domain") RpcStringOrNull auth_domain,
         @JsonProperty("profile") String profile
   ) implements Response {
     @Override

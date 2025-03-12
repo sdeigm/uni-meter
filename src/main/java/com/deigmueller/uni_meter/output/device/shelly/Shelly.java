@@ -77,22 +77,7 @@ public abstract class Shelly extends OutputDevice {
    * @param request Request for the Shelly device information
    * @return Same behavior
    */
-  protected Behavior<Command> onShellyGet(ShellyGet request) {
-    logger.trace("Shelly.onShellyGet()");
-
-    request.response.tell(
-          new ShellyInfo(
-                getConfig().getString("device.type"),
-                getMac(request.remoteAddress()),
-                false,
-                getConfig().getString("fw"),
-                true,
-                1,
-                getNumOutputs(),
-                getNumMeters()));
-
-    return Behaviors.same();
-  }
+  abstract protected Behavior<Command> onShellyGet(ShellyGet request);
 
   /**
    * Handle an HTTP GET request for the Shelly device settings
@@ -279,7 +264,7 @@ public abstract class Shelly extends OutputDevice {
   
   public record ShellyGet(
         @NotNull InetAddress remoteAddress,
-        @NotNull ActorRef<ShellyInfo> response
+        @NotNull ActorRef<Rpc.GetDeviceInfoResponse> response
   ) implements Command {}
   
   public record HttpRpcRequest(

@@ -93,8 +93,15 @@ class HttpRoute extends AllDirectives {
                                   path("EMData.GetStatus", () ->
                                         parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmDataGetStatus(remoteAddress, id.orElse(0)))
                                   ),
+                                  path("Shelly.GetDeviceInfo", () ->
+                                        onShellyGetDeviceInfo(remoteAddress)      
+                                  ),
                                   path("Shelly.GetStatus" , () ->
                                         onShellyGetStatus(remoteAddress)
+                                  ),
+                                  path("Shelly.Reboot", () ->
+                                        parameterOptional(StringUnmarshallers.INTEGER, "delay_ms", delay_ms -> 
+                                              onShellyReboot(remoteAddress, delay_ms.orElse(1000)))
                                   ),
                                   path("Sys.GetConfig" , () ->
                                         onSysGetConfig(remoteAddress)
@@ -134,7 +141,7 @@ class HttpRoute extends AllDirectives {
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
-                (ActorRef<Shelly.ShellyInfo> replyTo) -> new Shelly.ShellyGet(
+                (ActorRef<Rpc.GetDeviceInfoResponse> replyTo) -> new Shelly.ShellyGet(
                       remoteAddress.getAddress().orElse(DEFAULT_ADDRESS), 
                       replyTo),
                 timeout, 
@@ -181,6 +188,19 @@ class HttpRoute extends AllDirectives {
           Jackson.marshaller(objectMapper));
   }
 
+  private Route onShellyGetDeviceInfo(@NotNull RemoteAddress remoteAddress) {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<Rpc.GetDeviceInfoResponse> replyTo) -> new ShellyPro3EM.ShellyGetDeviceInfo(
+                      remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
+                      replyTo),
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
   private Route onShellyGetStatus(@NotNull RemoteAddress remoteAddress) {
     return completeOKWithFuture(
           AskPattern.ask(
@@ -193,7 +213,22 @@ class HttpRoute extends AllDirectives {
           ),
           Jackson.marshaller(objectMapper));
   }
-  
+
+  private Route onShellyReboot(@NotNull RemoteAddress remoteAddress,
+                               int delayMs) {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<Rpc.ShellyRebootResponse> replyTo) -> new ShellyPro3EM.ShellyReboot(
+                      remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
+                      delayMs,
+                      replyTo),
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
   private Route onSysGetConfig(@NotNull RemoteAddress remoteAddress) {
     return completeOKWithFuture(
           AskPattern.ask(
