@@ -12,7 +12,6 @@ import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
 
 import java.net.*;
 import java.nio.ByteBuffer;
@@ -137,9 +136,12 @@ public class EnergyMeter extends InputDevice {
     OutputDevice.PowerData phase3PowerData = getPhase3PowerData(packet);
 
     if (phase1PowerData != null && phase2PowerData != null && phase3PowerData != null) {
-      getOutputDevice().tell(new OutputDevice.NotifyPhasePowerData(getNextMessageId(), 0, phase1PowerData, getOutputDeviceAckAdapter()));
-      getOutputDevice().tell(new OutputDevice.NotifyPhasePowerData(getNextMessageId(), 1, phase2PowerData, getOutputDeviceAckAdapter()));
-      getOutputDevice().tell(new OutputDevice.NotifyPhasePowerData(getNextMessageId(), 2, phase3PowerData, getOutputDeviceAckAdapter()));
+      getOutputDevice().tell(new OutputDevice.NotifyPhasesPowerData(
+            getNextMessageId(), 
+            phase1PowerData,
+            phase2PowerData,
+            phase3PowerData,
+            getOutputDeviceAckAdapter()));
     } else {
       OutputDevice.PowerData combinedPowerData = getCombinedPowerData(packet);
       if (combinedPowerData != null) {
@@ -342,7 +344,7 @@ public class EnergyMeter extends InputDevice {
         boolean joined = false;
 
         for (String networkInterfaceName : this.networkInterface) {
-          NetworkInterface networkInterface = lookupNetworkInterface(logger, networkInterfaceName);
+          NetworkInterface networkInterface = lookupNetworkInterface(networkInterfaceName);
           if (networkInterface == null) {
             logger.warn("unknown network interface {}, will not join", networkInterfaceName);
           } else {
@@ -388,8 +390,7 @@ public class EnergyMeter extends InputDevice {
     });
   }
   
-  private static @Nullable NetworkInterface lookupNetworkInterface(@NotNull Logger logger,
-                                                                   @NotNull String name) throws SocketException {
+  private static @Nullable NetworkInterface lookupNetworkInterface(@NotNull String name) throws SocketException {
     NetworkInterface networkInterface = NetworkInterface.getByName(name);
     if (networkInterface == null) {
       try {

@@ -142,43 +142,32 @@ public class ShellyPro3EM extends HttpInputDevice {
                     getObjectMapper().readValue(strictEntity.getData().toArray(), Rpc.EmGetStatusResponse.class);
             
             getOutputDevice().tell(
-                    new OutputDevice.NotifyPhasePowerData(
-                            getNextMessageId(),
-                            0,
-                            new OutputDevice.PowerData(
-                                    response.a_act_power(),
-                                    response.a_aprt_power(),
-                                    1.0,
-                                    response.a_current(),
-                                    response.a_voltage(),
-                                    response.a_freq()),
-                            getOutputDeviceAckAdapter()));
-
-            getOutputDevice().tell(
-                    new OutputDevice.NotifyPhasePowerData(
-                            getNextMessageId(),
-                            1,
-                            new OutputDevice.PowerData(
-                                    response.b_act_power(),
-                                    response.b_aprt_power(),
-                                    1.0,
-                                    response.b_current(),
-                                    response.b_voltage(),
-                                    response.b_freq()),
-                            getOutputDeviceAckAdapter()));
-
-            getOutputDevice().tell(
-                    new OutputDevice.NotifyPhasePowerData(
-                            getNextMessageId(),
-                            2,
-                            new OutputDevice.PowerData(
-                                    response.c_act_power(),
-                                    response.c_aprt_power(),
-                                    1.0,
-                                    response.c_current(),
-                                    response.c_voltage(),
-                                    response.c_freq()),
-                            getOutputDeviceAckAdapter()));
+                  new OutputDevice.NotifyPhasesPowerData(
+                        getNextMessageId(),
+                        new OutputDevice.PowerData(
+                              response.a_act_power(),
+                              response.a_aprt_power(),
+                              1.0,
+                              response.a_current(),
+                              response.a_voltage(),
+                              response.a_freq()),
+                        new OutputDevice.PowerData(
+                              response.b_act_power(),
+                              response.b_aprt_power(),
+                              1.0,
+                              response.b_current(),
+                              response.b_voltage(),
+                              response.b_freq()),
+                        new OutputDevice.PowerData(
+                              response.c_act_power(),
+                              response.c_aprt_power(),
+                              1.0,
+                              response.c_current(),
+                              response.c_voltage(),
+                              response.c_freq()),
+                        getOutputDeviceAckAdapter()
+                  )
+            );
         } catch (Exception e) {
             logger.error("Failed to parse EM.GetStatus response: {}", e.getMessage());
         }
