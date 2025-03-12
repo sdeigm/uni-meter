@@ -94,31 +94,55 @@ public class Shelly3EM extends HttpInputDevice {
 
       EmStatusResponse response =
             getObjectMapper().readValue(message.entity().getData().toArray(), EmStatusResponse.class);
+      
+      OutputDevice.PowerData phase1PowerData = new OutputDevice.PowerData(
+            response.emeters.get(0).power(),
+            response.emeters.get(0).power() / response.emeters.get(0).pf(),
+            response.emeters.get(0).pf(),
+            response.emeters.get(0).current(),
+            response.emeters.get(0).voltage(),
+            defaultFrequency);
+      OutputDevice.PowerData phase2PowerData = new OutputDevice.PowerData(
+            response.emeters.get(1).power(),
+            response.emeters.get(1).power() / response.emeters.get(1).pf(),
+            response.emeters.get(1).pf(),
+            response.emeters.get(1).current(),
+            response.emeters.get(1).voltage(),
+            defaultFrequency);
+      OutputDevice.PowerData phase3PowerData = new OutputDevice.PowerData(
+            response.emeters.get(2).power(),
+            response.emeters.get(2).power() / response.emeters.get(2).pf(),
+            response.emeters.get(2).pf(),
+            response.emeters.get(2).current(),
+            response.emeters.get(2).voltage(),
+            defaultFrequency);
 
-      for (int i=0; i<3; i++) {
-        getOutputDevice().tell(
-              new OutputDevice.NotifyPhasePowerData(
-                    getNextMessageId(),
-                    i,
-                    new OutputDevice.PowerData(
-                          response.emeters.get(i).power(),
-                          response.emeters.get(i).power() / response.emeters.get(i).pf(),
-                          response.emeters.get(i).pf(),
-                          response.emeters.get(i).current(),
-                          response.emeters.get(i).voltage(),
-                          defaultFrequency),
-                    getOutputDeviceAckAdapter()));
-
-        getOutputDevice().tell(
-              new OutputDevice.NotifyPhaseEnergyData(
-                    getNextMessageId(),
-                    i,
-                    new OutputDevice.EnergyData(
-                          response.emeters.get(i).total(),
-                          response.emeters.get(i).total_returned()),
-                    getOutputDeviceAckAdapter()));
-      }
-    } catch (Exception e) {
+      getOutputDevice().tell(
+            new OutputDevice.NotifyPhasesPowerData(
+                  getNextMessageId(),
+                  phase1PowerData,
+                  phase2PowerData,
+                  phase3PowerData,
+                  getOutputDeviceAckAdapter()));
+      
+      OutputDevice.EnergyData phase1EnergyData = new OutputDevice.EnergyData(
+            response.emeters.get(0).total(),
+            response.emeters.get(0).total_returned());
+      OutputDevice.EnergyData phase2EnergyData = new OutputDevice.EnergyData(
+            response.emeters.get(1).total(),
+            response.emeters.get(1).total_returned());
+      OutputDevice.EnergyData phase3EnergyData = new OutputDevice.EnergyData(
+            response.emeters.get(2).total(),
+            response.emeters.get(2).total_returned());
+      
+      getOutputDevice().tell(
+            new OutputDevice.NotifyPhasesEnergyData(
+                  getNextMessageId(),
+                  phase1EnergyData,
+                  phase2EnergyData,
+                  phase3EnergyData,
+                  getOutputDeviceAckAdapter()));
+  } catch (Exception e) {
       logger.error("Failed to parse /status response: {}", e.getMessage());
     }
 

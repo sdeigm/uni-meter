@@ -129,21 +129,12 @@ public abstract class GenericInputDevice extends InputDevice {
                   powerTotal, powerTotal, 1.0, powerTotal / defaultVoltage, defaultVoltage, defaultFrequency),
             getOutputDeviceAckAdapter()));
     } else {
-      getOutputDevice().tell(new OutputDevice.NotifyPhasePowerData(
+      getOutputDevice().tell(new OutputDevice.NotifyPhasesPowerData(
             getNextMessageId(),
-            0,
             new OutputDevice.PowerData(
                   powerL1, powerL1, 1.0, powerL1 / defaultVoltage, defaultVoltage, defaultFrequency),
-            getOutputDeviceAckAdapter()));
-      getOutputDevice().tell(new OutputDevice.NotifyPhasePowerData(
-            getNextMessageId(),
-            1,
             new OutputDevice.PowerData(
                   powerL2, powerL2, 1.0, powerL2 / defaultVoltage, defaultVoltage, defaultFrequency),
-            getOutputDeviceAckAdapter()));
-      getOutputDevice().tell(new OutputDevice.NotifyPhasePowerData(
-            getNextMessageId(),
-            2,
             new OutputDevice.PowerData(
                   powerL3, powerL3, 1.0, powerL3 / defaultVoltage, defaultVoltage, defaultFrequency),
             getOutputDeviceAckAdapter()));

@@ -4,6 +4,7 @@ import com.deigmueller.uni_meter.application.WebsocketInput;
 import com.deigmueller.uni_meter.application.WebsocketOutput;
 import com.deigmueller.uni_meter.common.shelly.Rpc;
 import com.deigmueller.uni_meter.output.OutputDevice;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.pekko.NotUsed;
 import org.apache.pekko.actor.typed.ActorRef;
@@ -56,6 +57,7 @@ class HttpRoute extends AllDirectives {
   public Route createRoute() {
     return extractClientIP(remoteAddress -> 
           concat(
+                path("reset_data", this::onResetData),
                 path("shelly", () -> 
                       get(() -> onShellyGet(remoteAddress))
                 ), 
@@ -82,12 +84,6 @@ class HttpRoute extends AllDirectives {
                 pathPrefix("rpc", () -> 
                       get(() ->
                             concat(
-                                  path("Shelly.GetStatus" , () -> 
-                                        onShellyGetStatus(remoteAddress)
-                                  ),
-                                  path("Sys.GetConfig" , () ->
-                                        onSysGetConfig(remoteAddress)
-                                  ),
                                   path("EM.GetConfig", () ->
                                         parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmGetConfig(id.orElse(0)))
                                   ),
@@ -96,6 +92,23 @@ class HttpRoute extends AllDirectives {
                                   ),
                                   path("EMData.GetStatus", () ->
                                         parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmDataGetStatus(remoteAddress, id.orElse(0)))
+                                  ),
+                                  path("Shelly.GetDeviceInfo", () ->
+                                        onShellyGetDeviceInfo(remoteAddress)      
+                                  ),
+                                  path("Shelly.GetStatus" , () ->
+                                        onShellyGetStatus(remoteAddress)
+                                  ),
+                                  path("Shelly.Reboot", () ->
+                                        parameterOptional(StringUnmarshallers.INTEGER, "delay_ms", delay_ms -> 
+                                              onShellyReboot(remoteAddress, delay_ms.orElse(1000)))
+                                  ),
+                                  path("Sys.GetConfig" , () ->
+                                        onSysGetConfig(remoteAddress)
+                                  ),
+                                  path("Ws.GetConfig", this::onWsGetConfig),
+                                  path("Ws.SetConfig", () -> 
+                                        parameter(StringUnmarshallers.STRING, "config", this::onWsSetConfig)
                                   ),
                                   extractUnmatchedPath(unmatchedPath -> {
                                     logger.error("unknown RPC method: {}", unmatchedPath.substring(1));
@@ -112,11 +125,23 @@ class HttpRoute extends AllDirectives {
     );
   }
 
+  private Route onResetData() {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                ShellyPro3EM.ResetData::new,
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller()
+    );
+  }
+
   private Route onShellyGet(@NotNull RemoteAddress remoteAddress) {
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
-                (ActorRef<Shelly.ShellyInfo> replyTo) -> new Shelly.ShellyGet(
+                (ActorRef<Rpc.GetDeviceInfoResponse> replyTo) -> new Shelly.ShellyGet(
                       remoteAddress.getAddress().orElse(DEFAULT_ADDRESS), 
                       replyTo),
                 timeout, 
@@ -163,6 +188,19 @@ class HttpRoute extends AllDirectives {
           Jackson.marshaller(objectMapper));
   }
 
+  private Route onShellyGetDeviceInfo(@NotNull RemoteAddress remoteAddress) {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<Rpc.GetDeviceInfoResponse> replyTo) -> new ShellyPro3EM.ShellyGetDeviceInfo(
+                      remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
+                      replyTo),
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
   private Route onShellyGetStatus(@NotNull RemoteAddress remoteAddress) {
     return completeOKWithFuture(
           AskPattern.ask(
@@ -175,7 +213,22 @@ class HttpRoute extends AllDirectives {
           ),
           Jackson.marshaller(objectMapper));
   }
-  
+
+  private Route onShellyReboot(@NotNull RemoteAddress remoteAddress,
+                               int delayMs) {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<Rpc.ShellyRebootResponse> replyTo) -> new ShellyPro3EM.ShellyReboot(
+                      remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
+                      delayMs,
+                      replyTo),
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
   private Route onSysGetConfig(@NotNull RemoteAddress remoteAddress) {
     return completeOKWithFuture(
           AskPattern.ask(
@@ -249,7 +302,36 @@ class HttpRoute extends AllDirectives {
           }),
           Jackson.marshaller(objectMapper));
   }
+
+  private Route onWsGetConfig() {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly, 
+                ShellyPro3EM.WsGetConfig::new,
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
   
+  private Route onWsSetConfig(@NotNull String config) {
+    Rpc.WsSetConfigParams setConfigParams;
+    try {
+      setConfigParams = Rpc.getObjectMapper().readValue(config, Rpc.WsSetConfigParams.class);
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException(e);
+    }
+
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<Rpc.WsSetConfigResponse> replyTo) -> new ShellyPro3EM.WsSetConfig(setConfigParams, replyTo),
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
   /**
    * Create a Pekko flow which handles the WebSocket connection
    * @return Route of the WebSocket connection

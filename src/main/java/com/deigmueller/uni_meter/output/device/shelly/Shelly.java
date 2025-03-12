@@ -8,7 +8,6 @@ import com.deigmueller.uni_meter.common.shelly.Rpc;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import com.deigmueller.uni_meter.output.ClientContext;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.typesafe.config.Config;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -17,28 +16,18 @@ import lombok.Setter;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.ActorContext;
-import org.apache.pekko.actor.typed.javadsl.Adapter;
 import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
-import org.apache.pekko.http.javadsl.model.ws.BinaryMessage;
-import org.apache.pekko.http.javadsl.model.ws.Message;
-import org.apache.pekko.http.javadsl.model.ws.TextMessage;
+import org.apache.pekko.http.javadsl.model.ws.*;
 import org.apache.pekko.http.javadsl.server.Route;
-import org.apache.pekko.japi.Pair;
-import org.apache.pekko.stream.KillSwitches;
-import org.apache.pekko.stream.OverflowStrategy;
 import org.apache.pekko.stream.UniqueKillSwitch;
 import org.apache.pekko.stream.connectors.udp.Datagram;
-import org.apache.pekko.stream.javadsl.Keep;
-import org.apache.pekko.stream.javadsl.Sink;
-import org.apache.pekko.stream.javadsl.Source;
-import org.apache.pekko.stream.javadsl.SourceQueueWithComplete;
+import org.apache.pekko.stream.javadsl.*;
 import org.apache.pekko.util.ByteString;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -53,30 +42,22 @@ import java.util.*;
 @Setter(AccessLevel.PROTECTED)
 public abstract class Shelly extends OutputDevice {
   // Instance members
-  private final ActorRef<WebsocketInput.Notification> websocketInputNotificationAdapter =
-        getContext().messageAdapter(WebsocketInput.Notification.class, WrappedWebsocketInputNotification::new);
-  private final ActorRef<UdpServer.Notification> udpServerNotificationAdapter =
-        getContext().messageAdapter(UdpServer.Notification.class, WrappedUdpServerNotification::new);
-  
-  private final Map<String, WebsocketContext> websocketConnections = new HashMap<>();
-  private final Map<InetSocketAddress, UdpClientContext> udpClients = new HashMap<>();
-  private ActorRef<Datagram> udpOutput = null;
-
   private final Instant startTime = Instant.now();
   private final String bindInterface = getConfig().getString("interface");
   private final int bindPort = getConfig().getInt("port");
-  private final int udpPort = getConfig().getInt("udp-port");
-  private final String udpInterface = getConfig().getString("udp-interface");
   private final String defaultMac = getConfig().getString("device.mac");
   private final String defaultHostname = getConfig().getString("device.hostname");
-  private final Duration minSamplePeriod = getConfig().getDuration("min-sample-period");
-  
+
+  /**
+   * Protected constructor
+   * @param context Actor context
+   * @param controller Uni-meter controller
+   * @param config The output device configuration
+   */
   protected Shelly(@NotNull ActorContext<Command> context,
                    @NotNull ActorRef<UniMeter.Command> controller,
                    @NotNull Config config) {
     super(context, controller, config, Shelly::initRemoteContexts);
-    
-    startUdpServer();
   }
 
   /**
@@ -88,14 +69,7 @@ public abstract class Shelly extends OutputDevice {
     return super.newReceiveBuilder()
           .onMessage(ShellyGet.class, this::onShellyGet)
           .onMessage(SettingsGet.class, this::onSettingsGet)
-          .onMessage(StatusGet.class, this::onStatusGet)
-          .onMessage(HttpRpcRequest.class, this::onHttpRpcRequest)
-          .onMessage(WebsocketProcessPendingEmGetStatusRequest.class, this::onProcessPendingEmGetStatusRequest)
-          .onMessage(WebsocketOutputOpened.class, this::onWebsocketOutputOpened)
-          .onMessage(ThrottlingQueueClosed.class, this::onThrottlingQueueClosed)
-          .onMessage(UdpClientProcessPendingEmGetStatusRequest.class, this::onUdpClientProcessPendingEmGetStatusRequest)
-          .onMessage(WrappedWebsocketInputNotification.class, this::onWrappedWebsocketInputNotification)
-          .onMessage(WrappedUdpServerNotification.class, this::onWrappedUdpServerNotification);
+          .onMessage(StatusGet.class, this::onStatusGet);
   }
 
   /**
@@ -103,22 +77,7 @@ public abstract class Shelly extends OutputDevice {
    * @param request Request for the Shelly device information
    * @return Same behavior
    */
-  protected Behavior<Command> onShellyGet(ShellyGet request) {
-    logger.trace("Shelly.onShellyGet()");
-
-    request.response.tell(
-          new ShellyInfo(
-                getConfig().getString("device.type"),
-                getMac(request.remoteAddress()),
-                false,
-                getConfig().getString("fw"),
-                true,
-                1,
-                getNumOutputs(),
-                getNumMeters()));
-
-    return Behaviors.same();
-  }
+  abstract protected Behavior<Command> onShellyGet(ShellyGet request);
 
   /**
    * Handle an HTTP GET request for the Shelly device settings
@@ -175,298 +134,6 @@ public abstract class Shelly extends OutputDevice {
   }
   
   /**
-   * Handle an HTTP RPC request
-   * @param request HTTP RPC request
-   * @return Same behavior
-   */
-  protected Behavior<Command> onHttpRpcRequest(HttpRpcRequest request) {
-    logger.trace("Shelly.onRpcRequest()");
-    
-    request.replyTo().tell(
-          createRpcResponse(
-                request.remoteAddress(), 
-                request.request()));
-
-    return Behaviors.same();
-  }
-  
-  protected Behavior<Command> onWebsocketOutputOpened(WebsocketOutputOpened message) {
-    logger.trace("Shelly.onWebsocketOutputOpened()");
-
-    logger.debug("outgoing websocket connection {} to {} created", message.connectionId(), message.remoteAddress());
-
-    Pair<SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest>,UniqueKillSwitch> queueSwitchPair =
-          Source.<WebsocketProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
-                .viaMat(KillSwitches.single(), Keep.both())
-                .throttle(1, minSamplePeriod)
-                .to(Sink.actorRef(Adapter.toClassic(getContext().getSelf()), ThrottlingQueueClosed.INSTANCE))
-                .run(getMaterializer());
-    
-    websocketConnections.put(
-          message.connectionId(), 
-          WebsocketContext.create(
-                message.remoteAddress(),
-                message.sourceActor(), 
-                queueSwitchPair.second(), 
-                queueSwitchPair.first(), 
-                null));
-    
-    return Behaviors.same();
-  }
-  
-  protected Behavior<Command> onThrottlingQueueClosed(ThrottlingQueueClosed message) {
-    logger.trace("Shelly.onThrottlingQueueClosed()");
-    return Behaviors.same();
-  }
-
-  /**
-   * Handle a wrapped websocket input notification
-   * @param message Wrapped websocket input notification
-   * @return Same behavior
-   */
-  protected Behavior<Command> onWrappedWebsocketInputNotification(WrappedWebsocketInputNotification message) {
-    logger.trace("Shelly.onWrappedWebsocketInputNotification()");
-    
-    try {
-      WebsocketInput.Notification notification = message.notification();
-      
-      if (notification instanceof WebsocketInput.NotifyMessageReceived messageReceived) {
-        onWebsocketMessageReceived(messageReceived);
-      } else if (notification instanceof WebsocketInput.NotifyOpened notifyOpened) {
-        onWebsocketInputOpened(notifyOpened);
-      } else if (notification instanceof WebsocketInput.NotifyClosed notifyClosed) {
-        onWebsocketInputClosed(notifyClosed);
-      } else if (notification instanceof WebsocketInput.NotifyFailed notifyFailed) {
-        onWebsocketInputFailed(notifyFailed);
-      } else {
-        logger.error("unknown websocket input notification: {}", notification);
-      }
-    } catch (JsonProcessingException e) {
-      logger.debug("websocket notification contains invalid JSON: {}", e.getMessage());
-    } catch (Exception e) {
-      logger.error("failure while processing websocket notification: {}", e.getMessage());
-    } 
-    
-    return Behaviors.same();
-  }
-  
-  /**
-   * Handle the notification that a websocket input connection was opened
-   * @param message Notification of an opened websocket input connection
-   */
-  protected void onWebsocketInputOpened(WebsocketInput.NotifyOpened message) {
-    logger.trace("Shelly.onWebsocketInputOpened()");
-
-    logger.debug("incoming websocket connection {} opened", message.connectionId());
-
-    message.replyTo().tell(WebsocketInput.Ack.INSTANCE);
-  }
-
-  /**
-   * Handle the notification that a websocket input connection was closed
-   * @param message Notification of a closed websocket input connection
-   */
-  protected void onWebsocketInputClosed(WebsocketInput.NotifyClosed message) {
-    logger.trace("Shelly.onWebsocketInputClosed()");
-    
-    logger.debug("incoming websocket connection {} closed", message.connectionId());
-    WebsocketContext context = websocketConnections.remove(message.connectionId());
-    if (context != null) {
-      context.close();
-    }
-  }
-
-  /**
-   * Handle the notification that a websocket input connection failed
-   * @param message Notification of a failed websocket input connection
-   */
-  protected void onWebsocketInputFailed(WebsocketInput.NotifyFailed message) {
-    logger.trace("Shelly.onWebsocketInputFailed()");
-
-    logger.error("incoming websocket connection {} failed: {}", message.connectionId(), message.failure().getMessage());
-    WebsocketContext context = websocketConnections.remove(message.connectionId());
-    if (context != null) {
-      context.close();
-    }
-  }
-
-  /**
-   * Handle an incoming websocket message
-   * @param message Notification of an incoming websocket message
-   */
-  protected void onWebsocketMessageReceived(WebsocketInput.NotifyMessageReceived message) throws JsonProcessingException {
-    logger.trace("Shelly.onWebsocketMessageReceived()");
-
-    message.replyTo().tell(WebsocketInput.Ack.INSTANCE);
-    
-    WebsocketContext websocketContext = websocketConnections.get(message.connectionId());
-    if (websocketContext == null) {
-      return;
-    }
-    
-    String text;     
-    Message wsMessage = message.message();
-    if (wsMessage.isText()) {
-      text = wsMessage.asTextMessage().getStrictText();
-    } else {
-      text = wsMessage.asBinaryMessage().getStrictData().utf8String();
-    }
-    
-    logger.trace("incoming websocket connection {} received message: {}", message.connectionId(), text);
-    
-    Rpc.Request request = Rpc.parseRequest(text);
-    
-    if ("EM.GetStatus".equals(request.method())) {
-      websocketContext.handleEmGetStatusRequest(wsMessage, request);
-    } else {
-      processRpcRequest(message.remoteAddress(), request, wsMessage.isText(), websocketContext.getOutput());
-    }
-  }
-
-  /**
-   * Handle the notification to process a pending EM.GetStatus request
-   * @param message Notification to process a pending EM.GetStatus request
-   * @return Same behavior
-   */
-  protected Behavior<Command> onProcessPendingEmGetStatusRequest(WebsocketProcessPendingEmGetStatusRequest message) {
-    logger.trace("Shelly.onProcessPendingEmGetStatusRequest()");
-
-    processRpcRequest(
-          message.websocketContext().getRemoteAddress(),
-          message.websocketContext().getLastEmGetStatusRequest(),
-          message.websocketMessage().isText(),
-          message.websocketContext().getOutput());
-
-    return Behaviors.same();
-  }
-
-  /**
-   * Handle a wrapped UDP server notification
-   * @param message Wrapped UDP server notification
-   * @return Same behavior
-   */
-  protected Behavior<Command> onWrappedUdpServerNotification(WrappedUdpServerNotification message) {
-    
-    try {
-      UdpServer.Notification notification = message.notification();
-      
-      if (notification instanceof UdpServer.NotifyDatagramReceived notifyDatagramReceived) {
-        onUdpServerDatagramReceived(notifyDatagramReceived);
-      } else if (notification instanceof UdpServer.NotifyOutput notifyOutput) {
-        logger.debug("UDP server output {}", notifyOutput.output());
-        udpOutput = notifyOutput.output();
-      } else if (notification instanceof UdpServer.NotifyInitialized notifyInitialized) {
-        logger.debug("UDP server initialized");
-        notifyInitialized.replyTo().tell(UdpServer.Ack.INSTANCE);
-      } else if (notification instanceof UdpServer.NotifyClosed) {
-        logger.error("UDP server closed");
-        throw new RuntimeException("UDP server closed");
-      } else if (notification instanceof UdpServer.NotifyFailed notifyFailed) {
-        onUdpServerFailed(notifyFailed);
-      } else if (notification instanceof UdpServer.NotifyBound notifyBound) {
-        logger.info("UDP server is listening on {}", notifyBound.address());
-      } else {
-        logger.error("unknown UDP server notification: {}", notification);
-      }
-    } catch (JsonProcessingException e) {
-      logger.debug("UDP notification contains invalid JSON: {}", e.getMessage());
-    } catch (Exception e) {
-      logger.error("failure while processing UDP server notification: {}", e.getMessage());
-    }
-    
-    return Behaviors.same(); 
-  }
-  
-  protected void onUdpServerDatagramReceived(UdpServer.NotifyDatagramReceived message) throws JsonProcessingException {
-    logger.trace("Shelly.onUdpServerDatagramReceived()");
-
-    message.replyTo().tell(UdpServer.Ack.INSTANCE);
-    
-    UdpClientContext udpClientContext = getUdpClientContext(message.datagram().remote());
-
-    String text = message.datagram().data().utf8String();
-
-    logger.trace("received udp datagram from {}: {}", message.datagram().remote(), text);
-
-    Rpc.Request request = Rpc.parseRequest(text);
-
-    if ("EM.GetStatus".equals(request.method())) {
-      udpClientContext.handleEmGetStatusRequest(message.datagram(), request);
-    } else {
-      processUdpRpcRequest(message.datagram().remote(), request);
-    }
-  }
-
-  /**
-   * Lookup the UDP client context for the specified remote address
-   * @param remote Remote address
-   * @return UDP client context
-   */
-  protected @NotNull UdpClientContext getUdpClientContext(@NotNull InetSocketAddress remote) {
-    logger.trace("Shelly.getUdpClientContext()");
-
-    UdpClientContext udpClientContext = udpClients.get(remote);
-    if (udpClientContext != null) {
-      return udpClientContext;
-    }
-
-    Pair<SourceQueueWithComplete<UdpClientProcessPendingEmGetStatusRequest>, UniqueKillSwitch> queueSwitchPair =
-          Source.<UdpClientProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
-                .viaMat(KillSwitches.single(), Keep.both())
-                .throttle(1, minSamplePeriod)
-                .to(Sink.actorRef(Adapter.toClassic(getContext().getSelf()), ThrottlingQueueClosed.INSTANCE))
-                .run(getMaterializer());
-
-    udpClientContext = UdpClientContext.of(remote, queueSwitchPair.second(), queueSwitchPair.first());
-
-    udpClients.put(remote, udpClientContext);
-    
-    // Cleanup unused UDP client contexts
-    Set<InetSocketAddress> toToRemove = new HashSet<>();
-    for (Map.Entry<InetSocketAddress, UdpClientContext> entry : udpClients.entrySet()) {
-      if (Duration.between(entry.getValue().getLastEmGetStatusRequestTime(), Instant.now()).getSeconds() > 60) {
-        toToRemove.add(entry.getKey());
-      }
-    }
-    
-    for (InetSocketAddress key : toToRemove) {
-      UdpClientContext context = udpClients.remove(key);
-      if (context != null) {
-        context.close();
-      }
-    }
-    
-    return udpClientContext;
-  }
-
-  /**
-   * Handle the notification that the UDP server failed
-   * @param message Notification that the UDP server failed
-   */
-  protected void onUdpServerFailed(UdpServer.NotifyFailed message) {
-    logger.trace("Shelly.onUdpServerFailed()");
-    
-    logger.error("UDP server failed: {}", message.failure().getMessage());
-    
-    throw new RuntimeException("UDP server failed", message.failure());
-  }
-
-  /**
-   * Handle the notification to process a pending EM.GetStatus request
-   * @param message Notification to process a pending EM.GetStatus request
-   * @return Same behavior
-   */
-  protected Behavior<Command> onUdpClientProcessPendingEmGetStatusRequest(UdpClientProcessPendingEmGetStatusRequest message) {
-    logger.trace("Shelly.onUdpClientProcessPendingEmGetStatusRequest()");
-    
-    UdpClientContext udpClientContext = message.udpClientContext();
-
-    processUdpRpcRequest(udpClientContext.getRemote(), udpClientContext.getLastEmGetStatusRequest());
-          
-    return Behaviors.same();
-  }
-
-  /**
    * Process the specified RPC request
    * @param request Incoming RPC request to process
    * @param createTextResponse Flag indicating whether to create a text or binary response
@@ -490,38 +157,6 @@ public abstract class Shelly extends OutputDevice {
     output.tell(new WebsocketOutput.Send(wsResponse));
   }
 
-  /**
-   * Process an RPC request received via UDP
-   * @param remote Remote IP address
-   * @param request Incoming RPC request to process
-   */
-  protected void processUdpRpcRequest(@NotNull InetSocketAddress remote,
-                                      @NotNull Rpc.Request request) {
-    logger.trace("Shelly.processUdpRpcRequest()");
-
-    Rpc.ResponseFrame response = createRpcResponse(remote.getAddress(), request);
-    
-    udpOutput.tell(Datagram.create(ByteString.fromArrayUnsafe(Rpc.responseToBytes(response)), remote));
-  }
-
-  /**
-   * Start the UDP server if configured
-   */
-  protected void startUdpServer() {
-    logger.trace("Shelly.startUdpServer()");
-    
-    if (udpPort > 0) {
-      final InetSocketAddress bindAddress = new InetSocketAddress(udpInterface, udpPort);
-
-      UdpServer.createServer(
-            LoggerFactory.getLogger(logger.getName() + ".udp-server"),
-            getContext().getSystem(),
-            getMaterializer(),
-            bindAddress,
-            udpServerNotificationAdapter);
-    }
-  }
-  
   protected abstract Rpc.ResponseFrame createRpcResponse(@NotNull InetAddress remoteAddress,
                                                          @NotNull Rpc.Request request);
   
@@ -566,16 +201,6 @@ public abstract class Shelly extends OutputDevice {
     return new TempStatus(28.08, 82.54, true);
   }
 
-  protected Route createCommonRoute() {
-    HttpRoute commonRoute = new HttpRoute(
-          LoggerFactory.getLogger(logger.getName() + ".http"),
-          getContext().getSystem(), 
-          getMaterializer(),
-          getContext().getSelf(),
-          websocketInputNotificationAdapter);
-    return commonRoute.createRoute();
-  }
-
   /**
    * Get the hostname to use for the specified remote address
    * @param remoteAddress Remote address
@@ -604,6 +229,12 @@ public abstract class Shelly extends OutputDevice {
     return defaultMac;
   }
 
+  /**
+   * Initialize the remote contexts
+   * @param logger Logger
+   * @param remoteContexts List of remote context configuration
+   * @param remoteContextMap Target Map of remote contexts
+   */
   protected static void initRemoteContexts(@NotNull Logger logger,
                                            @NotNull List<? extends Config> remoteContexts,
                                            @NotNull Map<InetAddress, ClientContext> remoteContextMap) {
@@ -633,7 +264,7 @@ public abstract class Shelly extends OutputDevice {
   
   public record ShellyGet(
         @NotNull InetAddress remoteAddress,
-        @NotNull ActorRef<ShellyInfo> response
+        @NotNull ActorRef<Rpc.GetDeviceInfoResponse> response
   ) implements Command {}
   
   public record HttpRpcRequest(

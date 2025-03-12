@@ -100,8 +100,10 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     return super.newReceiveBuilder()
           .onSignal(PostStop.class, this::onPostStop)
           .onMessage(NotifyPhasePowerData.class, this::onNotifyPhasePowerData)
+          .onMessage(NotifyPhasesPowerData.class, this::onNotifyPhasesPowerData)
           .onMessage(NotifyTotalPowerData.class, this::onNotifyTotalPowerData)
           .onMessage(NotifyPhaseEnergyData.class, this::onNotifyPhaseEnergyData)
+          .onMessage(NotifyPhasesEnergyData.class, this::onNotifyPhasesEnergyData)
           .onMessage(NotifyTotalEnergyData.class, this::onNotifyTotalEnergyData);
   }
 
@@ -130,6 +132,27 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     }
 
     message.replyTo().tell(new Ack(message.messageId()));
+    
+    eventPowerDataChanged();
+
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the notification of power data
+   * @param message Notification of power data
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onNotifyPhasesPowerData(@NotNull NotifyPhasesPowerData message) {
+    logger.trace("OutputDevice.onNotifyPhasesPowerData()");
+    
+    setPowerPhase0(message.phase1());
+    setPowerPhase1(message.phase2());
+    setPowerPhase2(message.phase3());
+
+    message.replyTo().tell(new Ack(message.messageId()));
+
+    eventPowerDataChanged();
 
     return Behaviors.same();
   }
@@ -162,6 +185,8 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
 
     message.replyTo().tell(new Ack(message.messageId()));
 
+    eventPowerDataChanged();
+
     return Behaviors.same();
   }
 
@@ -178,6 +203,23 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
       case 1 -> setEnergyPhase1(message.data());
       case 2 -> setEnergyPhase2(message.data());
     }
+
+    message.replyTo().tell(new Ack(message.messageId()));
+
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the notification of the energy data for all 3 phases
+   * @param message Notification of energy data
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onNotifyPhasesEnergyData(@NotNull OutputDevice.NotifyPhasesEnergyData message) {
+    logger.trace("OutputDevice.onNotifyPhasesEnergyData()");
+    
+    setEnergyPhase0(message.phase1());
+    setEnergyPhase1(message.phase2());
+    setEnergyPhase2(message.phase3());
 
     message.replyTo().tell(new Ack(message.messageId()));
 
@@ -310,6 +352,8 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   
   protected abstract int getNumMeters();
   
+  protected abstract void eventPowerDataChanged();
+  
   private @Nullable PowerData getPowerTimerOverride() {
     LocalDateTime now = LocalDateTime.now();
     
@@ -386,7 +430,15 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
         @NotNull PowerData data,
         @NotNull ActorRef<Ack> replyTo
   ) implements Command {}
-  
+
+  public record NotifyPhasesPowerData(
+        int messageId,
+        @NotNull PowerData phase1,
+        @NotNull PowerData phase2,
+        @NotNull PowerData phase3,
+        @NotNull ActorRef<Ack> replyTo
+  ) implements Command {}
+
   public record NotifyTotalPowerData(
         int messageId,
         @NotNull PowerData data, 
@@ -417,6 +469,14 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
         int messageId,
         int phaseId,
         @NotNull OutputDevice.EnergyData data,
+        @NotNull ActorRef<Ack> replyTo
+  ) implements Command {}
+
+  public record NotifyPhasesEnergyData(
+        int messageId,
+        @NotNull OutputDevice.EnergyData phase1,
+        @NotNull OutputDevice.EnergyData phase2,
+        @NotNull OutputDevice.EnergyData phase3,
         @NotNull ActorRef<Ack> replyTo
   ) implements Command {}
 

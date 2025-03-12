@@ -1,19 +1,28 @@
 package com.deigmueller.uni_meter.input.device.shelly._3em;
 
+import org.apache.pekko.Done;
+import org.apache.pekko.NotUsed;
 import org.apache.pekko.actor.typed.ActorSystem;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.*;
 import org.apache.pekko.http.javadsl.Http;
 import org.apache.pekko.http.javadsl.ServerBuilder;
 import org.apache.pekko.http.javadsl.marshallers.jackson.Jackson;
+import org.apache.pekko.http.javadsl.model.ws.Message;
+import org.apache.pekko.http.javadsl.model.ws.WebSocketUpgrade;
 import org.apache.pekko.http.javadsl.server.AllDirectives;
 import org.apache.pekko.http.javadsl.server.Route;
 import org.apache.pekko.http.javadsl.settings.ServerSettings;
+import org.apache.pekko.stream.OverflowStrategy;
+import org.apache.pekko.stream.javadsl.Sink;
+import org.apache.pekko.stream.javadsl.Source;
+import org.apache.pekko.stream.javadsl.SourceQueueWithComplete;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 
 class Shelly3EMTestServer {
   public static Logger LOGGER = LoggerFactory.getLogger(Shelly3EMTestServer.class);
@@ -59,7 +68,10 @@ class Shelly3EMTestServer {
   
   private static class MainRoute extends AllDirectives {
     public Route create() {
-      return path("status", () -> get(this::onGetStatus));
+      return concat(
+            path("status", () -> get(this::onGetStatus)),
+            path("websocket", () -> extractWebSocketUpgrade(this::createWebSocketHandler))
+      );
     }
     
     private Route onGetStatus() {
@@ -78,6 +90,20 @@ class Shelly3EMTestServer {
             ),
             Jackson.marshaller()
       );
+    }
+    
+    private Route createWebSocketHandler(WebSocketUpgrade upgrade) {
+      Source<Message, SourceQueueWithComplete<Message>> source = Source.queue(10, OverflowStrategy.dropHead());
+      
+      Sink<Message, CompletionStage<Done>> sink = Sink.<Message>foreach(message -> {
+        if (message.isText()) {
+          System.out.println("recv <= " + message.asTextMessage().getStrictText());
+        } else {
+          System.out.println("recv <= " + message.asBinaryMessage().getStrictData().utf8String());
+        }
+      });
+      
+      return complete(upgrade.handleMessagesWith(sink, source));
     }
   }
 }

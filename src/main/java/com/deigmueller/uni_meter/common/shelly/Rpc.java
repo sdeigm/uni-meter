@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import lombok.Getter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -23,7 +24,7 @@ import java.util.Locale;
 
 public class Rpc {
   private static final Logger LOGGER = LoggerFactory.getLogger("uni-meter.rpc"); 
-  private static final ObjectMapper objectMapper = createObjectMapper();
+  @Getter private static final ObjectMapper objectMapper = createObjectMapper();
   public static ObjectMapper createObjectMapper() {
     ObjectMapper objectMapper = new ObjectMapper();
     SimpleModule simpleModule = new SimpleModule("RpcModule", new Version(1,0,0, "", "com.deigmueller", "uni-meter"));
@@ -55,7 +56,15 @@ public class Rpc {
   public static Request parseRequest(@NotNull String data) throws JsonProcessingException {
     return treeToRequest(objectMapper.readTree(data));
   }
-  
+
+  public static String notificationToString(NotificationFrame notification) {
+    try {
+      return objectMapper.writeValueAsString(notification);
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   public static String responseToString(ResponseFrame response) {
     try {
       return objectMapper.writeValueAsString(response);
@@ -82,7 +91,10 @@ public class Rpc {
         case "EMData.GetStatus" -> objectMapper.treeToValue(tree, EmDataGetStatus.class);
         case "Shelly.GetStatus" -> objectMapper.treeToValue(tree, ShellyGetStatus.class);
         case "Shelly.GetDeviceInfo" -> objectMapper.treeToValue(tree, GetDeviceInfo.class);
+        case "Shelly.Reboot" -> objectMapper.treeToValue(tree, ShellyReboot.class);
         case "Sys.GetConfig" -> objectMapper.treeToValue(tree, SysGetConfig.class);
+        case "Ws.GetConfig" -> objectMapper.treeToValue(tree, WsGetConfig.class);
+        case "Ws.SetConfig" -> objectMapper.treeToValue(tree, WsSetConfig.class);
         default -> throw new IllegalArgumentException("unhandled RPC method '" + method + "'");
       };
     } else {
@@ -170,6 +182,37 @@ public class Rpc {
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ShellyReboot(
+        @JsonProperty("id") Integer id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dest") String dest,
+        @JsonProperty("params") ShellyRebootParams params
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ShellyRebootParams(
+        @JsonProperty("delay_ms") int delay_ms
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ShellyRebootResponse(
+  ) implements Response {
+    @Override
+    public String toString() {
+      try {
+        return objectMapper.writeValueAsString(this);
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException(e);
+      }
+    }
+  }
+  
+  
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public record GetDeviceInfo(
         @JsonProperty("id") Integer id,
         @JsonProperty("method") String method,
@@ -191,7 +234,7 @@ public class Rpc {
         @JsonProperty("ver") String ver,
         @JsonProperty("app") String app,
         @JsonProperty("auth_en") boolean auth_en,
-        @JsonProperty("auth_domain") String auth_domain,
+        @JsonProperty("auth_domain") RpcStringOrNull auth_domain,
         @JsonProperty("profile") String profile
   ) implements Response {
     @Override
@@ -431,12 +474,71 @@ public class Rpc {
   public record Sntp(
         @JsonProperty("server") String server
   ) {}
-  
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record WsGetConfig(
+        @JsonProperty("id") Integer id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dest") String dest
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record WsGetConfigResponse(
+        @JsonProperty("enable") Boolean enable,
+        @JsonProperty("server") RpcStringOrNull server,
+        @JsonProperty("ssl_ca") String ssl_ca
+  ) implements Response {
+    public @NotNull WsGetConfigResponse withEnable(boolean enable) {
+      return new WsGetConfigResponse(enable, server, ssl_ca);
+    }
+    public @NotNull WsGetConfigResponse withServer(@Nullable String server) {
+      return new WsGetConfigResponse(enable, RpcStringOrNull.of(server), ssl_ca);
+    }
+    public @NotNull WsGetConfigResponse withSslCa(@Nullable String ssl_ca) {
+      return new WsGetConfigResponse(enable, server, ssl_ca);
+    }
+    
+    @Override public String toString() { return Rpc.toString(this); }
+  }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record WsSetConfig(
+        @JsonProperty("id") Integer id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dest") String dest,
+        @JsonProperty("params") WsSetConfigParams params
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record WsSetConfigParams(
+        @JsonProperty("enable") Boolean enable,
+        @JsonProperty("server") String server,
+        @JsonProperty("ssl_ca") String ssl_ca
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record WsSetConfigResponse(
+        @JsonProperty("restart_required") Boolean restart_required
+  ) implements Response {
+    @Override public String toString() { return Rpc.toString(this); }
+  }
+
   public record RpcNull() {}
   
   public record RpcStringOrNull(
         String value
-  ) {}
+  ) {
+    public static RpcStringOrNull of(@Nullable String value) {
+      return new RpcStringOrNull(value);
+    }
+  }
 
   private static class LongSerializer extends JsonSerializer<Long> {
     @Override
