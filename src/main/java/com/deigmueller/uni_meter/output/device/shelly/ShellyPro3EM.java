@@ -116,12 +116,14 @@ public class ShellyPro3EM extends Shelly {
           .onMessage(OutboundWebsocketConnectionOpened.class, this::onOutboundWebsocketConnectionOpened)
           .onMessage(OutboundWebsocketConnectionFailed.class, this::onOutboundWebsocketConnectionFailed)
           .onMessage(RetryOpenOutboundWebsocketConnection.class, this::onRetryOpenOutboundWebsocketConnection)
+          
           .onMessage(WrappedUdpServerNotification.class, this::onWrappedUdpServerNotification)
+          .onMessage(RetryStartUdpServer.class, this::onRetryStartUdpServer)
           .onMessage(UdpClientProcessPendingEmGetStatusRequest.class, this::onUdpClientProcessPendingEmGetStatusRequest)
           
           .onMessage(ThrottlingQueueClosed.class, this::onThrottlingQueueClosed);
   }
-
+  
   /**
    * Handle an HTTP GET request for the Shelly device information
    * @param request Request for the Shelly device information
@@ -536,6 +538,14 @@ public class ShellyPro3EM extends Shelly {
     return Behaviors.same();
   }
   
+  protected Behavior<Command> onRetryStartUdpServer(RetryStartUdpServer message) {
+    logger.trace("ShellyPro3EM.onRetryStartUdpServer()");
+    
+    startUdpServer();
+    
+    return Behaviors.same();
+  }
+  
   /**
    * Handle a wrapped UDP server notification
    * @param message Wrapped UDP server notification
@@ -547,41 +557,57 @@ public class ShellyPro3EM extends Shelly {
     try {
       UdpServer.Notification notification = message.notification();
 
-      if (notification instanceof UdpServer.NotifyDatagramReceived notifyDatagramReceived) {
-        onUdpServerDatagramReceived(notifyDatagramReceived);
-      } else if (notification instanceof UdpServer.NotifyOutput notifyOutput) {
-        logger.debug("UDP server output {}", notifyOutput.output());
-        udpOutput = notifyOutput.output();
-      } else if (notification instanceof UdpServer.NotifyInitialized notifyInitialized) {
+      if (notification instanceof UdpServer.DatagramReceived datagramReceived) {
+        datagramReceived.replyTo().tell(UdpServer.Ack.INSTANCE);
+        onUdpServerDatagramReceived(datagramReceived);
+      } else if (notification instanceof UdpServer.NotifyBindSucceeded notifyBindSucceeded) {
+        logger.info("UDP server is listening on {}", notifyBindSucceeded.address());
+      } else if (notification instanceof UdpServer.SourceInitialized sourceInitialized) {
+        logger.debug("UDP server output {}", sourceInitialized.output());
+        udpOutput = sourceInitialized.output();
+      } else if (notification instanceof UdpServer.SinkInitialized sinkInitialized) {
         logger.debug("UDP server initialized");
-        notifyInitialized.replyTo().tell(UdpServer.Ack.INSTANCE);
-      } else if (notification instanceof UdpServer.NotifyClosed) {
-        logger.error("UDP server closed");
-        throw new RuntimeException("UDP server closed");
-      } else if (notification instanceof UdpServer.NotifyFailed notifyFailed) {
-        onUdpServerFailed(notifyFailed);
-      } else if (notification instanceof UdpServer.NotifyBound notifyBound) {
-        logger.info("UDP server is listening on {}", notifyBound.address());
+        sinkInitialized.replyTo().tell(UdpServer.Ack.INSTANCE);
+      } else if (notification instanceof UdpServer.SinkClosed) {
+        logger.debug("UDP server sink closed");
+        handleUdpServerClosed();
+      } else if (notification instanceof UdpServer.SinkFailed sinkFailed) {
+        logger.error("UDP server failed: {}", sinkFailed.failure().getMessage());
+        handleUdpServerClosed();
       } else {
         logger.error("unknown UDP server notification: {}", notification);
+        throw new RuntimeException("unknown UDP server notification: " + notification.getClass());
       }
     } catch (JsonProcessingException e) {
       logger.debug("UDP notification contains invalid JSON: {}", e.getMessage());
-    } catch (Exception e) {
-      logger.error("failure while processing UDP server notification: {}", e.getMessage());
     }
 
     return Behaviors.same();
   }
 
   /**
+   * Handle the event that the UDP server stream is closed 
+   */
+  private void handleUdpServerClosed() {
+    udpOutput = null;
+    
+    Duration restartBackoff = Duration.ofSeconds(15);
+    
+    logger.info("restarting UDP server in {} seconds ...", restartBackoff.getSeconds());
+    
+    getContext().getSystem().scheduler().scheduleOnce(
+          restartBackoff,
+          () -> getContext().getSelf().tell(RetryStartUdpServer.INSTANCE),
+          getContext().getExecutionContext()
+    );
+  }
+
+  /**
    * Handle the notification, that a UDP datagram was received
    * @param message Notification of a received UDP datagram
    */
-  protected void onUdpServerDatagramReceived(UdpServer.NotifyDatagramReceived message) throws JsonProcessingException {
+  protected void onUdpServerDatagramReceived(UdpServer.DatagramReceived message) throws JsonProcessingException {
     logger.trace("ShellyPro3EM.onUdpServerDatagramReceived()");
-
-    message.replyTo().tell(UdpServer.Ack.INSTANCE);
 
     UdpClientContext udpClientContext = getUdpClientContext(message.datagram().remote());
 
@@ -596,18 +622,6 @@ public class ShellyPro3EM extends Shelly {
     } else {
       processUdpRpcRequest(message.datagram().remote(), request);
     }
-  }
-
-  /**
-   * Handle the notification that the UDP server failed
-   * @param message Notification that the UDP server failed
-   */
-  protected void onUdpServerFailed(UdpServer.NotifyFailed message) {
-    logger.trace("ShellyPro3EM.onUdpServerFailed()");
-
-    logger.error("UDP server failed: {}", message.failure().getMessage());
-
-    throw new RuntimeException("UDP server failed", message.failure());
   }
 
   /**
@@ -756,7 +770,7 @@ public class ShellyPro3EM extends Shelly {
     return response;
   }
   
-  private Rpc.ShellyRebootResponse rpcReboot(@NotNull InetAddress remoteAddress) {
+  private Rpc.ShellyRebootResponse rpcReboot(@NotNull InetAddress ignore) {
     logger.trace("ShellyPro3EM.rpcReboot()");
     return new Rpc.ShellyRebootResponse();
   }
@@ -1166,6 +1180,10 @@ public class ShellyPro3EM extends Shelly {
   ) implements Command {}
   
   public enum RetryOpenOutboundWebsocketConnection implements Command {
+    INSTANCE
+  }
+  
+  public enum RetryStartUdpServer implements Command {
     INSTANCE
   }
 
