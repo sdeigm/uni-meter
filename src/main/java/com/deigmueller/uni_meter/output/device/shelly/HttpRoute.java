@@ -81,9 +81,13 @@ class HttpRoute extends AllDirectives {
                             )
                       )
                 ),
-                pathPrefix("rpc", () -> 
+                pathPrefix("rpc", () -> concat(
                       get(() ->
                             concat(
+                                  path("Cloud.GetConfig", this::onCloudGetConfig),
+                                  path("Cloud.SetConfig", () ->
+                                        parameter(StringUnmarshallers.STRING, "config", this::onCloudSetConfig)
+                                  ),
                                   path("EM.GetConfig", () ->
                                         parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmGetConfig(id.orElse(0)))
                                   ),
@@ -92,6 +96,9 @@ class HttpRoute extends AllDirectives {
                                   ),
                                   path("EMData.GetStatus", () ->
                                         parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmDataGetStatus(remoteAddress, id.orElse(0)))
+                                  ),
+                                  path("Shelly.GetConfig", () ->
+                                        onShellyGetConfig(remoteAddress)
                                   ),
                                   path("Shelly.GetDeviceInfo", () ->
                                         onShellyGetDeviceInfo(remoteAddress)      
@@ -115,12 +122,24 @@ class HttpRoute extends AllDirectives {
                                     return complete(StatusCodes.NOT_FOUND);
                                   })
                             )
+                      ),
+                      post(() -> extractEntity(entity -> {
+                        HttpEntity.Strict strict = (HttpEntity.Strict) entity;
+                        strict.discardBytes(materializer);
+
+                        logger.trace("POST RpcRequest: {}", strict.getData().utf8String());
+                        return onRpcRequest(remoteAddress, Rpc.parseRequest(strict.getData().toArray()));
+                      })),
+                      extractWebSocketUpgrade(upgrade ->
+                            createWebsocketFlow(remoteAddress, upgrade)
                       )
-                ),
-                extractUnmatchedPath(unmatchedPath -> {
-                  logger.debug("unhandled HTTP path: {}", unmatchedPath.substring(1));
-                  return complete(StatusCodes.NOT_FOUND);
-                })
+                )),
+                extractUnmatchedPath(unmatchedPath -> 
+                  extractMethod(method -> {
+                    logger.debug("unhandled HTTP method {} path: {}", method.name(), unmatchedPath.substring(1));
+                    return complete(StatusCodes.NOT_FOUND);                     
+                  })
+                )
           )
     );
   }
@@ -188,6 +207,19 @@ class HttpRoute extends AllDirectives {
           Jackson.marshaller(objectMapper));
   }
 
+  private Route onShellyGetConfig(@NotNull RemoteAddress remoteAddress) {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<ShellyPro3EM.ShellyConfig> replyTo) -> new ShellyPro3EM.ShellyGetConfig(
+                      remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
+                      replyTo),
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
   private Route onShellyGetDeviceInfo(@NotNull RemoteAddress remoteAddress) {
     return completeOKWithFuture(
           AskPattern.ask(
@@ -237,6 +269,35 @@ class HttpRoute extends AllDirectives {
                       remoteAddress.getAddress().orElse(DEFAULT_ADDRESS), 
                       replyTo), 
                 timeout, 
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onCloudGetConfig() {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                ShellyPro3EM.CloudGetConfig::new,
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onCloudSetConfig(@NotNull String config) {
+    Rpc.CloudSetConfigParams setConfigParams;
+    try {
+      setConfigParams = Rpc.getObjectMapper().readValue(config, Rpc.CloudSetConfigParams.class);
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException(e);
+    }
+
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<Rpc.CloudSetConfigResponse> replyTo) -> new ShellyPro3EM.CloudSetConfig(setConfigParams, replyTo),
+                timeout,
                 system.scheduler()
           ),
           Jackson.marshaller(objectMapper));

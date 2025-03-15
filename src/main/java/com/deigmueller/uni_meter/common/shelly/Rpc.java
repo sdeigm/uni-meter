@@ -85,16 +85,19 @@ public class Rpc {
     JsonNode methodNode = tree.get("method");
     if (methodNode != null) {
       String method = tree.get("method").asText();
-      return switch (method) {
-        case "EM.GetConfig" -> objectMapper.treeToValue(tree, EmGetConfig.class);
-        case "EM.GetStatus" -> objectMapper.treeToValue(tree, EmGetStatus.class);
-        case "EMData.GetStatus" -> objectMapper.treeToValue(tree, EmDataGetStatus.class);
-        case "Shelly.GetStatus" -> objectMapper.treeToValue(tree, ShellyGetStatus.class);
-        case "Shelly.GetDeviceInfo" -> objectMapper.treeToValue(tree, GetDeviceInfo.class);
-        case "Shelly.Reboot" -> objectMapper.treeToValue(tree, ShellyReboot.class);
-        case "Sys.GetConfig" -> objectMapper.treeToValue(tree, SysGetConfig.class);
-        case "Ws.GetConfig" -> objectMapper.treeToValue(tree, WsGetConfig.class);
-        case "Ws.SetConfig" -> objectMapper.treeToValue(tree, WsSetConfig.class);
+      return switch (method.toLowerCase()) {
+        case "cloud.getconfig" -> objectMapper.treeToValue(tree, CloudGetConfig.class);
+        case "cloud.setconfig" -> objectMapper.treeToValue(tree, CloudSetConfig.class);
+        case "em.getconfig" -> objectMapper.treeToValue(tree, EmGetConfig.class);
+        case "em.getstatus" -> objectMapper.treeToValue(tree, EmGetStatus.class);
+        case "emdata.getstatus" -> objectMapper.treeToValue(tree, EmDataGetStatus.class);
+        case "shelly.getconfig" -> objectMapper.treeToValue(tree, ShellyGetConfig.class);
+        case "shelly.getstatus" -> objectMapper.treeToValue(tree, ShellyGetStatus.class);
+        case "shelly.getdeviceinfo" -> objectMapper.treeToValue(tree, GetDeviceInfo.class);
+        case "shelly.reboot" -> objectMapper.treeToValue(tree, ShellyReboot.class);
+        case "sys.getconfig" -> objectMapper.treeToValue(tree, SysGetConfig.class);
+        case "ws.getconfig" -> objectMapper.treeToValue(tree, WsGetConfig.class);
+        case "ws.setconfig" -> objectMapper.treeToValue(tree, WsSetConfig.class);
         default -> throw new IllegalArgumentException("unhandled RPC method '" + method + "'");
       };
     } else {
@@ -104,7 +107,7 @@ public class Rpc {
 
   public interface Request {
     String method();
-    Integer id();
+    Long id();
     String src();
     String dest();
   }
@@ -173,8 +176,17 @@ public class Rpc {
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ShellyGetConfig(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dest") String dest
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public record ShellyGetStatus(
-        @JsonProperty("id") Integer id,
+        @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
         @JsonProperty("dest") String dest
@@ -183,7 +195,7 @@ public class Rpc {
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record ShellyReboot(
-        @JsonProperty("id") Integer id,
+        @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
         @JsonProperty("dest") String dest,
@@ -214,7 +226,7 @@ public class Rpc {
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record GetDeviceInfo(
-        @JsonProperty("id") Integer id,
+        @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
         @JsonProperty("dest") String dest
@@ -250,7 +262,7 @@ public class Rpc {
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record EmGetStatus(
-        @JsonProperty("id") Integer id, 
+        @JsonProperty("id") Long id, 
         @JsonProperty("method") String method,
         @JsonProperty("src") String src, 
         @JsonProperty("dest") String dest,
@@ -307,7 +319,7 @@ public class Rpc {
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record EmGetConfig(
-        @JsonProperty("id") Integer id,
+        @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
         @JsonProperty("dest") String dest,
@@ -345,6 +357,22 @@ public class Rpc {
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
+  public record BleGetConfigResponse(
+    @JsonProperty("enable") Boolean enable,
+    @JsonProperty("rpc") BleGetConfigResponseRpc rpc,
+    @JsonProperty("observer") BleGetConfigResponseObserver observer
+  ) {}
+  
+  public record BleGetConfigResponseRpc(
+        @JsonProperty("enable") Boolean enable
+  ) {}
+
+  public record BleGetConfigResponseObserver(
+        @JsonProperty("enable") Boolean enable
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   @JsonPropertyOrder({"ts", "em:0"})
   public record EmGetStatusNotification(
         @JsonProperty("ts") Double ts,
@@ -355,7 +383,7 @@ public class Rpc {
   @JsonIgnoreProperties(ignoreUnknown = true)
   @JsonPropertyOrder({"id", "method", "src", "dst", "params"})
   public record EmDataGetStatus(
-        @JsonProperty("id") Integer id, 
+        @JsonProperty("id") Long id, 
         @JsonProperty("method") String method,
         @JsonProperty("src") String src, 
         @JsonProperty("dest") String dest,
@@ -405,7 +433,7 @@ public class Rpc {
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record SysGetConfig(
-        @JsonProperty("id") Integer id,
+        @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
         @JsonProperty("dest") String dest,
@@ -477,8 +505,63 @@ public class Rpc {
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
+  public record CloudGetConfig(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dest") String dest
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record CloudGetConfigResponse(
+        @JsonProperty("enable") Boolean enable,
+        @JsonProperty("server") RpcStringOrNull server
+  ) implements Response {
+    public @NotNull CloudGetConfigResponse withEnable(boolean enable) {
+      return new CloudGetConfigResponse(enable, server);
+    }
+    public @NotNull CloudGetConfigResponse withServer(@Nullable String server) {
+      return new CloudGetConfigResponse(enable, RpcStringOrNull.of(server));
+    }
+    @Override public String toString() { return Rpc.toString(this); }
+  }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record CloudSetConfig(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dest") String dest,
+        @JsonProperty("params") CloudSetConfigParams params
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record CloudSetConfigParams(
+        @JsonProperty("config") CloudSetConfigParamsValues config
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record CloudSetConfigParamsValues(
+        @JsonProperty("enable") Boolean enable,
+        @JsonProperty("server") String server
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record CloudSetConfigResponse(
+        @JsonProperty("restart_required") Boolean restart_required
+  ) implements Response {
+    @Override public String toString() { return Rpc.toString(this); }
+  }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public record WsGetConfig(
-        @JsonProperty("id") Integer id,
+        @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
         @JsonProperty("dest") String dest
@@ -507,7 +590,7 @@ public class Rpc {
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record WsSetConfig(
-        @JsonProperty("id") Integer id,
+        @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
         @JsonProperty("dest") String dest,
