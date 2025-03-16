@@ -60,6 +60,7 @@ public class ShellyPro3EM extends Shelly {
 
   private final int udpPort = getConfig().getInt("udp-port");
   private final String udpInterface = getConfig().getString("udp-interface");
+  private final Duration udpRestartBackoff = getConfig().getDuration("udp-restart-backoff");
   private final Duration minSamplePeriod = getConfig().getDuration("min-sample-period");
 
   private ActorRef<Datagram> udpOutput = null;
@@ -602,12 +603,10 @@ public class ShellyPro3EM extends Shelly {
   private void handleUdpServerClosed() {
     udpOutput = null;
     
-    Duration restartBackoff = Duration.ofSeconds(15);
-    
-    logger.info("restarting UDP server in {} seconds ...", restartBackoff.getSeconds());
+    logger.info("restarting UDP server in {} seconds ...", udpRestartBackoff);
     
     getContext().getSystem().scheduler().scheduleOnce(
-          restartBackoff,
+          udpRestartBackoff,
           () -> getContext().getSelf().tell(RetryStartUdpServer.INSTANCE),
           getContext().getExecutionContext()
     );
