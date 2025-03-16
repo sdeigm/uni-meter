@@ -17,6 +17,7 @@ import org.apache.pekko.Done;
 import org.apache.pekko.NotUsed;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
+import org.apache.pekko.actor.typed.PostStop;
 import org.apache.pekko.actor.typed.javadsl.*;
 import org.apache.pekko.http.javadsl.Http;
 import org.apache.pekko.http.javadsl.model.StatusCodes;
@@ -123,7 +124,17 @@ public class ShellyPro3EM extends Shelly {
           
           .onMessage(ThrottlingQueueClosed.class, this::onThrottlingQueueClosed);
   }
-  
+
+  /**
+   * Handle the PostStop signal
+   * @param message Post stop signal
+   * @return Same behavior
+   */
+  @Override
+  protected @NotNull Behavior<Command> onPostStop(@NotNull PostStop message) {
+    return super.onPostStop(message);
+  }
+
   /**
    * Handle an HTTP GET request for the Shelly device information
    * @param request Request for the Shelly device information
@@ -647,10 +658,11 @@ public class ShellyPro3EM extends Shelly {
   protected void processUdpRpcRequest(@NotNull InetSocketAddress remote,
                                       @NotNull Rpc.Request request) {
     logger.trace("ShellyPro3EM.processUdpRpcRequest()");
-
-    Rpc.ResponseFrame response = createRpcResponse(remote.getAddress(), request);
-
-    udpOutput.tell(Datagram.create(ByteString.fromArrayUnsafe(Rpc.responseToBytes(response)), remote));
+    
+    if (udpOutput != null) {
+      Rpc.ResponseFrame response = createRpcResponse(remote.getAddress(), request);
+      udpOutput.tell(Datagram.create(ByteString.fromArrayUnsafe(Rpc.responseToBytes(response)), remote));
+    }
   }
 
 

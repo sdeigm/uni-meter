@@ -73,6 +73,16 @@
             <artifactId>pekko-stream-typed_${scala.binary.version}</artifactId>
             <version>${pekko.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-connectors-mqtt_${scala.binary.version}</artifactId>
+            <version>${pekko.connectors.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-connectors-udp_${scala.binary.version}</artifactId>
+            <version>${pekko.connectors.version}</version>
+        </dependency>
 
         <!-- PEKKO HTTP -->
         <dependency>
@@ -89,16 +99,6 @@
             <groupId>org.apache.pekko</groupId>
             <artifactId>pekko-http-jackson_${scala.binary.version}</artifactId>
             <version>${pekko.http.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.pekko</groupId>
-            <artifactId>pekko-connectors-mqtt_${scala.binary.version}</artifactId>
-            <version>1.0.2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.pekko</groupId>
-            <artifactId>pekko-connectors-udp_${scala.binary.version}</artifactId>
-            <version>1.0.2</version>
         </dependency>
         
         <!-- OTHERS -->
