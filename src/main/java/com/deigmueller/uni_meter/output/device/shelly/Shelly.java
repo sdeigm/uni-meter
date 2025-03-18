@@ -190,7 +190,7 @@ public abstract class Shelly extends OutputDevice {
   }
 
   protected CloudStatus createCloudStatus() {
-    return new CloudStatus(false, false);
+    return new CloudStatus(getConfig().getConfig(("cloud-status")));
   }
 
   protected MqttStatus createMqttStatus() {
@@ -379,7 +379,11 @@ public abstract class Shelly extends OutputDevice {
   public record CloudStatus(
         @JsonProperty("enabled") boolean enabled,
         @JsonProperty("connected") boolean connected
-  ) {}
+  ) {
+    public CloudStatus(Config config) {
+      this(config.getBoolean("enabled"), config.getBoolean("connected"));
+    }
+  }
 
   public record MqttStatus(
         @JsonProperty("connected") boolean connected

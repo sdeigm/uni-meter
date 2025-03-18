@@ -1,7 +1,6 @@
 package com.deigmueller.uni_meter.input.device.shelly._3em;
 
 import org.apache.pekko.Done;
-import org.apache.pekko.NotUsed;
 import org.apache.pekko.actor.typed.ActorSystem;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.*;

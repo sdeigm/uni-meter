@@ -65,10 +65,11 @@ public class ShellyPro3EM extends Shelly {
 
   private ActorRef<Datagram> udpOutput = null;
   
-  private Rpc.CloudGetConfigResponse cloudConfig = new Rpc.CloudGetConfigResponse(false, Rpc.RpcStringOrNull.of(null));
-  private Rpc.WsGetConfigResponse wsConfig = new Rpc.WsGetConfigResponse(false, Rpc.RpcStringOrNull.of(null), "*");
+  private Rpc.CloudGetConfigResponse cloudConfig = new Rpc.CloudGetConfigResponse(true, Rpc.RpcStringOrNull.of(null));
+  private Rpc.WsGetConfigResponse wsConfig = new Rpc.WsGetConfigResponse(getConfig().getConfig("ws"));
   private InetAddress outboundWebsocketAddress = null;
   private String outboundWebsocketConnectionId = null;
+  private boolean outboundWebsocketFailure = false;
 
   /**
    * Static setup method
@@ -95,6 +96,8 @@ public class ShellyPro3EM extends Shelly {
     controller.tell(new UniMeter.RegisterHttpRoute(getBindInterface(), getBindPort(), createRoute()));
     
     startUdpServer();
+
+    startOutboundWebsocketConnection();
   }
 
   @Override
@@ -549,10 +552,11 @@ public class ShellyPro3EM extends Shelly {
   protected Behavior<Command> onOutboundWebsocketConnectionOpened(OutboundWebsocketConnectionOpened message) {
     logger.trace("ShellyPro3EM.onOutboundWebsocketConnectionOpened()");
 
-    logger.debug("outbound websocket connection {} to {} opened", message.connectionId(), message.url());
-
+    logger.info("outbound websocket connection opened to {}", message.url());
+    
     outboundWebsocketAddress = message.remoteAddress();
     outboundWebsocketConnectionId = message.connectionId();
+    outboundWebsocketFailure = false;
 
     return Behaviors.same();
   }
@@ -565,7 +569,13 @@ public class ShellyPro3EM extends Shelly {
   protected Behavior<Command> onOutboundWebsocketConnectionFailed(OutboundWebsocketConnectionFailed message) {
     logger.trace("ShellyPro3EM.onOutboundWebsocketConnectionFailed()");
 
-    logger.debug("outbound websocket connection to {} failed: {}", message.url(), message.failure().getMessage());
+    if (!outboundWebsocketFailure) {
+      logger.error("outbound websocket connection to {} failed: {}", message.url(), message.failure().getMessage());
+      outboundWebsocketFailure = true;
+    } else {
+      logger.debug("outbound websocket connection to {} failed: {}", message.url(), message.failure().getMessage());
+    }
+    
 
     outboundWebsocketAddress = null;
     outboundWebsocketConnectionId = null;
@@ -586,9 +596,7 @@ public class ShellyPro3EM extends Shelly {
   protected Behavior<Command> onRetryOpenOutboundWebsocketConnection(RetryOpenOutboundWebsocketConnection message) {
     logger.trace("ShellyPro3EM.onRetryOpenOutboundWebsocketConnection()");
 
-    if (outboundWebsocketConnectionIsEnabled() && outboundWebsocketConnectionIsClosed()) {
-      startOutboundWebsocketConnection(wsConfig.server().value());
-    }
+    startOutboundWebsocketConnection();
     
     return Behaviors.same();
   }
@@ -1025,9 +1033,7 @@ public class ShellyPro3EM extends Shelly {
     wsConfig = wsConfig.withServer(config.server());
     wsConfig = wsConfig.withSslCa(config.ssl_ca());
     
-    if (outboundWebsocketConnectionIsEnabled()) {
-      startOutboundWebsocketConnection(wsConfig.server().value());
-    }
+    startOutboundWebsocketConnection();
   }
   
   protected boolean outboundWebsocketConnectionIsEnabled() {
@@ -1107,62 +1113,69 @@ public class ShellyPro3EM extends Shelly {
 
   /**
    * Start the output websocket connection
-   * @param remoteUrl Remote URL to connect to
    */
-  protected void startOutboundWebsocketConnection(String remoteUrl) {
+  protected void startOutboundWebsocketConnection() {
     logger.trace("ShellyPro3EM.startOutboundWebsocketConnection()");
     
-    String connectionId = UUID.randomUUID().toString();
-    
-    Logger logger = LoggerFactory.getLogger("uni-meter.output.outbound-websocket");
-
-    URI uri = URI.create(remoteUrl);
-
-    InetAddress remoteAddress;
-    try {
-      remoteAddress = InetAddress.getByName(uri.getHost());
-    } catch (Exception e) {
-      getContext().getSelf().tell(new OutboundWebsocketConnectionFailed(remoteUrl, e));
-      return;
-    }
-    
-    final InetAddress finalRemoteAddress = remoteAddress;
-
-    Source<Message, NotUsed> websocketSource = WebsocketOutput.createSource(
-          logger,
-          getMaterializer(),
-          (sourceActor) -> getContext().getSelf().tell(
-                new Shelly.WebsocketOutputOpened(connectionId, finalRemoteAddress, sourceActor))
-    );
-
-    Sink<Message,NotUsed> websocketSink = WebsocketInput.createSink(
-          logger,
-          connectionId,
-          remoteAddress,
-          getMaterializer(),
-          websocketInputNotificationAdapter
-    );
-
-    final Flow<Message, Message, NotUsed> flow =
-          Flow.fromSinkAndSourceMat(websocketSink, websocketSource, Keep.left());
-
-    final Pair<CompletionStage<WebSocketUpgradeResponse>, NotUsed> pair =
-          Http.get(getContext().getSystem()).singleWebSocketRequest(
-                WebSocketRequest.create(remoteUrl), flow, getMaterializer());
-
-    pair.first().whenComplete((upgrade, failure) -> {
-      if (failure != null) {
-        getContext().getSelf().tell(new OutboundWebsocketConnectionFailed(remoteUrl, failure));
-      } else {
-        if (upgrade.response().status().equals(StatusCodes.SWITCHING_PROTOCOLS)) {
-          getContext().getSelf().tell(new OutboundWebsocketConnectionOpened(remoteUrl, remoteAddress, connectionId));
-        } else {
-          getContext().getSelf().tell(new OutboundWebsocketConnectionFailed(
-                remoteUrl,
-                new IllegalStateException("unexpected response status: " + upgrade.response().status())));
+      if (outboundWebsocketConnectionIsEnabled() && outboundWebsocketConnectionIsClosed()) {
+        String remoteUrl =  wsConfig.server().value();
+        try {
+          String connectionId = UUID.randomUUID().toString();
+          
+          Logger logger = LoggerFactory.getLogger("uni-meter.output.outbound-websocket");
+      
+          URI uri = URI.create(remoteUrl);
+      
+          InetAddress remoteAddress;
+          try {
+            remoteAddress = InetAddress.getByName(uri.getHost());
+          } catch (Exception e) {
+            getContext().getSelf().tell(new OutboundWebsocketConnectionFailed(remoteUrl, e));
+            return;
+          }
+          
+          final InetAddress finalRemoteAddress = remoteAddress;
+      
+          Source<Message, NotUsed> websocketSource = WebsocketOutput.createSource(
+                logger,
+                getMaterializer(),
+                (sourceActor) -> getContext().getSelf().tell(
+                      new Shelly.WebsocketOutputOpened(connectionId, finalRemoteAddress, sourceActor))
+          );
+      
+          Sink<Message,NotUsed> websocketSink = WebsocketInput.createSink(
+                logger,
+                connectionId,
+                remoteAddress,
+                getMaterializer(),
+                websocketInputNotificationAdapter
+          );
+      
+          final Flow<Message, Message, NotUsed> flow =
+                Flow.fromSinkAndSourceMat(websocketSink, websocketSource, Keep.left());
+      
+          final Pair<CompletionStage<WebSocketUpgradeResponse>, NotUsed> pair =
+                Http.get(getContext().getSystem()).singleWebSocketRequest(
+                      WebSocketRequest.create(remoteUrl), flow, getMaterializer());
+      
+          pair.first().whenComplete((upgrade, failure) -> {
+            if (failure != null) {
+              getContext().getSelf().tell(new OutboundWebsocketConnectionFailed(remoteUrl, failure));
+            } else {
+              if (upgrade.response().status().equals(StatusCodes.SWITCHING_PROTOCOLS)) {
+                getContext().getSelf().tell(new OutboundWebsocketConnectionOpened(remoteUrl, remoteAddress, connectionId));
+              } else {
+                getContext().getSelf().tell(new OutboundWebsocketConnectionFailed(
+                      remoteUrl,
+                      new IllegalStateException("unexpected response status: " + upgrade.response().status())));
+              }
+            }
+          });
+        } catch (Exception e) {
+          getContext().getSelf().tell(
+                new OutboundWebsocketConnectionFailed(remoteUrl != null ? remoteUrl : "<unknown>", e));
         }
       }
-    });
   }
 
   /**
