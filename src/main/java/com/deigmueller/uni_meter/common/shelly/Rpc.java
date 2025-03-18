@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.typesafe.config.Config;
 import lombok.Getter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -574,6 +575,12 @@ public class Rpc {
         @JsonProperty("server") RpcStringOrNull server,
         @JsonProperty("ssl_ca") String ssl_ca
   ) implements Response {
+    public WsGetConfigResponse(Config config) {
+      this(
+            config.getBoolean("enabled"), 
+            RpcStringOrNull.of(config.getString("server").isEmpty() ? null : config.getString("server")), 
+            config.getString("ssl_ca"));
+    }
     public @NotNull WsGetConfigResponse withEnable(boolean enable) {
       return new WsGetConfigResponse(enable, server, ssl_ca);
     }
