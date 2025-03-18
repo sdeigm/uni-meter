@@ -94,7 +94,7 @@ class Shelly3EMTestServer {
     private Route createWebSocketHandler(WebSocketUpgrade upgrade) {
       Source<Message, SourceQueueWithComplete<Message>> source = Source.queue(10, OverflowStrategy.dropHead());
       
-      Sink<Message, CompletionStage<Done>> sink = Sink.<Message>foreach(message -> {
+      Sink<Message, CompletionStage<Done>> sink = Sink.foreach(message -> {
         if (message.isText()) {
           System.out.println("recv <= " + message.asTextMessage().getStrictText());
         } else {
