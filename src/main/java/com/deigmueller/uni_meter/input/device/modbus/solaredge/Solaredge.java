@@ -4,10 +4,11 @@
 
 package com.deigmueller.uni_meter.input.device.modbus.solaredge;
 
+import com.deigmueller.uni_meter.common.utils.MathUtils;
 import com.deigmueller.uni_meter.input.device.modbus.Modbus;
 import com.deigmueller.uni_meter.output.OutputDevice;
-import com.digitalpetri.modbus.pdu.ReadInputRegistersRequest;
-import com.digitalpetri.modbus.pdu.ReadInputRegistersResponse;
+import com.digitalpetri.modbus.pdu.ReadHoldingRegistersRequest;
+import com.digitalpetri.modbus.pdu.ReadHoldingRegistersResponse;
 import com.typesafe.config.Config;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
@@ -23,10 +24,9 @@ public class Solaredge extends Modbus {
   public static final String TYPE = "Solaredge";
 
   // Instance members
-  private final int powerRegister = getConfig().getInt("power-register");
-  private double power;
-
-
+  private final int baseRegisterAddress = getConfig().getInt("base-register-address");
+  
+  
   public static Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> outputDevice,
                                          @NotNull Config config) {
     return Behaviors.setup(context -> new Solaredge(context, outputDevice, config));
@@ -43,7 +43,7 @@ public class Solaredge extends Modbus {
   @Override
   public @NotNull ReceiveBuilder<Command> newReceiveBuilder() {
     return super.newReceiveBuilder()
-          .onMessage(ReadPowerSucceeded.class, this::onReadPowerSucceeded);
+          .onMessage(ReadMeterDataSucceeded.class, this::onReadMetaDataSucceeded);
   }
 
   @Override
@@ -51,7 +51,7 @@ public class Solaredge extends Modbus {
     logger.trace("Solaredge.onConnectSucceeded()");
     super.onConnectSucceeded(message);
 
-    readPower();
+    readMeterData();
 
     return Behaviors.same();
   }
@@ -60,64 +60,163 @@ public class Solaredge extends Modbus {
   protected @NotNull Behavior<Command> onStartNextPollingCycle(@NotNull StartNextPollingCycle message) {
     logger.trace("Solaredge.onStartNextPollingCycle()");
 
-    readPower();
+    readMeterData();
 
     return Behaviors.same();
   }
   
-  protected @NotNull Behavior<Command> onReadPowerSucceeded(@NotNull ReadPowerSucceeded message) {
-    logger.trace("Solaredge.onReadPowerSucceeded()");
+  protected @NotNull Behavior<Command> onReadMetaDataSucceeded(@NotNull ReadMeterDataSucceeded message) {
+    logger.trace("Solaredge.onReadMetaDataSucceeded()");
 
     try {
       ByteBuffer byteBuffer = ByteBuffer.wrap(message.response.registers());
       
-      short powerValue = byteBuffer.getShort();
-      short scaleFactor = byteBuffer.getShort();
+      // 40190 - Current
+      short currentSum = byteBuffer.getShort();
+      short currentA = byteBuffer.getShort();
+      short currentB = byteBuffer.getShort();
+      short currentC = byteBuffer.getShort();
+      double currentScale = Math.pow(10.0, byteBuffer.getShort());
       
-      power = (double) powerValue * Math.pow(10.0, scaleFactor);
-      logger.debug("power {} W (value={}, scale={})", power, powerValue, scaleFactor);
+      // 40195 - Line to Neutral Voltage
+      short voltageLtN_Average = byteBuffer.getShort();
+      short voltageLtN_A = byteBuffer.getShort();
+      short voltageLtN_B = byteBuffer.getShort();
+      short voltageLtN_C = byteBuffer.getShort();
 
-      notifyPowerData();
+      // 40199 - Line to Line Voltage
+      skip(byteBuffer, 8);
+      // short voltageLtL_Average
+      // short voltageLtL_A
+      // short voltageLtL_B
+      // short voltageLtL_C
+      
+      double voltageScale = Math.pow(10.0, byteBuffer.getShort());
 
+      // 40204 - Frequency
+      short frequency = byteBuffer.getShort();
+      
+      double frequencyScale = Math.pow(10.0, byteBuffer.getShort());
+      
+      // 40206 - Real Power
+      short realPowerSum = byteBuffer.getShort();
+      short realPowerA = byteBuffer.getShort();
+      short realPowerB = byteBuffer.getShort();
+      short realPowerC = byteBuffer.getShort();
+      
+      double realPowerScale = Math.pow(10.0, byteBuffer.getShort());
+
+      // 40211 - Apparent Power
+      short apparentPowerSum = byteBuffer.getShort();
+      short apparentPowerA = byteBuffer.getShort();
+      short apparentPowerB = byteBuffer.getShort();
+      short apparentPowerC = byteBuffer.getShort();
+      
+      double apparentPowerScale = Math.pow(10.0, byteBuffer.getShort());
+
+      // 40216 - Reactive Power
+      skip(byteBuffer, 10);
+      // short reactivePowerSum
+      // short reactivePowerA
+      // short reactivePowerB
+      // short reactivePowerC
+      // short reactivePowerScale
+      
+      // 40221 - Power Factor
+      short powerFactorAverage = byteBuffer.getShort();
+      short powerFactorA = byteBuffer.getShort();
+      short powerFactorB = byteBuffer.getShort();
+      short powerFactorC = byteBuffer.getShort();
+      
+      double powerFactorScale = Math.pow(10.0, byteBuffer.getShort());
+
+      // 40226 - Real Energy
+      long realEnergyExportedTotal = readUInt32(byteBuffer);
+      long realEnergyExportedA = readUInt32(byteBuffer);
+      long realEnergyExportedB = readUInt32(byteBuffer);
+      long realEnergyExportedC = readUInt32(byteBuffer);
+      
+      long realEnergyImportedTotal = readUInt32(byteBuffer);
+      long realEnergyImportedA = readUInt32(byteBuffer);
+      long realEnergyImportedB = readUInt32(byteBuffer);
+      long realEnergyImportedC = readUInt32(byteBuffer);
+
+      double realEnergyScale = Math.pow(10.0, byteBuffer.getShort());
+      
+      if (logger.isDebugEnabled()) {
+        logger.debug("current: {}", MathUtils.round(currentSum * currentScale, 2));
+        logger.debug("voltage: {}", MathUtils.round(voltageLtN_Average * voltageScale, 2));
+        logger.debug("frequency: {}", MathUtils.round(frequency * frequencyScale, 2));
+        logger.debug("real power: {}", MathUtils.round(realPowerSum * realPowerScale, 2));
+        logger.debug("apparent power: {}", MathUtils.round(apparentPowerSum * apparentPowerScale, 2));
+        logger.debug("power factor: {}", MathUtils.round(powerFactorAverage * powerFactorScale, 2));
+        logger.debug("real energy exported: {}", MathUtils.round(realEnergyExportedTotal * realEnergyScale, 2));
+        logger.debug("real energy imported: {}", MathUtils.round(realEnergyImportedTotal * realEnergyScale, 2));
+      }
+      
+      getOutputDevice().tell(new OutputDevice.NotifyPhasesPowerData(
+            getNextMessageId(),
+            new OutputDevice.PowerData(
+                  MathUtils.round(realPowerA * realPowerScale, 2),
+                  MathUtils.round(apparentPowerA * apparentPowerScale, 2),
+                  MathUtils.round(powerFactorA * powerFactorScale, 2),
+                  MathUtils.round(currentA * currentScale, 2),
+                  MathUtils.round(voltageLtN_A * voltageScale, 2),
+                  MathUtils.round(frequency * frequencyScale, 2)), 
+            new OutputDevice.PowerData(
+                  MathUtils.round(realPowerB * realPowerScale, 2),
+                  MathUtils.round(apparentPowerB * apparentPowerScale, 2),
+                  MathUtils.round(powerFactorB * powerFactorScale, 2),
+                  MathUtils.round(currentB * currentScale, 2),
+                  MathUtils.round(voltageLtN_B * voltageScale, 2),
+                  MathUtils.round(frequency * frequencyScale, 2)),
+            new OutputDevice.PowerData(
+                  MathUtils.round(realPowerC * realPowerScale, 2),
+                  MathUtils.round(apparentPowerC * apparentPowerScale, 2),
+                  MathUtils.round(powerFactorC * powerFactorScale, 2),
+                  MathUtils.round(currentC * currentScale, 2),
+                  MathUtils.round(voltageLtN_C * voltageScale, 2),
+                  MathUtils.round(frequency * frequencyScale, 2)),
+            getOutputDeviceAckAdapter()));
+      
+      getOutputDevice().tell(new OutputDevice.NotifyPhasesEnergyData(
+            getNextMessageId(),
+            new OutputDevice.EnergyData(
+                  MathUtils.round(realEnergyExportedA * realEnergyScale / 1000.0, 2),
+                  MathUtils.round(realEnergyImportedA * realEnergyScale / 1000.0, 2)),
+            new OutputDevice.EnergyData(
+                  MathUtils.round(realEnergyExportedB * realEnergyScale / 1000.0, 2),
+                  MathUtils.round(realEnergyImportedB * realEnergyScale / 1000.0, 2)),
+            new OutputDevice.EnergyData(
+                  MathUtils.round(realEnergyExportedC * realEnergyScale / 1000.0, 2),
+                  MathUtils.round(realEnergyImportedC * realEnergyScale / 1000.0, 2)),
+            getOutputDeviceAckAdapter()));
+            
       startNextPollingTimer();
-      
     } catch (Exception exception) {
-      logger.error("failed to convert voltage", exception);
+      logger.error("failed to process meter data", exception);
       startNextPollingTimer();
     }
 
     return Behaviors.same();
   }
-  
-  private void notifyPowerData() {
-    getOutputDevice().tell(new OutputDevice.NotifyTotalPowerData(
-            getNextMessageId(),
-            new OutputDevice.PowerData(
-                    power, 
-                    power, 
-                    1.0, 
-                    power / 230.0, 
-                    230.0, 
-                    50.0),
-            getOutputDeviceAckAdapter()));
-  }
 
-  private void readPower() {
-    logger.trace("Solaredge.readPower()");
+  private void readMeterData() {
+    logger.trace("Solaredge.readMeterData()");
 
     // Read voltage 
     getClient()
-          .readInputRegistersAsync(0, new ReadInputRegistersRequest(powerRegister, 0x0002))
+          .readHoldingRegistersAsync(getUnitId(), new ReadHoldingRegistersRequest(baseRegisterAddress, 53))
           .whenComplete((response, throwable) -> {
-      if (throwable != null) {
-        getContext().getSelf().tell(new ReadInputRegistersFailed(powerRegister, 0x0002, throwable));
-      } else {
-        getContext().getSelf().tell(new ReadPowerSucceeded(response));
-      }
-    });
+            if (throwable != null) {
+              getContext().getSelf().tell(new ReadHoldingRegistersFailed(baseRegisterAddress, 53, throwable));
+            } else {
+              getContext().getSelf().tell(new ReadMeterDataSucceeded(response));
+            }
+          });
   }
-
-  public record ReadPowerSucceeded(
-        ReadInputRegistersResponse response
+  
+  public record ReadMeterDataSucceeded(
+        ReadHoldingRegistersResponse response
   ) implements Command {}
 }

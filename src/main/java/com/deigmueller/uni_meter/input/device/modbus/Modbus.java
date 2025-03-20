@@ -16,6 +16,7 @@ import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.nio.ByteBuffer;
 import java.time.Duration;
 
 @Getter(AccessLevel.PROTECTED)
@@ -23,6 +24,7 @@ public abstract class Modbus extends InputDevice {
   // Instance members
   private final String address = getConfig().getString("address");
   private final int port = getConfig().getInt("port");
+  private final int unitId = getConfig().getInt("unit-id");
   private final Duration pollingInterval = getConfig().getDuration("polling-interval");
   private ModbusTcpClient client;
   
@@ -41,6 +43,7 @@ public abstract class Modbus extends InputDevice {
           .onMessage(NotifyConnectFailed.class, this::onConnectFailed)
           .onMessage(NotifyConnectSucceeded.class, this::onConnectSucceeded)
           .onMessage(ReadInputRegistersFailed.class, this::onReadInputRegistersFailed)
+          .onMessage(ReadHoldingRegistersFailed.class, this::onReadHoldingRegistersFailed)
           .onMessage(StartNextPollingCycle.class, this::onStartNextPollingCycle);
   }
   
@@ -84,7 +87,18 @@ public abstract class Modbus extends InputDevice {
     
     return Behaviors.same();
   }
-  
+
+  protected @NotNull Behavior<Command> onReadHoldingRegistersFailed(@NotNull ReadHoldingRegistersFailed message) {
+    logger.trace("Modbus.onReadHoldingRegistersFailed()");
+
+    logger.error("failed to read holding registers at address {}, quantity {}", message.address(), message.quantity(),
+          message.throwable());
+
+    startNextPollingTimer();
+
+    return Behaviors.same();
+  }
+
   abstract protected @NotNull Behavior<Command> onStartNextPollingCycle(@NotNull StartNextPollingCycle message); 
   
   private void startConnection() {
@@ -111,7 +125,7 @@ public abstract class Modbus extends InputDevice {
           getContext().getExecutionContext());
   }
   
-  protected float bytesToFloat(byte[] bytes) {
+  protected static float bytesToFloat(byte[] bytes) {
     int asInt = (bytes[3] & 0xFF)
           | ((bytes[2] & 0xFF) << 8)
           | ((bytes[1] & 0xFF) << 16)
@@ -119,6 +133,17 @@ public abstract class Modbus extends InputDevice {
     
     return Float.intBitsToFloat(asInt);
   }
+  
+  protected static long readUInt32(ByteBuffer buffer) {
+    return (buffer.get() & 0xFFL << 24)
+          | ((buffer.get() & 0xFF) << 16)
+          | ((buffer.get() & 0xFF) << 8)
+          | ((buffer.get() & 0xFF));
+  }
+  
+  protected static void skip(ByteBuffer b, int bytes) {
+    b.position(b.position() + bytes);
+  }  
   
   protected record NotifyConnectSucceeded(
         @NotNull ModbusTcpClient client
@@ -129,6 +154,12 @@ public abstract class Modbus extends InputDevice {
   ) implements Command {}
 
   public record ReadInputRegistersFailed(
+        int address,
+        int quantity,
+        Throwable throwable
+  ) implements Command {}
+
+  public record ReadHoldingRegistersFailed(
         int address,
         int quantity,
         Throwable throwable
