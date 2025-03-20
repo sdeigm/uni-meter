@@ -107,7 +107,7 @@ public class Solaredge extends Modbus {
 
     // Read voltage 
     getClient()
-          .readInputRegistersAsync(0, new ReadInputRegistersRequest(powerRegister, 0x0002))
+          .readInputRegistersAsync(getUnitId(), new ReadInputRegistersRequest(powerRegister, 0x0002))
           .whenComplete((response, throwable) -> {
       if (throwable != null) {
         getContext().getSelf().tell(new ReadInputRegistersFailed(powerRegister, 0x0002, throwable));

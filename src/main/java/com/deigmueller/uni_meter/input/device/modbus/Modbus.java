@@ -23,6 +23,7 @@ public abstract class Modbus extends InputDevice {
   // Instance members
   private final String address = getConfig().getString("address");
   private final int port = getConfig().getInt("port");
+  private final int unitId = getConfig().getInt("unit-id");
   private final Duration pollingInterval = getConfig().getDuration("polling-interval");
   private ModbusTcpClient client;
   
