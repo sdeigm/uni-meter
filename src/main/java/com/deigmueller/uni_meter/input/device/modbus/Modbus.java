@@ -3,8 +3,6 @@ package com.deigmueller.uni_meter.input.device.modbus;
 import com.deigmueller.uni_meter.input.InputDevice;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import com.digitalpetri.modbus.client.ModbusTcpClient;
-import com.digitalpetri.modbus.pdu.ReadInputRegistersRequest;
-import com.digitalpetri.modbus.pdu.ReadInputRegistersResponse;
 import com.digitalpetri.modbus.tcp.client.NettyTcpClientTransport;
 import com.typesafe.config.Config;
 import lombok.AccessLevel;
@@ -92,36 +90,14 @@ public abstract class Modbus extends InputDevice {
   private void startConnection() {
       try {
         NettyTcpClientTransport transport = NettyTcpClientTransport.create(cfg -> {
-          cfg.hostname = "192.168.178.125";
-          cfg.port = 8899;
+          cfg.hostname = address;
+          cfg.port = port;
         });
 
         ModbusTcpClient client = ModbusTcpClient.create(transport);
+
         client.connect();
 
-        ReadInputRegistersResponse response = client.readInputRegisters(
-              1,
-              new ReadInputRegistersRequest(0 , 2)
-        );
-
-        int asInt = (response.registers()[3] & 0xFF)
-              | ((response.registers()[2] & 0xFF) << 8)
-              | ((response.registers()[1] & 0xFF) << 16)
-              | ((response.registers()[0] & 0xFF) << 24);
-
-        float asFloat = Float.intBitsToFloat(asInt);
-
-        response = client.readInputRegisters(
-              1,
-              new ReadInputRegistersRequest(0x48 , 2)
-        );
-
-        asInt = (response.registers()[3] & 0xFF)
-              | ((response.registers()[2] & 0xFF) << 8)
-              | ((response.registers()[1] & 0xFF) << 16)
-              | ((response.registers()[0] & 0xFF) << 24);
-
-        asFloat = Float.intBitsToFloat(asInt);
         getContext().getSelf().tell(new NotifyConnectSucceeded(client));
       } catch (Exception e) {
         getContext().getSelf().tell(new NotifyConnectFailed(e));

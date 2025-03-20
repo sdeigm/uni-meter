@@ -3,6 +3,7 @@ package com.deigmueller.uni_meter.application;
 import com.deigmueller.uni_meter.input.InputDevice;
 import com.deigmueller.uni_meter.input.device.generic_http.GenericHttp;
 import com.deigmueller.uni_meter.input.device.modbus.sdm120.Sdm120;
+import com.deigmueller.uni_meter.input.device.modbus.solaredge.Solaredge;
 import com.deigmueller.uni_meter.input.device.mqtt.Mqtt;
 import com.deigmueller.uni_meter.input.device.shelly._3em.Shelly3EM;
 import com.deigmueller.uni_meter.input.device.shrdzm.ShrDzm;
@@ -195,9 +196,19 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
                       ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
                       "input");
           }
+          
+          case Solaredge.TYPE -> {
+              return  getContext().spawn(
+                      Behaviors.supervise(
+                              Solaredge.create(
+                                      output,
+                                      getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
+                      ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
+                      "input");
+          }
 
           case Pulse.TYPE -> {
-            return getContext().spawn(
+              return getContext().spawn(
                       Behaviors.supervise(
                               Pulse.create(
                                       output,
