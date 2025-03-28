@@ -1,0 +1,4 @@
+configuration:
+  custom_config:
+    name: "Configuration File"
+    description: "Name of the configuration file within the addon's local configuration directory"
