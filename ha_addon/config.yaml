@@ -7,7 +7,7 @@ arch:
   - aarch64
   - armv7
 url: "https://github.com/sdeigm/uni-meter"
-image: "sdeigm/uni-meter-addon:latest"
+image: "hub.docker.com/sdeigm/uni-meter-addon:latest"
 panel_icon: "mdi:barometer"
 init: false
 startup: services

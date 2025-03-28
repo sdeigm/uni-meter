@@ -2,5 +2,5 @@ name: "uni-meter"
 url: "https://github.com/sdeigm/uni-meter"
 maintainer: "sdeigm <sdeigm@users.noreply.github.com>"
 addons:
-  uni-meter:
+  uni_meter:
     repository: ha_addon
