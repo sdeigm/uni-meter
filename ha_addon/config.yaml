@@ -5,7 +5,6 @@ description: "A universal electrical meter converter"
 arch:
   - amd64
   - aarch64
-  - armv7
 url: "https://github.com/sdeigm/uni-meter"
 image: "hub.docker.com/sdeigm/uni-meter-addon:latest"
 panel_icon: "mdi:barometer"
