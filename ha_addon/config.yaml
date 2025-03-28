@@ -1,12 +1,12 @@
 name: "uni-meter"
-version: "2.1.3"
+version: "1.1.3"
 slug: "uni_meter"
 description: "A universal electrical meter converter"
 arch:
   - amd64
   - aarch64
 url: "https://github.com/sdeigm/uni-meter"
-image: "sdeigm/uni-meter-addon:latest"
+image: "docker.io/sdeigm/uni-meter-addon:latest"
 panel_icon: "mdi:barometer"
 init: false
 startup: services
