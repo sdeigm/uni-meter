@@ -1,0 +1,4 @@
+configuration:
+  custom_config:
+    name: "Konfigurationsdatei"
+    description: "Name der Konfigurationsdatei im lokalen Konfigurationsverzeichis des Addons"
