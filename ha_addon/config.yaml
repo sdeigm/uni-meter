@@ -6,7 +6,7 @@ arch:
   - amd64
   - aarch64
 url: "https://github.com/sdeigm/uni-meter"
-image: "docker.io/sdeigm/uni-meter-addon:latest"
+image: "docker.io/sdeigm/uni-meter-addon"
 panel_icon: "mdi:barometer"
 init: false
 startup: services
