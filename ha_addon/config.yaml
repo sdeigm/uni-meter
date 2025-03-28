@@ -4,7 +4,8 @@ slug: "uni_meter"
 description: "A universal electrical meter converter"
 arch:
   - amd64
-  - arm64
+  - aarch64
+  - armv7
 url: "https://github.com/sdeigm/uni-meter"
 image: "sdeigm/uni-meter-addon:latest"
 panel_icon: "mdi:barometer"
