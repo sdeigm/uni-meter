@@ -14,6 +14,7 @@ The real electrical meter data currently can be gathered from the following devi
 - SHRDZM smartmeter interface module (UDP)
 - SMA energy meter / Sunny Home Manager (UDP protocol)
 - SMD120 modbus energy meter (via Protos PE11) (SMD630 could be added, I have no test device)
+- Solaredge
 - Tasmota IR read head (via HTTP)
 - Tibber Pulse (local API) 
 - VzLogger webserver
@@ -629,6 +630,27 @@ uni-meter {
       port = 8899
     }
   }
+}
+```
+
+### Using Solaredge electrical meter input source
+
+To use a Solaredge electrical meter as an input source, set up the `/etc/uni-meter.conf` file as
+follows:
+
+```hocon
+uni-meter {
+  output = "uni-meter.output-devices.shelly-pro3em"
+
+  input = "uni-meter.input-devices.solaredge"
+  
+  input-devices {   
+    solaredge {
+      address = "192.168.178.125"
+      port = 502
+      unit-id = 1
+    }
+  }  
 }
 ```
 
