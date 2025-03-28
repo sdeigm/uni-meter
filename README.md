@@ -138,6 +138,19 @@ sudo cp /opt/uni-meter/config/uni-meter.conf /etc/uni-meter.conf
 
 Then use your favorite editor to adjust the configuration file to your needs as described in the following sections.
 
+## Using the Home Assistant addon
+
+1. **Add this github repository to Home Assistant**
+
+[![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fsdeigm%2Fbuni-meter)
+
+2. **Install the addon in Home Assistant**
+- After refreshing your browser window, there should be a ``uni-meter`` addon which can be installed 
+ 
+3. **Configure the uni-meter**
+- Create a ``uni-meter.conf`` configuration in the ``/addon_configs/663b81ce_uni_meter`` directory of your Home Assistant instance
+4. **Start the uni-meter addon**
+
 ## Configuring the output device
 
 ### Configuring the Shelly device id
