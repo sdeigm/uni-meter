@@ -449,6 +449,8 @@ public class ShellyPro3EM extends Shelly {
       }
     } catch (JsonProcessingException e) {
       logger.debug("websocket notification contains invalid JSON: {}", e.getMessage());
+    } catch (IllegalArgumentException e) {
+      logger.debug("illegal argument in websocket notification: {}", e.getMessage());
     } catch (Exception e) {
       logger.error("failure while processing websocket notification: {}", e.getMessage());
     }
@@ -643,6 +645,10 @@ public class ShellyPro3EM extends Shelly {
       }
     } catch (JsonProcessingException e) {
       logger.debug("UDP notification contains invalid JSON: {}", e.getMessage());
+    } catch (IllegalArgumentException e) {
+      logger.debug("illegal argument in UDP notification: {}", e.getMessage());
+    } catch (Exception e) {
+      logger.error("failure while processing UDP notification: {}", e.getMessage());
     }
 
     return Behaviors.same();
@@ -1108,7 +1114,7 @@ public class ShellyPro3EM extends Shelly {
   
   private Rpc.Response rpcUnknownMethod(Rpc.Request request) {
     logger.error("ShellyPro3EM.rpcUnknownMethod()");
-    throw new IllegalArgumentException("Unknown method: " + request.method());
+    throw new IllegalArgumentException("unhandled RPC method '" + request.method() + "'");
   }
 
   /**
