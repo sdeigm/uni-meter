@@ -17,6 +17,10 @@ import org.jetbrains.annotations.NotNull;
 
 @Getter(AccessLevel.PROTECTED)
 public abstract class InputDevice extends AbstractBehavior<InputDevice.Command> {
+  // Class members
+  public static final String PHASE_MODE_MONO = "mono-phase";
+  public static final String PHASE_MODE_TRI = "tri-phase";
+
   // Instance members
   protected final Logger logger = LoggerFactory.getLogger("uni-meter.input");
   
@@ -46,6 +50,18 @@ public abstract class InputDevice extends AbstractBehavior<InputDevice.Command> 
     logger.trace("InputDevice.onWrappedOutputDeviceAck()");
     return Behaviors.same();
   }
+
+  protected @NotNull PhaseMode getPhaseMode(@NotNull String key) {
+    String value = getConfig().getString(key);
+
+    if (PHASE_MODE_MONO.compareToIgnoreCase(value) == 0) {
+      return PhaseMode.MONO;
+    } else if (PHASE_MODE_TRI.compareToIgnoreCase(value) == 0) {
+      return PhaseMode.TRI;
+    } else {
+      throw new IllegalArgumentException("unknown phase mode: " + value);
+    }
+  }
   
   protected int getNextMessageId() {
     return nextMessageId++;
@@ -56,4 +72,9 @@ public abstract class InputDevice extends AbstractBehavior<InputDevice.Command> 
   public record WrappedOutputDeviceAck(
     @NotNull OutputDevice.Ack ack
   ) implements Command {}
+
+  public enum PhaseMode {
+    MONO,
+    TRI
+  }
 }
