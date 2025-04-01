@@ -34,6 +34,8 @@ public class Mqtt extends GenericInputDevice {
   
   // Instance members
   private final List<TopicReader> topicReaders = new ArrayList<>();
+  private final MqttSubscriptions mqttSubscriptions;
+  private Duration backoff = Duration.ofSeconds(15);
   
   /**
    * Static setup method to create a new instance of the MQTT input device.
@@ -58,7 +60,9 @@ public class Mqtt extends GenericInputDevice {
     super(context, outputDevice, config);
     
     initTopicReaders();
-    
+
+    mqttSubscriptions = createSubscriptions();
+
     startMqttStream();
   }
 
@@ -85,6 +89,7 @@ public class Mqtt extends GenericInputDevice {
     logger.trace("Mqtt.onMqttStreamConnected()");
     
     logger.info("MQTT stream connected");
+    backoff = Duration.ofSeconds(15);
     
     return Behaviors.same();
   }
@@ -97,9 +102,19 @@ public class Mqtt extends GenericInputDevice {
   private @NotNull Behavior<Command> onMqttStreamFailed(@NotNull NotifyMqttStreamFailed message) {
     logger.trace("Mqtt.onMqttStreamFailed()");
     
-    logger.debug("MQTT stream failed", message.throwable());
+    logger.error("MQTT stream failed: {}", message.throwable().getMessage());
+
+    getContext().getSystem().scheduler().scheduleOnce(
+          backoff,
+          () -> getContext().getSelf().tell(RestartMqttStream.INSTANCE),
+          getContext().getSystem().executionContext());
     
-    throw new RuntimeException("MQTT polling failed " + message.throwable().getMessage());
+    backoff = backoff.multipliedBy(2);
+    if (backoff.getSeconds() > 60) {
+      backoff = Duration.ofSeconds(60);
+    }
+
+    return Behaviors.same();
   }
   
   /**
@@ -196,8 +211,7 @@ public class Mqtt extends GenericInputDevice {
     MqttConnectionSettings settings = MqttConnectionSettings
           .create(getConfig().getString("url"),
                 getConfig().getString("client-id"), 
-                new MemoryPersistence() 
-          );
+                new MemoryPersistence());
     
     if (!getConfig().getString("username").isEmpty() || !getConfig().getString("password").isEmpty()) {
       settings = settings.withAuth(getConfig().getString("username"), getConfig().getString("password"));
@@ -233,9 +247,8 @@ public class Mqtt extends GenericInputDevice {
   private void startMqttStream() {
     final ActorRef<Command> self = getContext().getSelf();
     
-    
     Pair<CompletionStage<Done>, CompletionStage<Done>> result = MqttSource
-          .atMostOnce(createConnectionSettings(), createSubscriptions(), 256)
+          .atMostOnce(createConnectionSettings(), mqttSubscriptions, 256)
           .mapAsync(5, message -> AskPattern.ask(
                 self,
                 (ActorRef<AckTopicData> replyTo) -> new NotifyTopicData(message.topic(), message.payload(), replyTo),
@@ -245,9 +258,7 @@ public class Mqtt extends GenericInputDevice {
           .run(getMaterializer());
     
     result.first().whenComplete((done, throwable) -> {
-      if (throwable != null) {
-        self.tell(new NotifyMqttStreamFailed(throwable));
-      } else {
+      if (throwable == null) {
         self.tell(new NotifyMqttStreamConnected());
       }
     });
@@ -259,7 +270,6 @@ public class Mqtt extends GenericInputDevice {
         self.tell(new NotifyMqttStreamFinished());
       }
     });
-    
   }
   
   public record NotifyMqttStreamFailed(@NotNull Throwable throwable) implements Command {}
