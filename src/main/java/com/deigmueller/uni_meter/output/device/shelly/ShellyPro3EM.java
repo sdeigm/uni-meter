@@ -6,6 +6,8 @@ import com.deigmueller.uni_meter.application.WebsocketInput;
 import com.deigmueller.uni_meter.application.WebsocketOutput;
 import com.deigmueller.uni_meter.common.shelly.Rpc;
 import com.deigmueller.uni_meter.common.utils.MathUtils;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.typesafe.config.Config;
@@ -109,6 +111,7 @@ public class ShellyPro3EM extends Shelly {
           .onMessage(EmGetStatus.class, this::onEmGetStatus)
           .onMessage(EmDataGetStatus.class, this::onEmDataGetStatus)
           .onMessage(ResetData.class, this::onResetData)
+          .onMessage(ShellyGetComponents.class, this::onShellyGetComponents)
           .onMessage(ShellyGetConfig.class, this::onShellyGetConfig)
           .onMessage(ShellyGetDeviceInfo.class, this::onShellyGetDeviceInfo)
           .onMessage(ShellyGetStatus.class, this::onShellyGetStatus)
@@ -250,6 +253,28 @@ public class ShellyPro3EM extends Shelly {
     
     request.replyTo.tell(Done.getInstance());
     
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the Script.List request
+   */
+  protected @NotNull Behavior<Command> onScriptList(@NotNull ScriptList request) {
+    logger.trace("ShellyPro3EM.onScriptList()");
+
+    request.replyTo().tell(rpcScriptList(request.remoteAddress()));
+
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the Shelly.GetComponents request
+   */
+  protected @NotNull Behavior<Command> onShellyGetComponents(@NotNull ShellyGetComponents request) {
+    logger.trace("ShellyPro3EM.onShellyGetComponents()");
+
+    request.replyTo().tell(rpcShellyGetComponents(request.remoteAddress()));
+
     return Behaviors.same();
   }
 
@@ -802,6 +827,8 @@ public class ShellyPro3EM extends Shelly {
       case "em.getconfig" -> rpcEmGetConfig();
       case "em.getstatus" -> rpcEmGetStatus(getPowerFactorForRemoteAddress(remoteAddress));
       case "emdata.getstatus" -> rpcEmDataGetStatus();
+      case "script.list" -> rpcScriptList(remoteAddress);
+      case "shelly.getcomponents" -> rpcShellyGetComponents(remoteAddress);
       case "shelly.getconfig" -> rpcShellyGetConfig(remoteAddress);
       case "shelly.getstatus" -> rpcShellyGetStatus(remoteAddress);
       case "shelly.getdeviceinfo" -> rpcGetDeviceInfo(remoteAddress);
@@ -829,7 +856,17 @@ public class ShellyPro3EM extends Shelly {
 
     return new Rpc.CloudSetConfigResponse(false);
   }
-  
+
+  private Rpc.ScriptListResponse rpcScriptList(@NotNull InetAddress remoteAddress) {
+    logger.trace("Shelly.rpcScriptList()");
+    return new Rpc.ScriptListResponse(Collections.emptyList());
+  }
+
+  private Rpc.ShellyGetComponentsResponse rpcShellyGetComponents(@NotNull InetAddress remoteAddress) {
+    logger.trace("Shelly.rpcShellyGetComponents()");
+    return createComponents(remoteAddress);
+  }
+
   private ShellyConfig rpcShellyGetConfig(@NotNull InetAddress remoteAddress) {
     logger.trace("Shelly.rpcShellyGetConfig()");
     return createConfig(remoteAddress);
@@ -837,7 +874,19 @@ public class ShellyPro3EM extends Shelly {
 
   private Rpc.Response rpcShellyGetStatus(@NotNull InetAddress remoteAddress) {
     logger.trace("Shelly.rpcShellyGetStatus()");
-    return createStatus(remoteAddress);
+    
+    Rpc.ShellyGetStatusResponse response = new Rpc.ShellyGetStatusResponse(
+          createWiFiStatus(),
+          createCloudStatus(),
+          createMqttStatus(),
+          createSysStatus(),
+          createTempStatus(),
+          createEMeterStatus(remoteAddress)
+    );
+    
+    logger.trace("ShellyPro3EM.rpcShellyGetStatus(): {}", response);
+
+    return response;
   }
 
   private Rpc.GetDeviceInfoResponse rpcGetDeviceInfo(@NotNull InetAddress remoteAddress) {
@@ -1058,6 +1107,22 @@ public class ShellyPro3EM extends Shelly {
   }
 
   /**
+   * Create the device's components list
+   * @return Device's components list
+   */
+  private Rpc.ShellyGetComponentsResponse createComponents(@NotNull InetAddress remoteAddress) {
+    return new Rpc.ShellyGetComponentsResponse(
+          List.of(
+                new Rpc.Component("em:0", null, null),
+                new Rpc.Component("emdata:0", null, null)
+          ),
+          1,
+          0,
+          2
+    );
+  }
+
+  /**
    * Create the device's status
    * @return Device's status
    */
@@ -1104,12 +1169,22 @@ public class ShellyPro3EM extends Shelly {
           28.08,
           false,
           createTempStatus(),
-          List.of(
-                EMeterStatus.of(powerPhase0, clientPowerFactor, getEnergyPhase0()),
-                EMeterStatus.of(powerPhase1, clientPowerFactor, getEnergyPhase1()),
-                EMeterStatus.of(powerPhase2, clientPowerFactor, getEnergyPhase2())),
+          createEMeterStatus(remoteAddress),
           (powerPhase0.power() + powerPhase1.power() + powerPhase2.power()) * clientPowerFactor,
           true);
+  }
+  
+  private List<Rpc.EMeterStatus> createEMeterStatus(@NotNull InetAddress remoteAddress) {
+    double clientPowerFactor = getPowerFactorForRemoteAddress(remoteAddress);
+
+    PowerData powerPhase0 = getPowerPhase0();
+    PowerData powerPhase1 = getPowerPhase1();
+    PowerData powerPhase2 = getPowerPhase2();
+    
+    return List.of(
+          Rpc.EMeterStatus.of(powerPhase0, clientPowerFactor, getEnergyPhase0()),
+          Rpc.EMeterStatus.of(powerPhase1, clientPowerFactor, getEnergyPhase1()),
+          Rpc.EMeterStatus.of(powerPhase2, clientPowerFactor, getEnergyPhase2()));
   }
   
   private Rpc.Response rpcUnknownMethod(Rpc.Request request) {
@@ -1243,6 +1318,16 @@ public class ShellyPro3EM extends Shelly {
 
     return udpClientContext;
   }
+  
+  public record ScriptList(
+        @JsonProperty("remoteAddress") InetAddress remoteAddress,
+        @JsonProperty("replyTo") ActorRef<Rpc.ScriptListResponse> replyTo
+  ) implements Command {}
+
+  public record ShellyGetComponents(
+        @JsonProperty("remoteAddress") InetAddress remoteAddress,
+        @JsonProperty("replyTo") ActorRef<Rpc.ShellyGetComponentsResponse> replyTo
+  ) implements Command {}
 
   public record ShellyGetConfig(
         @JsonProperty("remoteAddress") InetAddress remoteAddress,
@@ -1338,16 +1423,22 @@ public class ShellyPro3EM extends Shelly {
   public enum RetryOpenOutboundWebsocketConnection implements Command {
     INSTANCE
   }
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public record ShellyComponents(
+        @JsonProperty("components") List<Rpc.Component> component
+  ) implements Rpc.Response {}
   
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   public record ShellyConfig(
         @JsonProperty("ble") Rpc.BleGetConfigResponse ble,
         @JsonProperty("cloud") Rpc.CloudGetConfigResponse cloud,
         @JsonProperty("em:0") Rpc.EmGetConfigResponse em0,
         @JsonProperty("sys") Rpc.SysGetConfigResponse sys,
-        @JsonProperty("wifi_sta") WiFiStatus wifi_sta,
+        @JsonProperty("wifi_sta") Rpc.WiFiStatus wifi_sta,
         @JsonProperty("ws") Rpc.WsGetConfigResponse ws
   ) implements Rpc.Response {}
-  
   
   public enum RetryStartUdpServer implements Command {
     INSTANCE
@@ -1355,13 +1446,13 @@ public class ShellyPro3EM extends Shelly {
 
   @Getter
   public static class Status extends Shelly.Status {
-    private final List<EMeterStatus> emeters;
+    private final List<Rpc.EMeterStatus> emeters;
     private final double total_power;
     private final boolean fs_mounted;
     
-    public Status(@NotNull WiFiStatus wifi_sta,
-                  @NotNull CloudStatus cloud,
-                  @NotNull MqttStatus mqtt,
+    public Status(@NotNull Rpc.WiFiStatus wifi_sta,
+                  @NotNull Rpc.CloudStatus cloud,
+                  @NotNull Rpc.MqttStatus mqtt,
                   @NotNull String time,
                   long unixtime,
                   int serial,
@@ -1375,8 +1466,8 @@ public class ShellyPro3EM extends Shelly {
                   long uptime,
                   double temperature,
                   boolean overtemperature,
-                  @NotNull TempStatus temp,
-                  @NotNull List<EMeterStatus> emeters,
+                  @NotNull Rpc.TempStatus temp,
+                  @NotNull List<Rpc.EMeterStatus> emeters,
                   double total_power,
                   boolean fs_mounted) {
       super(wifi_sta, cloud, mqtt, time, unixtime, serial, has_update, mac, ram_total, ram_free, ram_lwm, fs_size, 
@@ -1387,24 +1478,4 @@ public class ShellyPro3EM extends Shelly {
     }
   }
 
-  public record EMeterStatus(
-        @JsonProperty("power") double power,
-        @JsonProperty("pf") double pf,
-        @JsonProperty("current") double current,
-        @JsonProperty("voltage") double voltage,
-        @JsonProperty("is_valid") boolean is_valid,
-        @JsonProperty("total") double total,
-        @JsonProperty("total_returned") double total_returned
-  ) {
-    public static EMeterStatus of(PowerData data, double clientPowerFactor, EnergyData energyData) {
-      return new EMeterStatus(
-            data.power() * clientPowerFactor, 
-            data.powerFactor(), 
-            data.current() * clientPowerFactor, 
-            data.voltage(), 
-            true, 
-            energyData.totalConsumption(),
-            energyData.totalProduction());
-    }
-  }
 }

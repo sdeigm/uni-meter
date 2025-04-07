@@ -7,7 +7,6 @@ import com.deigmueller.uni_meter.application.WebsocketOutput;
 import com.deigmueller.uni_meter.common.shelly.Rpc;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import com.deigmueller.uni_meter.output.ClientContext;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.typesafe.config.Config;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -185,20 +184,26 @@ public abstract class Shelly extends OutputDevice {
     return 0;
   }
   
-  protected WiFiStatus createWiFiStatus() {
-    return new WiFiStatus(getConfig().getConfig("wifi-status"));
+  protected Rpc.WiFiStatus createWiFiStatus() {
+    return new Rpc.WiFiStatus(getConfig().getConfig("wifi-status"));
   }
 
-  protected CloudStatus createCloudStatus() {
-    return new CloudStatus(getConfig().getConfig(("cloud-status")));
+  protected Rpc.CloudStatus createCloudStatus() {
+    return new Rpc.CloudStatus(getConfig().getConfig(("cloud-status")));
   }
 
-  protected MqttStatus createMqttStatus() {
-    return new MqttStatus(false);
+  protected Rpc.MqttStatus createMqttStatus() {
+    return new Rpc.MqttStatus(false);
   }
 
-  protected TempStatus createTempStatus() {
-    return new TempStatus(28.08, 82.54, true);
+  protected Rpc.SysStatus createSysStatus() {
+    return new Rpc.SysStatus(
+          getUptime(),
+          getConfig().getString("fw"));
+  }
+
+  protected Rpc.TempStatus createTempStatus() {
+    return new Rpc.TempStatus(28.08, 82.54, true);
   }
 
   /**
@@ -306,17 +311,6 @@ public abstract class Shelly extends OutputDevice {
     INSTANCE
   }
 
-  public record ShellyInfo(
-        String type,
-        String mac,
-        boolean auth,
-        String fw,
-        boolean discoverable,
-        int longid,
-        int num_outputs,
-        int num_meters
-  ) {}
-
   public record Settings(
         Device device,
         Login login,
@@ -346,9 +340,9 @@ public abstract class Shelly extends OutputDevice {
   @Getter
   @AllArgsConstructor
   public static class Status implements Rpc.Response{
-    private final @NotNull WiFiStatus wifi_sta;
-    private final @NotNull CloudStatus cloud;
-    private final @NotNull MqttStatus mqtt;
+    private final @NotNull Rpc.WiFiStatus wifi_sta;
+    private final @NotNull Rpc.CloudStatus cloud;
+    private final @NotNull Rpc.MqttStatus mqtt;
     private final @NotNull String time;
     private final long unixtime;
     private final int serial;
@@ -362,38 +356,8 @@ public abstract class Shelly extends OutputDevice {
     private final long uptime;
     private final double temperature;
     private final boolean overtemperature;
-    private final TempStatus tmp;
+    private final Rpc.TempStatus tmp;
   }
-
-  public record WiFiStatus(
-        @JsonProperty("connected") boolean connected,
-        @JsonProperty("ssid") String ssid,
-        @JsonProperty("ip") String ip,
-        @JsonProperty("rssi") int rssi
-  ) {
-    public WiFiStatus(Config config) {
-      this(config.getBoolean("connected"), config.getString("ssid"), config.getString("ip"), config.getInt("rssi"));
-    }
-  }
-
-  public record CloudStatus(
-        @JsonProperty("enabled") boolean enabled,
-        @JsonProperty("connected") boolean connected
-  ) {
-    public CloudStatus(Config config) {
-      this(config.getBoolean("enabled"), config.getBoolean("connected"));
-    }
-  }
-
-  public record MqttStatus(
-        @JsonProperty("connected") boolean connected
-  ) {}
-  
-  public record TempStatus(
-        @JsonProperty("tC") double tC,
-        @JsonProperty("tF") double tF,
-        @JsonProperty("is_valid") boolean isValid
-  ) {}
   
   public record ShellyClientContext(
         @Nullable String mac,

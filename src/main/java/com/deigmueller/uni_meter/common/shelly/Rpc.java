@@ -1,5 +1,6 @@
 package com.deigmueller.uni_meter.common.shelly;
 
+import com.deigmueller.uni_meter.output.OutputDevice;
 import com.fasterxml.jackson.annotation.*;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -10,7 +11,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.typesafe.config.Config;
 import lombok.Getter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -23,20 +23,22 @@ import java.text.DecimalFormatSymbols;
 import java.util.List;
 import java.util.Locale;
 
+@SuppressWarnings("SpellCheckingInspection")
 public class Rpc {
   private static final Logger LOGGER = LoggerFactory.getLogger("uni-meter.rpc"); 
   @Getter private static final ObjectMapper objectMapper = createObjectMapper();
+
   public static ObjectMapper createObjectMapper() {
     ObjectMapper objectMapper = new ObjectMapper();
-    SimpleModule simpleModule = new SimpleModule("RpcModule", new Version(1,0,0, "", "com.deigmueller", "uni-meter"));
+    SimpleModule simpleModule = new SimpleModule("RpcModule", new Version(1, 0, 0, "", "com.deigmueller", "uni-meter"));
     simpleModule.addSerializer(Float.class, new FloatSerializer());
     simpleModule.addSerializer(Double.class, new DoubleSerializer());
     simpleModule.addSerializer(RpcNull.class, new RpcNullSerializer());
     simpleModule.addSerializer(RpcStringOrNull.class, new RpcStringOrNullSerializer());
-    objectMapper.registerModule(simpleModule);    
+    objectMapper.registerModule(simpleModule);
     return objectMapper.findAndRegisterModules();
   }
-  
+
   public static String toString(@Nullable Object object) {
     LOGGER.debug("Rpc.toString({})", object != null ? object.getClass().getSimpleName() : "null");
     try {
@@ -92,6 +94,8 @@ public class Rpc {
         case "em.getconfig" -> objectMapper.treeToValue(tree, EmGetConfig.class);
         case "em.getstatus" -> objectMapper.treeToValue(tree, EmGetStatus.class);
         case "emdata.getstatus" -> objectMapper.treeToValue(tree, EmDataGetStatus.class);
+        case "script.list" -> objectMapper.treeToValue(tree, ScriptList.class);
+        case "shelly.getcomponents" -> objectMapper.treeToValue(tree, ShellyGetComponents.class);
         case "shelly.getconfig" -> objectMapper.treeToValue(tree, ShellyGetConfig.class);
         case "shelly.getstatus" -> objectMapper.treeToValue(tree, ShellyGetStatus.class);
         case "shelly.getdeviceinfo" -> objectMapper.treeToValue(tree, GetDeviceInfo.class);
@@ -113,8 +117,11 @@ public class Rpc {
     String dest();
   }
 
-  public interface Response {
-  }
+  public interface Response {}
+  
+  public interface Status {}
+  
+  public interface Config {}
   
   @JsonIgnoreProperties(ignoreUnknown = true)
   @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -177,6 +184,62 @@ public class Rpc {
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ScriptList(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dest") String dest
+  ) implements Request {}
+  
+  public record ScriptListResponse(
+        @JsonProperty("scripts") List<Script> scripts
+  ) implements Response {}
+  
+  public record Script(
+        @JsonProperty("id") int id,
+        @JsonProperty("name") String name,
+        @JsonProperty("enable") boolean enable,
+        @JsonProperty("running") boolean running
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ShellyGetComponents(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dest") String dest,
+        @JsonProperty("params") ShellyGetComponentsParams params
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ShellyGetComponentsParams(
+        @JsonProperty("offset") Integer offset,
+        @JsonProperty("include") List<String> include,
+        @JsonProperty("keys") List<String> keys,
+        @JsonProperty("dynamic_only") Boolean dynamic_only
+  ) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public record ShellyGetComponentsResponse(
+        @JsonProperty("components") List<Rpc.Component> component,
+        @JsonProperty("cfg_rev") int cfg_reg,
+        @JsonProperty("offset") int offset,
+        @JsonProperty("total") int total
+  ) implements Rpc.Response {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public record Component(
+        @JsonProperty("key") String key,
+        @JsonProperty("status") Status status,
+        @JsonProperty("config") Config config
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public record ShellyGetConfig(
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
@@ -192,7 +255,72 @@ public class Rpc {
         @JsonProperty("src") String src,
         @JsonProperty("dest") String dest
   ) implements Request {}
+  
+  public record ShellyGetStatusResponse(
+        @JsonProperty("wifi_sta") WiFiStatus wifi_sta,
+        @JsonProperty("cloud") CloudStatus cloud,
+        @JsonProperty("mqtt") MqttStatus mqtt,
+        @JsonProperty("sys") SysStatus sys,
+        @JsonProperty("temp") TempStatus temp,
+        @JsonProperty("emeters") List<EMeterStatus> emeters
+) implements Rpc.Response {}
 
+  public record WiFiStatus(
+        @JsonProperty("connected") boolean connected,
+        @JsonProperty("ssid") String ssid,
+        @JsonProperty("ip") String ip,
+        @JsonProperty("rssi") int rssi
+  ) {
+    public WiFiStatus(com.typesafe.config.Config config) {
+      this(config.getBoolean("connected"), config.getString("ssid"), config.getString("ip"), config.getInt("rssi"));
+    }
+  }
+
+  public record CloudStatus(
+        @JsonProperty("enabled") boolean enabled,
+        @JsonProperty("connected") boolean connected
+  ) {
+    public CloudStatus(com.typesafe.config.Config config) {
+      this(config.getBoolean("enabled"), config.getBoolean("connected"));
+    }
+  }
+
+  public record MqttStatus(
+        @JsonProperty("connected") boolean connected
+  ) {}
+
+  public record TempStatus(
+        @JsonProperty("tC") double tC,
+        @JsonProperty("tF") double tF,
+        @JsonProperty("is_valid") boolean isValid
+  ) {}
+
+  public record EMeterStatus(
+        @JsonProperty("power") double power,
+        @JsonProperty("pf") double pf,
+        @JsonProperty("current") double current,
+        @JsonProperty("voltage") double voltage,
+        @JsonProperty("is_valid") boolean is_valid,
+        @JsonProperty("total") double total,
+        @JsonProperty("total_returned") double total_returned
+  ) {
+    public static EMeterStatus of(OutputDevice.PowerData data, double clientPowerFactor, OutputDevice.EnergyData energyData) {
+      return new EMeterStatus(
+            data.power() * clientPowerFactor,
+            data.powerFactor(),
+            data.current() * clientPowerFactor,
+            data.voltage(),
+            true,
+            energyData.totalConsumption(),
+            energyData.totalProduction());
+    }
+  }
+
+  public record SysStatus(
+        @JsonProperty("uptime") long uptime,
+        @JsonProperty("fw_version") String fw_version
+  ) {}
+  
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record ShellyReboot(
@@ -222,7 +350,6 @@ public class Rpc {
       }
     }
   }
-  
   
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
@@ -575,7 +702,7 @@ public class Rpc {
         @JsonProperty("server") RpcStringOrNull server,
         @JsonProperty("ssl_ca") String ssl_ca
   ) implements Response {
-    public WsGetConfigResponse(Config config) {
+    public WsGetConfigResponse(com.typesafe.config.Config config) {
       this(
             config.getBoolean("enabled"), 
             RpcStringOrNull.of(config.getString("server").isEmpty() ? null : config.getString("server")), 
