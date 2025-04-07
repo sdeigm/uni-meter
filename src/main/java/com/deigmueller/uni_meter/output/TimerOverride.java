@@ -2,6 +2,7 @@ package com.deigmueller.uni_meter.output;
 
 import com.typesafe.config.Config;
 import lombok.Getter;
+import lombok.ToString;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.DayOfWeek;
@@ -11,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.Set;
 
+@ToString
 public class TimerOverride {
     // Instance members
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -23,7 +25,8 @@ public class TimerOverride {
     private final Set<Integer> months = new HashSet<>();
     private final Set<Integer> weeksOfYear = new HashSet<>();
     private final Set<Integer> years = new HashSet<>();
-    @Getter private final double power;
+    @Getter private final Double minPower;
+    @Getter private final Double maxPower;
     
     public TimerOverride(@NotNull Config config) {
         if (config.hasPath("from")) {
@@ -63,12 +66,17 @@ public class TimerOverride {
             years.addAll(config.getIntList("years"));
         }
         
-        if (config.hasPath("power")) {
-            this.power = config.getDouble("power");
+        if (config.hasPath("min-power")) {
+            this.minPower = config.getDouble("min-power");
         } else {
-            this.power = 0.0;
+            this.minPower = null;
         }
-        
+
+        if (config.hasPath("max-power")) {
+            this.maxPower = config.getDouble("max-power");
+        } else {
+            this.maxPower = null;
+        }
     }
 
     public boolean matches(@NotNull LocalDateTime dateTime) {

@@ -22,7 +22,6 @@ import org.apache.pekko.http.javadsl.server.Route;
 import org.apache.pekko.stream.UniqueKillSwitch;
 import org.apache.pekko.stream.connectors.udp.Datagram;
 import org.apache.pekko.stream.javadsl.*;
-import org.apache.pekko.util.ByteString;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -131,33 +130,6 @@ public abstract class Shelly extends OutputDevice {
 
     return Behaviors.same();
   }
-  
-  /**
-   * Process the specified RPC request
-   * @param request Incoming RPC request to process
-   * @param createTextResponse Flag indicating whether to create a text or binary response
-   * @param output Actor reference to the websocket output actor
-   */
-  protected void processRpcRequest(@NotNull InetAddress remoteAddress,
-                                   @NotNull Rpc.Request request,
-                                   boolean createTextResponse,
-                                   @NotNull ActorRef<WebsocketOutput.Command> output) {
-    logger.trace("Shelly.processRpcRequest()");
-    
-    Rpc.ResponseFrame response = createRpcResponse(remoteAddress, request);
-
-    Message wsResponse;
-    if (createTextResponse) {
-      wsResponse = TextMessage.create(Rpc.responseToString(response));
-    } else {
-      wsResponse = BinaryMessage.create(ByteString.fromArrayUnsafe(Rpc.responseToBytes(response)));
-    }
-
-    output.tell(new WebsocketOutput.Send(wsResponse));
-  }
-
-  protected abstract Rpc.ResponseFrame createRpcResponse(@NotNull InetAddress remoteAddress,
-                                                         @NotNull Rpc.Request request);
   
   private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
   

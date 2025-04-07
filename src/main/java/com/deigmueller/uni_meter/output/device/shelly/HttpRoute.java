@@ -89,13 +89,16 @@ class HttpRoute extends AllDirectives {
                                         parameter(StringUnmarshallers.STRING, "config", this::onCloudSetConfig)
                                   ),
                                   path("EM.GetConfig", () ->
-                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmGetConfig(id.orElse(0)))
+                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id -> 
+                                              onEmGetConfig(id.orElse(0)))
                                   ),
                                   path("EM.GetStatus", () ->
-                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmGetStatus(remoteAddress, id.orElse(0)))
+                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id -> 
+                                              onEmGetStatus(remoteAddress, id.orElse(0)))
                                   ),
                                   path("EMData.GetStatus", () ->
-                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmDataGetStatus(remoteAddress, id.orElse(0)))
+                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id -> 
+                                              onEmDataGetStatus(remoteAddress, id.orElse(0)))
                                   ),
                                   path("Script.List", () ->
                                         onScripList(remoteAddress)
@@ -366,7 +369,11 @@ class HttpRoute extends AllDirectives {
                 system.scheduler()
           ).thenApply(response -> {
             if (response.failure() != null) {
-              throw response.failure();
+              if (response.failure() instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+              } else {
+                throw new RuntimeException(response.failure());
+              }
             }
             
             return response.status();

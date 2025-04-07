@@ -5,6 +5,8 @@ import com.deigmueller.uni_meter.application.UniMeter;
 import com.deigmueller.uni_meter.application.WebsocketInput;
 import com.deigmueller.uni_meter.application.WebsocketOutput;
 import com.deigmueller.uni_meter.common.shelly.Rpc;
+import com.deigmueller.uni_meter.common.shelly.RpcError;
+import com.deigmueller.uni_meter.common.shelly.RpcException;
 import com.deigmueller.uni_meter.common.utils.MathUtils;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -23,10 +25,7 @@ import org.apache.pekko.actor.typed.PostStop;
 import org.apache.pekko.actor.typed.javadsl.*;
 import org.apache.pekko.http.javadsl.Http;
 import org.apache.pekko.http.javadsl.model.StatusCodes;
-import org.apache.pekko.http.javadsl.model.ws.Message;
-import org.apache.pekko.http.javadsl.model.ws.TextMessage;
-import org.apache.pekko.http.javadsl.model.ws.WebSocketRequest;
-import org.apache.pekko.http.javadsl.model.ws.WebSocketUpgradeResponse;
+import org.apache.pekko.http.javadsl.model.ws.*;
 import org.apache.pekko.http.javadsl.server.Route;
 
 import org.apache.pekko.japi.Pair;
@@ -183,10 +182,14 @@ public class ShellyPro3EM extends Shelly {
     logger.trace("ShellyPro3EM.onEmGetStatus()");
     
     if (request.id() == 0) {
-      request.replyTo().tell(
-            new EmGetStatusOrFailureResponse(
-                  null, 
-                  rpcEmGetStatus(getPowerFactorForRemoteAddress(request.remoteAddress()))));
+      try {
+        request.replyTo().tell(
+              new EmGetStatusOrFailureResponse(
+                    null, 
+                    rpcEmGetStatus(getPowerFactorForRemoteAddress(request.remoteAddress()))));
+      } catch (Exception e) {
+        request.replyTo().tell(new EmGetStatusOrFailureResponse(e, null));
+      }
     } else  {
       request.replyTo().tell(
             new EmGetStatusOrFailureResponse(
@@ -257,7 +260,7 @@ public class ShellyPro3EM extends Shelly {
   }
 
   /**
-   * Handle the Script.List request
+   * Handle the "Script.List" request
    */
   protected @NotNull Behavior<Command> onScriptList(@NotNull ScriptList request) {
     logger.trace("ShellyPro3EM.onScriptList()");
@@ -572,6 +575,30 @@ public class ShellyPro3EM extends Shelly {
   }
 
   /**
+   * Process the specified RPC request
+   * @param request Incoming RPC request to process
+   * @param createTextResponse Flag indicating whether to create a text or binary response
+   * @param output Actor reference to the websocket output actor
+   */
+  protected void processRpcRequest(@NotNull InetAddress remoteAddress,
+                                   @NotNull Rpc.Request request,
+                                   boolean createTextResponse,
+                                   @NotNull ActorRef<WebsocketOutput.Command> output) {
+    logger.trace("Shelly.processRpcRequest()");
+
+    Rpc.ResponseFrame response = createRpcResponse(remoteAddress, request);
+
+    Message wsResponse;
+    if (createTextResponse) {
+      wsResponse = TextMessage.create(Rpc.responseToString(response));
+    } else {
+      wsResponse = BinaryMessage.create(ByteString.fromArrayUnsafe(Rpc.responseToBytes(response)));
+    }
+
+    output.tell(new WebsocketOutput.Send(wsResponse));
+  }
+  
+  /**
    * Handle the notification of a successful outbound websocket connection
    * @param message Notification of a successful outbound websocket connection
    * @return Same behavior
@@ -772,18 +799,24 @@ public class ShellyPro3EM extends Shelly {
     if (outboundWebsocketConnectionIsOpen()) {
       WebsocketContext outboundWebsocketContext = websocketConnections.get(outboundWebsocketConnectionId);
       if (outboundWebsocketContext != null) {
-        Rpc.NotificationFrame notification = new Rpc.NotificationFrame(
-              getHostname(outboundWebsocketAddress),
-              null,
-              "NotifyStatus",
-              new Rpc.EmGetStatusNotification(
-                    MathUtils.round(Instant.now().toEpochMilli() / 1000.0, 2),
-                    rpcEmGetStatus(1.0)
-              )
-        );
-      
-        outboundWebsocketContext.getOutput().tell(
-              new WebsocketOutput.Send(TextMessage.create(Rpc.notificationToString(notification))));
+        try {
+          Rpc.NotificationFrame notification = new Rpc.NotificationFrame(
+                getHostname(outboundWebsocketAddress),
+                null,
+                "NotifyStatus",
+                new Rpc.EmGetStatusNotification(
+                      MathUtils.round(Instant.now().toEpochMilli() / 1000.0, 2),
+                      rpcEmGetStatus(1.0)
+                )
+          );
+
+          outboundWebsocketContext.getOutput().tell(
+                new WebsocketOutput.Send(TextMessage.create(Rpc.notificationToString(notification))));
+        } catch (RpcException e) {
+          logger.debug("RPC error: {}", e.getMessage());
+        } catch (Exception e) {
+          logger.error("unhandled exception: {}", e.getMessage());
+        }
       }
     }
   }
@@ -809,18 +842,34 @@ public class ShellyPro3EM extends Shelly {
     return 3;
   }
   
-  @Override
-  protected Rpc.ResponseFrame createRpcResponse(@NotNull InetAddress remoteAddress,
-                                                @NotNull Rpc.Request request) {
-    return new Rpc.ResponseFrame(
-          request.id(), 
-          getHostname(remoteAddress), 
-          request.src(),
-          createRpcResult(remoteAddress, request));
+  protected @NotNull Rpc.ResponseFrame createRpcResponse(@NotNull InetAddress remoteAddress,
+                                                         @NotNull Rpc.Request request) {
+    try {
+      return new Rpc.ResponseFrame(
+            request.id(), 
+            getHostname(remoteAddress), 
+            request.src(),
+            createRpcResult(remoteAddress, request),
+            null);
+    } catch (RpcException rpcException) {
+      return new Rpc.ResponseFrame(
+            request.id(),
+            getHostname(remoteAddress),
+            request.src(),
+            null,
+            new Rpc.Error(rpcException.getCode(), rpcException.getMessage()));
+    } catch (Exception e) {
+      return new Rpc.ResponseFrame(
+            request.id(),
+            getHostname(remoteAddress),
+            request.src(),
+            null,
+            new Rpc.Error(-32603, e.getMessage()));
+    }
   }
    
   protected Rpc.Response createRpcResult(@NotNull InetAddress remoteAddress,
-                                         @NotNull Rpc.Request request) {
+                                         @NotNull Rpc.Request request) throws RpcException {
     return switch (request.method().toLowerCase()) {
       case "cloud.getconfig" -> rpcCloudGetConfig();
       case "cloud.setconfig" -> rpcCloudSetConfig((Rpc.CloudSetConfig) request);
@@ -942,12 +991,26 @@ public class ShellyPro3EM extends Shelly {
   }
   
 
-  private Rpc.EmGetStatusResponse rpcEmGetStatus(double factor) {
+  private Rpc.EmGetStatusResponse rpcEmGetStatus(double factor) throws RpcException {
     logger.trace("ShellyPro3EM.rpcEmGetStatus()");
     
     PowerData powerPhase0 = getPowerPhase0();
     PowerData powerPhase1 = getPowerPhase1();
     PowerData powerPhase2 = getPowerPhase2();
+    
+    if (powerPhase0 == null && powerPhase1 == null && powerPhase2 == null) {
+      throw new RpcException(RpcError.ERROR_NO_POWER_DATA, RpcError.ERROR_NO_POWER_DATA_MSG);
+    }
+    
+    if (powerPhase0 == null) {
+      powerPhase0 = getPowerPhase0OrDefault();
+    }
+    if (powerPhase1 == null) {
+      powerPhase1 = getPowerPhase1OrDefault();
+    }
+    if (powerPhase2 == null) {
+      powerPhase2 = getPowerPhase2OrDefault();
+    }
     
     return new Rpc.EmGetStatusResponse(
           0,
@@ -1147,9 +1210,9 @@ public class ShellyPro3EM extends Shelly {
   private Status createStatus(@NotNull InetAddress remoteAddress) {
     double clientPowerFactor = getPowerFactorForRemoteAddress(remoteAddress);
     
-    PowerData powerPhase0 = getPowerPhase0();
-    PowerData powerPhase1 = getPowerPhase1();
-    PowerData powerPhase2 = getPowerPhase2();
+    PowerData powerPhase0 = getPowerPhase0OrDefault();
+    PowerData powerPhase1 = getPowerPhase1OrDefault();
+    PowerData powerPhase2 = getPowerPhase2OrDefault();
     
     return new Status(
           createWiFiStatus(),
@@ -1177,9 +1240,9 @@ public class ShellyPro3EM extends Shelly {
   private List<Rpc.EMeterStatus> createEMeterStatus(@NotNull InetAddress remoteAddress) {
     double clientPowerFactor = getPowerFactorForRemoteAddress(remoteAddress);
 
-    PowerData powerPhase0 = getPowerPhase0();
-    PowerData powerPhase1 = getPowerPhase1();
-    PowerData powerPhase2 = getPowerPhase2();
+    PowerData powerPhase0 = getPowerPhase0OrDefault();
+    PowerData powerPhase1 = getPowerPhase1OrDefault();
+    PowerData powerPhase2 = getPowerPhase2OrDefault();
     
     return List.of(
           Rpc.EMeterStatus.of(powerPhase0, clientPowerFactor, getEnergyPhase0()),
@@ -1371,7 +1434,7 @@ public class ShellyPro3EM extends Shelly {
   ) implements Command {}
   
   public record EmGetStatusOrFailureResponse(
-        @JsonProperty("failure") RuntimeException failure,
+        @JsonProperty("failure") Exception failure,
         @JsonProperty("status") Rpc.EmGetStatusResponse status
   ) {}
 
