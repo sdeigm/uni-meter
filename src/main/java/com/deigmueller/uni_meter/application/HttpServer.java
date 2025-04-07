@@ -1,5 +1,6 @@
 package com.deigmueller.uni_meter.application;
 
+import com.deigmueller.uni_meter.common.shelly.RpcException;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.*;
 import org.apache.pekko.http.javadsl.Http;
@@ -205,6 +206,10 @@ public class HttpServer extends AbstractBehavior<HttpServer.Command> {
             .match(NoSuchElementException.class, e -> {
               logger.debug("no such element: {}", e.getMessage());
               return complete(StatusCodes.NOT_FOUND, e.getMessage());
+            })
+            .match(RpcException.class, e -> {
+              logger.debug("rpc exception: {}", e.getMessage());
+              return complete(StatusCodes.SERVICE_UNAVAILABLE, e.getMessage());
             })
             .matchAny(e -> {
               logger.error("exception in HTTP server: {}", e.getMessage());

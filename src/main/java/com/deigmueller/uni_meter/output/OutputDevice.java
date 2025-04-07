@@ -43,15 +43,12 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   
   private Instant lastPowerPhase0Update = Instant.now();
   private double offsetPhase0 = 0;
-  private double defaultPowerPhase0 = 0;
   private PowerData powerPhase0 = new PowerData(0, 0, 0, 0, 230.0, 50.0);
   private Instant lastPowerPhase1Update = Instant.now();
   private double offsetPhase1 = 0;
-  private double defaultPowerPhase1 = 0;
   private PowerData powerPhase1 = new PowerData(0, 0, 0, 0, 230.0, 50.0);
   private Instant lastPowerPhase2Update = Instant.now();
   private double offsetPhase2 = 0;
-  private double defaultPowerPhase2 = 0;
   private PowerData powerPhase2 = new PowerData(0, 0, 0, 0, 230.0, 50.0);
 
   private Instant lastEnergyPhase0Update = Instant.now();
@@ -81,8 +78,6 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     
     initPowerOffsets(config);
 
-    initDefaultPowerValues(config);
-    
     if (config.hasPath("client-contexts")) {
       clientContextsInitializer.initClientContexts(
             logger,
@@ -253,17 +248,20 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     logger.debug("power phase 0: {}", this.powerPhase0);
   }
   
-  protected @NotNull PowerData getPowerPhase0() {
-    PowerData timerOverride = getPowerTimerOverride();
-    if (timerOverride != null) {
-      return timerOverride;
-    }
-    
+  protected @Nullable PowerData getPowerPhase0() {
     if (Duration.between(this.lastPowerPhase0Update, Instant.now()).compareTo(forgetInterval) > 0) {
-      return getDefaultPowerData(defaultPowerPhase0);
+      return null;
     } else {
       return this.powerPhase0;
     }
+  }
+
+  protected @NotNull PowerData getPowerPhase0OrDefault() {
+    PowerData powerData = getPowerPhase0();
+    if (powerData != null) {
+      return powerData;
+    }
+    return new PowerData(0, 0, 0, 0, getDefaultVoltage(), getDefaultFrequency());
   }
   
   protected void setPowerPhase1(@NotNull PowerData powerPhase1) {
@@ -272,17 +270,20 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     logger.debug("power phase 1: {}", this.powerPhase1);
   }
   
-  protected @NotNull PowerData getPowerPhase1() {
-    PowerData timerOverride = getPowerTimerOverride();
-    if (timerOverride != null) {
-      return timerOverride;
-    }
-
+  protected @Nullable PowerData getPowerPhase1() {
     if (Duration.between(this.lastPowerPhase1Update, Instant.now()).compareTo(forgetInterval) > 0) {
-      return getDefaultPowerData(defaultPowerPhase1);
+      return null;
     } else {
       return this.powerPhase1;
     }
+  }
+
+  protected @NotNull PowerData getPowerPhase1OrDefault() {
+    PowerData powerData = getPowerPhase1();
+    if (powerData != null) {
+      return powerData;
+    }
+    return new PowerData(0, 0, 0, 0, getDefaultVoltage(), getDefaultFrequency());
   }
   
   protected void setPowerPhase2(@NotNull PowerData powerPhase2) {
@@ -291,17 +292,20 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     logger.debug("power phase 2: {}", this.powerPhase2);
   }
   
-  protected @NotNull PowerData getPowerPhase2() {
-    PowerData timerOverride = getPowerTimerOverride();
-    if (timerOverride != null) {
-      return timerOverride;
-    }
-
+  protected @Nullable PowerData getPowerPhase2() {
     if (Duration.between(this.lastPowerPhase2Update, Instant.now()).compareTo(forgetInterval) > 0) {
-      return getDefaultPowerData(defaultPowerPhase2);
+      return null;
     } else {
       return this.powerPhase2;
     }
+  }
+
+  protected @NotNull PowerData getPowerPhase2OrDefault() {
+    PowerData powerData = getPowerPhase2();
+    if (powerData != null) {
+      return powerData;
+    }
+    return new PowerData(0, 0, 0, 0, getDefaultVoltage(), getDefaultFrequency());
   }
   
   protected void setEnergyPhase0(@NotNull EnergyData energyPhase0) {
@@ -354,13 +358,12 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   
   protected abstract void eventPowerDataChanged();
   
-  private @Nullable PowerData getPowerTimerOverride() {
+  private @Nullable TimerOverride getPowerTimerOverride() {
     LocalDateTime now = LocalDateTime.now();
     
     for (TimerOverride timerOverride : timerOverrides) {
       if (timerOverride.matches(now)) {
-        double power = timerOverride.getPower() / 3.0;
-        return new PowerData(power, power, 1.0, power / defaultVoltage, defaultVoltage, defaultFrequency);
+        return timerOverride;
       }
     }
     return null;  
@@ -384,28 +387,6 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     }
   }
 
-  protected void initDefaultPowerValues(@NotNull Config config) {
-    defaultPowerPhase0 = config.getDouble("default-power-l1");
-    defaultPowerPhase1 = config.getDouble("default-power-l2");
-    defaultPowerPhase2 = config.getDouble("default-power-l3");
-    
-    if (defaultPowerPhase0 == 0 && defaultPowerPhase1 == 0 && defaultPowerPhase2 == 0) {
-      double totalPower = config.getDouble("default-power-total");
-      if (totalPower != 0) {
-        defaultPowerPhase0 = Math.round(totalPower * 100.0 / 3.0) / 100.0;
-        defaultPowerPhase1 = Math.round(totalPower * 100.0 / 3.0) / 100.0;
-        defaultPowerPhase2 = Math.round(totalPower * 100.0 / 3.0) / 100.0;
-        logger.info("using total default power of {}", totalPower);
-      }
-    } else {
-      logger.info("using phase default powers: L1={}, L2={}, L3={}", defaultPowerPhase0, defaultPowerPhase1, defaultPowerPhase2);
-    }
-  }
-  
-  protected PowerData getDefaultPowerData(double power) {
-    return new PowerData(power, power, 1.0, power / defaultVoltage, defaultVoltage, defaultFrequency);
-  }
-  
   /**
    * Get the power factor for the given remote address
    * @param remoteAddress Remote address

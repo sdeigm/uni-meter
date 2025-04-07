@@ -119,6 +119,11 @@ public class Rpc {
 
   public interface Response {}
   
+  public record Error(
+        @JsonProperty("code") int code,
+        @JsonProperty("messge") String message
+  ) {}
+  
   public interface Status {}
   
   public interface Config {}
@@ -130,7 +135,8 @@ public class Rpc {
       @JsonProperty("id") long id,
       @JsonProperty("src") String src,
       @JsonProperty("dst") String dst,
-      @JsonProperty("result") Response result
+      @JsonProperty("result") Response result,
+      @JsonProperty("error") Error error
   ) {
     @Override public String toString() { return Rpc.toString(this); }
   }
