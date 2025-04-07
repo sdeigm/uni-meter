@@ -97,6 +97,12 @@ class HttpRoute extends AllDirectives {
                                   path("EMData.GetStatus", () ->
                                         parameterOptional(StringUnmarshallers.INTEGER, "id", id -> onEmDataGetStatus(remoteAddress, id.orElse(0)))
                                   ),
+                                  path("Script.List", () ->
+                                        onScripList(remoteAddress)
+                                  ),
+                                  path("Shelly.GetComponents", () ->
+                                        onShellyGetComponents(remoteAddress)
+                                  ),
                                   path("Shelly.GetConfig", () ->
                                         onShellyGetConfig(remoteAddress)
                                   ),
@@ -204,6 +210,32 @@ class HttpRoute extends AllDirectives {
                             replyTo), 
                 timeout, 
                 system.scheduler()), 
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onScripList(@NotNull RemoteAddress remoteAddress) {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<Rpc.ScriptListResponse> replyTo) -> new ShellyPro3EM.ScriptList(
+                      remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
+                      replyTo),
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onShellyGetComponents(@NotNull RemoteAddress remoteAddress) {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<Rpc.ShellyGetComponentsResponse> replyTo) -> new ShellyPro3EM.ShellyGetComponents(
+                      remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
+                      replyTo),
+                timeout,
+                system.scheduler()
+          ),
           Jackson.marshaller(objectMapper));
   }
 
