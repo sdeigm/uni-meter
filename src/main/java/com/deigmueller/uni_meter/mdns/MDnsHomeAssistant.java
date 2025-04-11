@@ -64,7 +64,7 @@ public class MDnsHomeAssistant implements MDnsKind {
               return null;
             } else {
               if (response.status() != StatusCodes.OK) {
-                LOGGER.info("call of home assistant service pyscript.uni_meter_mdns_register failed with status: {}",
+                LOGGER.info("call of home assistant service pyscript.uni_meter_mdns_register failed with status: {} (uni-meter-mdns.py not installed?)",
                       response.status());
                 return null;
               } else {
