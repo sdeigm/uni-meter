@@ -12,6 +12,7 @@ import com.deigmueller.uni_meter.input.device.tasmota.Tasmota;
 import com.deigmueller.uni_meter.input.device.tibber.pulse.Pulse;
 import com.deigmueller.uni_meter.input.device.sma.energy_meter.EnergyMeter;
 import com.deigmueller.uni_meter.input.device.vzlogger.VzLogger;
+import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import com.deigmueller.uni_meter.output.device.shelly.ShellyPro3EM;
 import org.apache.pekko.actor.typed.ActorRef;
@@ -42,8 +43,10 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
     try {
       httpServerController = createHttpServerController();
       getContext().watch(httpServerController);
+      
+      final ActorRef<MDnsRegistrator.Command> mDnsRegistrator = createMDnsRegistrator();
 
-      ActorRef<OutputDevice.Command> output = createOutput();
+      ActorRef<OutputDevice.Command> output = createOutput(mDnsRegistrator);
       getContext().watch(output);
 
       ActorRef<InputDevice.Command> input = createInput(output);
@@ -93,10 +96,18 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
   }
 
   /**
+   * Create the mDNS registrator
+   */
+  private @NotNull ActorRef<MDnsRegistrator.Command> createMDnsRegistrator() {
+    logger.trace("UniMeter.createMDnsRegistrator()");
+    return getContext().spawn(MDnsRegistrator.create(), "mdns-registrator");
+  }
+
+  /**
    * Create the output device actor
    * @return Reference to the Shelly actor
    */
-  private @NotNull ActorRef<OutputDevice.Command> createOutput() {
+  private @NotNull ActorRef<OutputDevice.Command> createOutput(@NotNull ActorRef<MDnsRegistrator.Command> mDnsRegistrator) {
     logger.trace("UniMeter.createOutput()");
     
     String outputDeviceConfigPath = getContext().getSystem().settings().config().getString("uni-meter.output");
@@ -109,6 +120,7 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
             Behaviors.supervise(
               ShellyPro3EM.create(
                     getContext().getSelf(), 
+                    mDnsRegistrator,
                     getContext().getSystem().settings().config().getConfig(outputDeviceConfigPath))
             ).onFailure(SupervisorStrategy.restartWithBackoff(
                   getContext().getSystem().settings().config().getDuration("uni-meter.output-supervision.min-backoff"),

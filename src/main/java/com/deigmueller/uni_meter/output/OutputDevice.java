@@ -1,6 +1,7 @@
 package com.deigmueller.uni_meter.output;
 
 import com.deigmueller.uni_meter.application.UniMeter;
+import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.typesafe.config.Config;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -33,6 +34,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   protected final Logger logger = LoggerFactory.getLogger("uni-meter.output");
   private final Materializer materializer = Materializer.createMaterializer(getContext());
   private final ActorRef<UniMeter.Command> controller;
+  private final ActorRef<MDnsRegistrator.Command> mdnsRegistrator;
   private final Config config;
   private final Duration forgetInterval;
   private final double defaultVoltage;
@@ -60,10 +62,12 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   
   protected OutputDevice(@NotNull ActorContext<Command> context,
                          @NotNull ActorRef<UniMeter.Command> controller,
+                         @NotNull ActorRef<MDnsRegistrator.Command> mDnsRegistrator,
                          @NotNull Config config,
                          @NotNull ClientContextsInitializer clientContextsInitializer) {
     super(context);
     this.controller = controller;
+    this.mdnsRegistrator = mDnsRegistrator;
     this.config = config;
     this.forgetInterval = config.getDuration("forget-interval");
     this.defaultVoltage = config.getDouble("default-voltage");

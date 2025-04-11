@@ -6,6 +6,14 @@ if bashio::config.has_value 'custom_config' && [ -f "/config/$(bashio::config 'c
 else 
     echo "custom configuration file $(bashio::config 'custom_config') does not exist"
     exit 1
-fi    
+fi  
+
+if [ -f "/config/logback.xml" ]; then
+  bashio::log.info "using logging configuration file logback.xml"
+  cp "/config/logback.xml" "/opt/uni-meter/config/logback.xml"
+fi
+
+export UNI_HA_URL="http://supervisor/core"
+export UNI_HA_ACCESS_TOKEN=$SUPERVISOR_TOKEN
 
 /opt/uni-meter/bin/uni-meter.sh
