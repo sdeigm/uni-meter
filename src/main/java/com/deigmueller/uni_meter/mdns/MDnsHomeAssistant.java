@@ -8,6 +8,7 @@ import org.apache.pekko.actor.typed.ActorSystem;
 import org.apache.pekko.http.javadsl.Http;
 import org.apache.pekko.http.javadsl.model.*;
 import org.apache.pekko.http.javadsl.model.headers.HttpCredentials;
+import org.apache.pekko.stream.Materializer;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,12 +26,14 @@ public class MDnsHomeAssistant implements MDnsKind {
   private final Http http;
   private final String url;
   private final HttpCredentials credentials;
+  private final Materializer materializer;
   
   public MDnsHomeAssistant(@NotNull ActorSystem<?> actorSystem,
                            @NotNull Config config) {
     http = Http.get(actorSystem);
     url = config.getString("url");
     credentials = HttpCredentials.createOAuth2BearerToken(config.getString("access-token"));
+    materializer = Materializer.createMaterializer(actorSystem);
 
     LOGGER.debug("using url {}", config.getString("url"));
     LOGGER.debug("using access token {}", config.getString("access-token"));
@@ -63,6 +66,7 @@ public class MDnsHomeAssistant implements MDnsKind {
               LOGGER.error("failed to register home assistant service: {}", throwable.getMessage());
               return null;
             } else {
+              response.entity().discardBytes(materializer);
               if (response.status() != StatusCodes.OK) {
                 LOGGER.info("call of home assistant service pyscript.uni_meter_mdns_register failed with status: {} (uni-meter-mdns.py not installed?)",
                       response.status());
