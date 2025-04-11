@@ -5,6 +5,8 @@ import com.deigmueller.uni_meter.application.UniMeter;
 import com.deigmueller.uni_meter.application.WebsocketInput;
 import com.deigmueller.uni_meter.application.WebsocketOutput;
 import com.deigmueller.uni_meter.common.shelly.Rpc;
+import com.deigmueller.uni_meter.common.utils.NetUtils;
+import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import com.deigmueller.uni_meter.output.ClientContext;
 import com.typesafe.config.Config;
@@ -12,6 +14,7 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.ActorContext;
@@ -43,19 +46,21 @@ public abstract class Shelly extends OutputDevice {
   private final Instant startTime = Instant.now();
   private final String bindInterface = getConfig().getString("interface");
   private final int bindPort = getConfig().getInt("port");
-  private final String defaultMac = getConfig().getString("device.mac");
-  private final String defaultHostname = getConfig().getString("device.hostname");
+  private final String defaultMac = getDefaultMacAddress(getConfig());
+  private final String defaultHostname = getDefaultHostName(getConfig(), defaultMac);
 
   /**
    * Protected constructor
    * @param context Actor context
    * @param controller Uni-meter controller
+   * @param mDnsRegistrator mDNS registration actor
    * @param config The output device configuration
    */
   protected Shelly(@NotNull ActorContext<Command> context,
                    @NotNull ActorRef<UniMeter.Command> controller,
+                   @NotNull ActorRef<MDnsRegistrator.Command> mDnsRegistrator,
                    @NotNull Config config) {
-    super(context, controller, config, Shelly::initRemoteContexts);
+    super(context, controller, mDnsRegistrator, config, Shelly::initRemoteContexts);
   }
 
   /**
@@ -238,6 +243,26 @@ public abstract class Shelly extends OutputDevice {
     }
   }
   
+  protected static String getDefaultMacAddress(@NotNull Config config) {
+    if (! StringUtils.isAllBlank(config.getString("device.mac"))) {
+      return config.getString("device.mac");
+    }
+    
+    String detected = NetUtils.detectPrimaryMacAddress();
+    if (detected != null) {
+      return detected;
+    }
+    
+    return "B827EB364242";
+  }
+  
+  protected static String getDefaultHostName(@NotNull Config config, @NotNull String mac) {
+    if (! StringUtils.isAllBlank(config.getString("device.hostname"))) {
+      return config.getString("device.hostname");
+    }
+    
+    return "shellypro3em-" + mac.toLowerCase();
+  }
   
   public record ShellyGet(
         @NotNull InetAddress remoteAddress,

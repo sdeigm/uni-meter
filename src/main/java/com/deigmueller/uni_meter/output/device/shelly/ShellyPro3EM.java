@@ -8,6 +8,7 @@ import com.deigmueller.uni_meter.common.shelly.Rpc;
 import com.deigmueller.uni_meter.common.shelly.RpcError;
 import com.deigmueller.uni_meter.common.shelly.RpcException;
 import com.deigmueller.uni_meter.common.utils.MathUtils;
+import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -79,22 +80,27 @@ public class ShellyPro3EM extends Shelly {
    * @return Behavior of the created actor
    */
   public static Behavior<Command> create(@NotNull ActorRef<UniMeter.Command> controller,
+                                         @NotNull ActorRef<MDnsRegistrator.Command> mDnsRegistrator,
                                          @NotNull Config config) {
-    return Behaviors.setup(context -> new ShellyPro3EM(context, controller, config));
+    return Behaviors.setup(context -> new ShellyPro3EM(context, controller, mDnsRegistrator, config));
   }
 
   /**
    * Protected constructor called by the static setup method
    * @param context Actor context
    * @param controller Controller actor reference
+   * @param mDnsRegistrator mDNS registration actor
    * @param config Output device configuration
    */
   protected ShellyPro3EM(@NotNull ActorContext<Command> context,
                          @NotNull ActorRef<UniMeter.Command> controller,
+                         @NotNull ActorRef<MDnsRegistrator.Command> mDnsRegistrator,
                          @NotNull Config config) {
-    super(context, controller, config);
+    super(context, controller, mDnsRegistrator, config);
     
     controller.tell(new UniMeter.RegisterHttpRoute(getBindInterface(), getBindPort(), createRoute()));
+
+    registerMDns();
     
     startUdpServer();
 
@@ -1320,6 +1326,27 @@ public class ShellyPro3EM extends Shelly {
                 new OutboundWebsocketConnectionFailed(remoteUrl != null ? remoteUrl : "<unknown>", e));
         }
       }
+  }
+
+  /**
+   * Register the Shelly in mDNS
+   */
+  protected void registerMDns() {
+    logger.trace("Shelly.registerMDns()");
+    
+    getMdnsRegistrator().tell(
+          new MDnsRegistrator.RegisterService(
+                "_http",
+                getDefaultHostname(),
+                getBindPort(),
+                Map.of(
+                    "gen", "2",
+                    "id", getDefaultHostname(),
+                    "arch", "esp8266",
+                    "fw_id", getConfig().getString("fw")
+                )
+          )
+    );
   }
 
   /**
