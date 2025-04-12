@@ -110,14 +110,9 @@ sudo systemctl enable avahi-daemon
 sudo systemctl start avahi-daemon
 ```
 
-Afterward you can copy the provided service files to the `/etc/avahi/services` directory.
-
-```shell
-sudo cp /opt/uni-meter/config/avahi/*.service /etc/avahi/services/
-```
-
-The daemon will automatically pick up the new service files and announce the tool via mDNS. No restart of the 
-`avahi-daemon` is needed.
+Starting with `uni-meter` version 1.1.5, it is now not necessary anymore to provide the avahi services files manually.
+The `uni-meter` will create all necessary files automatically and delete them when stopped again. The old services 
+files that had been installed manually can be deleted from the `/etc/avahi/service`
 
 The provided service files announce the Shelly Pro3EM emulator running on port 80. Even if I used another port within the
 service file, the Hoymiles storage does not seem to evaluate the port information and still connects to port 80. Maybe
@@ -149,17 +144,23 @@ Then use your favorite editor to adjust the configuration file to your needs as 
 - After refreshing your browser window, there should be a ``uni-meter`` addon which can be installed 
  
 3. **Configure the uni-meter**
-- Create a ``uni-meter.conf`` configuration in the ``/addon_configs/663b81ce_uni_meter`` directory of your Home Assistant instance
+- Create a ``uni-meter.conf`` configuration in the ``/addon_configs/663b81ce_uni_meter`` directory of your Home Assistant instance and configure the input and output devices as needed
+5. **mDNS support (only necessary when using the Hoymiles storage)**
+- If the virtual shelly shall be announced via mDNS from the Home Assistant instance, you have to install the Pyscript addon
+- If that is done, copy the provided [uni-meter-mdns.py](https://github.com/sdeigm/uni-meter/blob/main/ha_addon/uni-meter-mdns.py) into the `/config/pyscript` directory on your instance
+- When the `uni-meter` finds this script, it will automatically announce the virtual shelly via mDNS without further configuration
 4. **Start the uni-meter addon**
+
 
 ## Configuring the output device
 
 ### Configuring the Shelly device id
 
-It seems as if the Hoymiles storage expects a global unique identifier for the Shelly device. This Shelly device id
-is freely configurable and can be set in the `/etc/uni-meter.conf` file. Please configure the mac address and the hostname
-of your virtual Shelly Pro3EM device. The mac address should be an arbitrary 12 character long hexadecimal string. 
-The hostname should end with the mac address in lower case.
+Starting from version 1.1.5 on it is not necessary anymore to configure the Shelly device id. It will be automatically
+set based on the first detected hardware mac address on the host machine. 
+
+For older versions it had been necessary to configure the device id as described below. These configuration can now be
+removed.
 
 ```hocon
 uni-meter {
@@ -174,26 +175,6 @@ uni-meter {
   }
   #...
 }
-```
-
-Additionally, you have to modify the two service files you copied into the `/etc/avahi/services` directory, so that the correct
-device name is announced. Please replace the shellypro3em-b827eb364242 hostname with the one you have configured in the
-`uni-meter.conf` file. Each service file contains the hostname twice. Once in the \<name> tag and once in the \<txt-record> tag.
-
-```xml
-<?xml version="1.0" standalone='no'?>
-<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
-<service-group>
-    <name replace-wildcards="yes">shellypro3em-b827eb364242</name>
-    <service protocol="ipv4">
-        <type>_http._tcp</type>
-        <port>80</port>
-        <txt-record>gen=2</txt-record>
-        <txt-record>id=shellypro3em-b827eb364242</txt-record>
-        <txt-record>arch=esp8266</txt-record>
-        <txt-record>fw_id=20241011-114455/1.4.4-g6d2a586</txt-record>
-    </service>
-</service-group>
 ```
 
 ### Enabling JSON RPC over UDP
