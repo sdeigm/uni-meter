@@ -151,16 +151,13 @@ public abstract class Shelly extends OutputDevice {
     return null;
   }
 
-  @Override
   protected int getNumOutputs() {
     return 0;
   }
 
-  @Override
-  protected int getNumMeters() {
-    return 0;
-  }
-  
+  protected abstract int getNumMeters();
+
+
   protected Rpc.WiFiStatus createWiFiStatus() {
     return new Rpc.WiFiStatus(getConfig().getConfig("wifi-status"));
   }

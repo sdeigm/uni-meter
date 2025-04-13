@@ -356,10 +356,6 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   
   protected abstract Route createRoute();
   
-  protected abstract int getNumOutputs();
-  
-  protected abstract int getNumMeters();
-  
   protected abstract void eventPowerDataChanged();
   
   private @Nullable TimerOverride getPowerTimerOverride() {

@@ -41,7 +41,7 @@ class HttpRoute extends AllDirectives {
   private final ActorRef<WebsocketInput.Notification> websocketInput;
   private final Duration timeout = Duration.ofSeconds(5);
   private final ObjectMapper objectMapper = Rpc.createObjectMapper();
-
+  
   public HttpRoute(Logger logger, 
                    ActorSystem<?> system, 
                    Materializer materializer,
