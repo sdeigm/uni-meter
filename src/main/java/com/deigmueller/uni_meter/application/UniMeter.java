@@ -14,6 +14,7 @@ import com.deigmueller.uni_meter.input.device.sma.energy_meter.EnergyMeter;
 import com.deigmueller.uni_meter.input.device.vzlogger.VzLogger;
 import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.deigmueller.uni_meter.output.OutputDevice;
+import com.deigmueller.uni_meter.output.device.eco_tracker.EcoTracker;
 import com.deigmueller.uni_meter.output.device.shelly.ShellyPro3EM;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
@@ -114,7 +115,7 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
     
     String outputDeviceType = getContext().getSystem().settings().config().getString(outputDeviceConfigPath + ".type");
     
-    if (outputDeviceType.equals("ShellyPro3EM")) {
+    if (outputDeviceType.equals(ShellyPro3EM.TYPE)) {
       logger.info("creating ShellyPro3EM output device");
       return getContext().spawn(
             Behaviors.supervise(
@@ -127,6 +128,20 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
                   getContext().getSystem().settings().config().getDuration("uni-meter.output-supervision.max-backoff"),
                   getContext().getSystem().settings().config().getDouble("uni-meter.output-supervision.jitter")
             )), 
+            "output");
+    } else if (outputDeviceType.equals(EcoTracker.TYPE)) {
+      logger.info("creating EcoTracker output device");
+      return getContext().spawn(
+            Behaviors.supervise(
+                  EcoTracker.create(
+                        getContext().getSelf(),
+                        mDnsRegistrator,
+                        getContext().getSystem().settings().config().getConfig(outputDeviceConfigPath))
+            ).onFailure(SupervisorStrategy.restartWithBackoff(
+                  getContext().getSystem().settings().config().getDuration("uni-meter.output-supervision.min-backoff"),
+                  getContext().getSystem().settings().config().getDuration("uni-meter.output-supervision.max-backoff"),
+                  getContext().getSystem().settings().config().getDouble("uni-meter.output-supervision.jitter")
+            )),
             "output");
     } else {
       logger.error("unknown output device type: {}", outputDeviceType);

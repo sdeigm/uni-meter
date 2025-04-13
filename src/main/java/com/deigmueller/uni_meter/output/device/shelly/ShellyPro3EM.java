@@ -51,6 +51,9 @@ import java.util.concurrent.CompletionStage;
 @Getter(AccessLevel.PROTECTED)
 @Setter(AccessLevel.PROTECTED)
 public class ShellyPro3EM extends Shelly {
+  // Class members
+  public static final String TYPE = "ShellyPro3EM";  
+  
   // Instance members
   private final ActorRef<WebsocketInput.Notification> websocketInputNotificationAdapter =
         getContext().messageAdapter(WebsocketInput.Notification.class, WrappedWebsocketInputNotification::new);
@@ -116,6 +119,7 @@ public class ShellyPro3EM extends Shelly {
           .onMessage(EmGetStatus.class, this::onEmGetStatus)
           .onMessage(EmDataGetStatus.class, this::onEmDataGetStatus)
           .onMessage(ResetData.class, this::onResetData)
+          .onMessage(ScriptList.class, this::onScriptList)
           .onMessage(ShellyGetComponents.class, this::onShellyGetComponents)
           .onMessage(ShellyGetConfig.class, this::onShellyGetConfig)
           .onMessage(ShellyGetDeviceInfo.class, this::onShellyGetDeviceInfo)
@@ -271,7 +275,7 @@ public class ShellyPro3EM extends Shelly {
   protected @NotNull Behavior<Command> onScriptList(@NotNull ScriptList request) {
     logger.trace("ShellyPro3EM.onScriptList()");
 
-    request.replyTo().tell(rpcScriptList(request.remoteAddress()));
+    request.replyTo().tell(rpcScriptList());
 
     return Behaviors.same();
   }
@@ -882,7 +886,7 @@ public class ShellyPro3EM extends Shelly {
       case "em.getconfig" -> rpcEmGetConfig();
       case "em.getstatus" -> rpcEmGetStatus(getPowerFactorForRemoteAddress(remoteAddress));
       case "emdata.getstatus" -> rpcEmDataGetStatus();
-      case "script.list" -> rpcScriptList(remoteAddress);
+      case "script.list" -> rpcScriptList();
       case "shelly.getcomponents" -> rpcShellyGetComponents(remoteAddress);
       case "shelly.getconfig" -> rpcShellyGetConfig(remoteAddress);
       case "shelly.getstatus" -> rpcShellyGetStatus(remoteAddress);
@@ -912,7 +916,7 @@ public class ShellyPro3EM extends Shelly {
     return new Rpc.CloudSetConfigResponse(false);
   }
 
-  private Rpc.ScriptListResponse rpcScriptList(@NotNull InetAddress remoteAddress) {
+  private Rpc.ScriptListResponse rpcScriptList() {
     logger.trace("Shelly.rpcScriptList()");
     return new Rpc.ScriptListResponse(Collections.emptyList());
   }

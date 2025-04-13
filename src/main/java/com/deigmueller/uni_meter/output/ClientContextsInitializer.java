@@ -12,4 +12,9 @@ public interface ClientContextsInitializer {
   void initClientContexts(@NotNull Logger logger,
                           @NotNull List<? extends Config> remoteContexts,
                           @NotNull Map<InetAddress, ClientContext> clientContextMap);
+  
+  static ClientContextsInitializer empty() {
+    return (logger, remoteContexts, clientContextMap) -> {
+    };
+  }
 }
