@@ -1,6 +1,8 @@
-import socket
 from homeassistant.components import zeroconf
 from zeroconf.asyncio import AsyncServiceInfo
+
+def ip_to_bytes(ip):
+    return bytes(int(x) for x in ip.split("."))
 
 @service
 def uni_meter_mdns_register(type, name, ip, port, properties):
@@ -8,7 +10,7 @@ def uni_meter_mdns_register(type, name, ip, port, properties):
     info = AsyncServiceInfo(
         type_=type + "._tcp.local.",
         name=name + "." + type + "._tcp.local.",
-        addresses=[socket.inet_aton(ip)],
+        addresses=[ip_to_bytes(ip)],
         port=port,
         properties=properties
     )
@@ -20,7 +22,7 @@ def uni_meter_mdns_unregister(type, name, ip, port, properties):
     info = AsyncServiceInfo(
         type_=type + "._tcp.local.",
         name=name + "." + type + "._tcp.local.",
-        addresses=[socket.inet_aton(ip)],
+        addresses=[ip_to_bytes(ip)],
         port=port,
         properties=properties
     )
