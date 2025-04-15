@@ -1,7 +1,8 @@
 package com.deigmueller.uni_meter.mdns;
 
+import com.typesafe.config.Config;
+import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
-import org.apache.pekko.actor.typed.PostStop;
 import org.apache.pekko.actor.typed.javadsl.AbstractBehavior;
 import org.apache.pekko.actor.typed.javadsl.ActorContext;
 import org.apache.pekko.actor.typed.javadsl.Behaviors;
@@ -19,8 +20,7 @@ public class MDnsRegistrator extends AbstractBehavior<MDnsRegistrator.Command> {
   private final static Logger LOGGER = LoggerFactory.getLogger("uni-meter.mdns");
   
   // Instance members
-  private final MDnsKind mdnsKind;
-  private MDnsHandle mDnsHandle;
+  private final ActorRef<MDnsKind.Command> mdnsKind;
   
   public static Behavior<Command> create() {
     return Behaviors.setup(MDnsRegistrator::new);
@@ -29,46 +29,35 @@ public class MDnsRegistrator extends AbstractBehavior<MDnsRegistrator.Command> {
   public MDnsRegistrator(@NotNull ActorContext<Command> context) {
     super(context);
     
-    switch (getContext().getSystem().settings().config().getString("uni-meter.mdns.type").toLowerCase()) {
-      case "auto": 
-        mdnsKind = autoDetectMdns();
-        break;
-      case "avahi": 
-        mdnsKind = new MDnsAvahi(); 
-        break;
-      case "homeassistant":
-        mdnsKind = new MDnsHomeAssistant(
-              getContext().getSystem(), 
-              getContext().getSystem().settings().config().getConfig("uni-meter.mdns"));
-        break;
-      default:
-        mdnsKind = new MDnsNone();
-    }
+    Config config = getContext().getSystem().settings().config().getConfig("uni-meter.mdns");
+    
+    Behavior<MDnsKind.Command> mdnsBehavior = switch (config.getString("type").toLowerCase()) {
+      case "auto" -> autoDetectMdns(config);
+      case "avahi" -> MDnsAvahi.create(config);
+      case "home-assistant" -> MDnsHomeAssistant.create(config);
+      default -> MDnsNone.create(config);
+    };
+
+    mdnsKind = getContext().spawnAnonymous(mdnsBehavior);
     
   }
 
   @Override
   public Receive<Command> createReceive() {
     return newReceiveBuilder()
-          .onSignal(PostStop.class, this::onPostStop)
           .onMessage(RegisterService.class, this::onRegisterService)
-          .onMessage(RegistrationSucceeded.class, this::onRegistrationSucceeded)
           .build();
-  }
-  
-  private Behavior<Command> onPostStop(PostStop postStop) {
-    if (mDnsHandle != null) {
-      mdnsKind.unregister(mDnsHandle);
-    }
-    return Behaviors.same();
   }
   
   private Behavior<Command> onRegisterService(@NotNull RegisterService message) {
     try {
-      mdnsKind
-            .register(message.type(), message.name(), message.port(), message.properties())
-            .thenAccept(mDnsHandle -> 
-                  getContext().getSelf().tell(new RegistrationSucceeded(mDnsHandle)));
+      mdnsKind.tell(
+            new MDnsKind.RegisterService(
+                  message.type(),
+                  message.name(),
+                  message.port(),
+                  message.properties()
+            ));
     } catch (Exception e) {
       LOGGER.error("mdns registration failed: {}", e.getMessage());
     }
@@ -77,28 +66,16 @@ public class MDnsRegistrator extends AbstractBehavior<MDnsRegistrator.Command> {
   }
 
   /**
-   * Handle a successful mDNS registration
-   * @param message Registration message
-   * @return Same behavior
-   */
-  private Behavior<Command> onRegistrationSucceeded(@NotNull RegistrationSucceeded message) {
-    mDnsHandle = message.handle();
-    return Behaviors.same();
-  }
-
-  /**
    * Try to auto-detect the mDNS announcement to use
    * @return mDNS announcement to use
    */
-  private @NotNull MDnsKind autoDetectMdns() {
+  private @NotNull Behavior<MDnsKind.Command> autoDetectMdns(@NotNull Config config) {
     if (System.getenv("UNI_HA_URL") != null && System.getenv("UNI_HA_ACCESS_TOKEN") != null) {
-      return new MDnsHomeAssistant(
-            getContext().getSystem(),
-            getContext().getSystem().settings().config().getConfig("uni-meter.mdns"));
+      return MDnsHomeAssistant.create(config);
     } else if (Files.exists(Paths.get(MDnsAvahi.AVAHI_SERVICES_DIR))) {
-      return new MDnsAvahi();
+      return MDnsAvahi.create(config);
     } else {
-      return new MDnsNone();
+      return MDnsNone.create(config);
     }
   }
 

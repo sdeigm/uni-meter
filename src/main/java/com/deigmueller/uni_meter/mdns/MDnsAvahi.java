@@ -1,5 +1,9 @@
 package com.deigmueller.uni_meter.mdns;
 
+import com.typesafe.config.Config;
+import org.apache.pekko.actor.typed.Behavior;
+import org.apache.pekko.actor.typed.javadsl.ActorContext;
+import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -12,40 +16,47 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 
-public class MDnsAvahi implements MDnsKind {
+public class MDnsAvahi extends MDnsKind {
   // Class members
   public static final String TYPE = "avahi";
   public static final String AVAHI_SERVICES_DIR = "/etc/avahi/services";
   private final static Logger LOGGER = LoggerFactory.getLogger("uni-meter.mdns.avahi");
+  
+  public static Behavior<Command> create(@NotNull Config config) {
+    return Behaviors.setup(context -> new MDnsAvahi(context, config));
+  }
+
+  protected MDnsAvahi(@NotNull ActorContext<Command> context,
+                      @NotNull Config config) {
+    super(context, config);
+  }
 
   @Override
-  public CompletionStage<MDnsHandle> register(@NotNull String type,
-                                              @NotNull String name,
-                                              int port,
-                                              @NotNull Map<String,String> properties) {
-    CompletionStage<MDnsHandle> returnValue = CompletableFuture.completedFuture(new AvahiMDnsHandle(null));
+  protected Behavior<Command> onRegisterService(@NotNull RegisterService registerService) {
+    LOGGER.trace("MDnsAvahi.onRegisterService()");
     
     final String directory = AVAHI_SERVICES_DIR;
-    final String file = directory + "/" + name + ".service";
+    final String file = directory + "/" + registerService.name() + ".service";
     
     Path directoryPath = Paths.get(directory);
     if (Files.exists(directoryPath)) {
       if (Files.isDirectory(directoryPath)) {
         if (Files.isWritable(directoryPath)) {
           try (FileWriter myWriter = new FileWriter(file)) {
-            myWriter.write(getAvahiService(type, name, port, properties));
-            LOGGER.info("successfully registered mdns service {}", name);
+            myWriter.write(
+                  getAvahiService(
+                        registerService.type(), 
+                        registerService.name(), 
+                        registerService.port(), 
+                        registerService.properties()));
+            LOGGER.info("successfully registered mdns service {}", registerService.name());
           } catch (IOException ioException) {
             LOGGER.error("could not write avahi service file {}: {}", file, ioException.getMessage());
           }
           
           File avahiServicesFile = new File(file);
           avahiServicesFile.deleteOnExit();
-
-          returnValue = CompletableFuture.completedFuture(new AvahiMDnsHandle(file));
         } else {
           LOGGER.error("{} directory exists but is not writable (not running as root?)", directory);
         }
@@ -56,20 +67,9 @@ public class MDnsAvahi implements MDnsKind {
       LOGGER.error("no avahi services directory {} found (avahi daemon not installed?)", directory); 
     }
     
-    return returnValue;
+    return Behaviors.same();
   }
-
-  @Override
-  public void unregister(@NotNull MDnsHandle handle) {
-    if (handle instanceof AvahiMDnsHandle avahiMDnsHandle) {
-      if (avahiMDnsHandle.fileName() != null) {
-        try {
-          Files.delete(Paths.get(avahiMDnsHandle.fileName()));
-        } catch (Exception ignored) {}
-      }
-    }
-  }
-
+  
   private @NotNull String getAvahiService(@NotNull String type,
                                           @NotNull String name,
                                           int port,
@@ -92,7 +92,7 @@ public class MDnsAvahi implements MDnsKind {
 
     return sb.toString();
   }
-  
+
   private record AvahiMDnsHandle(
         @Nullable String fileName
   ) implements MDnsHandle {} 
