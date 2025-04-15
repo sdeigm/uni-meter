@@ -23,6 +23,10 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Map;
 
 @Getter(AccessLevel.PROTECTED)
@@ -33,8 +37,10 @@ public class EcoTracker  extends OutputDevice {
   // Instance members
   private final String bindInterface = getConfig().getString("interface");
   private final int bindPort = getConfig().getInt("port");
+  private final Duration averageInterval = getConfig().getDuration("average-interval");
   private final String defaultMac = getDefaultMacAddress(getConfig());
   private final String defaultHostname = getDefaultHostName(getConfig(), defaultMac);
+  private final Deque<PowerHistory> powerHistory = new ArrayDeque<>();
 
   /**
    * Static setup method
@@ -93,8 +99,15 @@ public class EcoTracker  extends OutputDevice {
     }
     
     long power = (long) (powerPhase0.power() + powerPhase1.power() + powerPhase2.power());
-
-
+    
+    double powerAverage = 0.0;
+    for (PowerHistory history : powerHistory) {
+      powerAverage += history.power();
+    }
+    if (!powerHistory.isEmpty()) {
+      powerAverage /= powerHistory.size();
+    }
+    
     EnergyData energyPhase0 = getEnergyPhase0();
     EnergyData energyPhase1 = getEnergyPhase1();
     EnergyData energyPhase2 = getEnergyPhase2();
@@ -107,7 +120,7 @@ public class EcoTracker  extends OutputDevice {
     message.replyTo().tell(
           new V1GetJsonResponse(
                 power,
-                power, 
+                (long) powerAverage, 
                 MathUtils.round(energyIn * 1000.0, 2),
                 null,
                 null,
@@ -132,7 +145,30 @@ public class EcoTracker  extends OutputDevice {
 
   @Override
   protected void eventPowerDataChanged() {
-
+    double totalPower = 0.0;
+    
+    PowerData powerPhase0 = getPowerPhase0();
+    if (powerPhase0 != null) {
+      totalPower += powerPhase0.power();
+    }
+    
+    PowerData powerPhase1 = getPowerPhase1();
+    if (powerPhase1 != null) {
+      totalPower += powerPhase1.power();
+    }
+    
+    PowerData powerPhase2 = getPowerPhase2();
+    if (powerPhase2 != null) {
+      totalPower += powerPhase2.power();
+    }
+    
+    Instant now = Instant.now();
+    powerHistory.addFirst(new PowerHistory(now, totalPower));
+    
+    Instant cutoff = now.minus(averageInterval);
+    while (!powerHistory.isEmpty() && powerHistory.peekLast().timestamp().isBefore(cutoff)) {
+      powerHistory.removeLast();
+    }
   }
 
   protected static String getDefaultMacAddress(@NotNull Config config) {
@@ -174,6 +210,11 @@ public class EcoTracker  extends OutputDevice {
           )
     );
   }
+  
+  private record PowerHistory(
+        @NotNull Instant timestamp,
+        double power
+  ) {}
   
   public record V1GetJson(
         @NotNull InetAddress remoteAddress,
