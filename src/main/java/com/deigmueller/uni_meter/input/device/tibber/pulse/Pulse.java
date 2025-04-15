@@ -32,10 +32,16 @@ public class Pulse extends HttpInputDevice {
     // Instance members
     private final double defaultVoltage = getConfig().getDouble("default-voltage");
     private final double defaultFrequency = getConfig().getDouble("default-frequency");
+    private final PhaseMode powerPhaseMode = getPhaseMode("power-phase-mode");
+    private final String powerPhase = getConfig().getString("power-phase");
+    private final PhaseMode energyPhaseMode = getPhaseMode("energy-phase-mode");
+    private final String energyPhase = getConfig().getString("energy-phase");
     private final String nodeId = getConfig().getString("node-id");
     private final String userId = getConfig().getString("user-id");
     private final String password = getConfig().getString("password");
     private final Duration pulseStatusPollingInterval = getConfig().getDuration("polling-interval");
+    private final OutputDevice.PowerData NULL_POWER = new OutputDevice.PowerData(0.0, 0.0, 1.0, 0.0, defaultVoltage, defaultFrequency);
+    private final OutputDevice.EnergyData NULL_ENERGY = new OutputDevice.EnergyData(0, 0);
     
     private final HttpCredentials credentials = BasicHttpCredentials.createBasicHttpCredentials(userId, password);
 
@@ -64,7 +70,7 @@ public class Pulse extends HttpInputDevice {
         logger.trace("Pulse.onPulseStatusRequestFailed()");
 
         logger.error("failed to execute status polling: {}", message.throwable().getMessage());
-
+        
         startNextPulseStatusPollingTimer();
 
         return Behaviors.same();
@@ -165,30 +171,66 @@ public class Pulse extends HttpInputDevice {
                 logger.debug("Energy Export (Wh): {}", energyExport);
                 logger.debug("Power (W): {}", power);
                 
-                getOutputDevice().tell(
-                        new OutputDevice.NotifyTotalPowerData(
-                                getNextMessageId(),
-                                new OutputDevice.PowerData(
-                                        power,  //act_power
-                                        power,  //aprt_power
-                                        1.0,
-                                        power/defaultVoltage,   //act_current
-                                        defaultVoltage,
-                                        defaultFrequency),
-                                getOutputDeviceAckAdapter()));
-                getOutputDevice().tell(
-                        new OutputDevice.NotifyTotalEnergyData(
-                            getNextMessageId(),
-                            new OutputDevice.EnergyData(
-                                energyImport,   // act_energy
-                                energyExport),  // act_ret_energy
-                            getOutputDeviceAckAdapter()));
+                notifyPowerData(power);
+
+                notifyEnergyData(energyImport, energyExport);
             }
         } catch (Exception e) {
             logger.error("Failed to parse status response: {}", e.getMessage());
         }
 
         startNextPulseStatusPollingTimer();
+    }
+    
+    private void notifyPowerData(double power) {
+        logger.trace("Pulse.notifyPowerData()");
+
+        OutputDevice.PowerData powerData = new OutputDevice.PowerData(
+              power,  //act_power
+              power,  //aprt_power
+              1.0,
+              power/defaultVoltage,   //act_current
+              defaultVoltage,
+              defaultFrequency);
+
+        if (powerPhaseMode == PhaseMode.TRI) {
+            getOutputDevice().tell(
+                  new OutputDevice.NotifyTotalPowerData(
+                        getNextMessageId(),
+                        powerData,
+                        getOutputDeviceAckAdapter()));
+        } else {
+            getOutputDevice().tell(new OutputDevice.NotifyPhasesPowerData(
+                  getNextMessageId(),
+                  powerPhase.equals("l1") ? powerData : NULL_POWER,
+                  powerPhase.equals("l2") ? powerData : NULL_POWER,
+                  powerPhase.equals("l3") ? powerData : NULL_POWER,
+                  getOutputDeviceAckAdapter()));
+        }
+    }
+    
+    private void notifyEnergyData(double energyImport, double energyExport) {
+        logger.trace("Pulse.notifyEnergyData()");
+        
+        OutputDevice.EnergyData energyData = new OutputDevice.EnergyData(
+              energyImport,
+              energyExport);
+
+        if (energyPhaseMode == PhaseMode.TRI) {
+            getOutputDevice().tell(
+                  new OutputDevice.NotifyTotalEnergyData(
+                        getNextMessageId(),
+                        energyData,
+                        getOutputDeviceAckAdapter()));
+        } else {
+            getOutputDevice().tell(
+                  new OutputDevice.NotifyPhasesEnergyData(
+                        getNextMessageId(),
+                        energyPhase.equals("l1") ? energyData : NULL_ENERGY,
+                        energyPhase.equals("l2") ? energyData : NULL_ENERGY,
+                        energyPhase.equals("l3") ? energyData : NULL_ENERGY,
+                        getOutputDeviceAckAdapter()));
+        }
     }
     
     private void executePulseStatusPolling() {
