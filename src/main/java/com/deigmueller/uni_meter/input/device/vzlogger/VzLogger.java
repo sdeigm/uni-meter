@@ -27,12 +27,14 @@ public class VzLogger extends HttpInputDevice {
   public static final String TYPE = "VZLogger";
   
   // Instance members
-  private final double defaultVoltage = getConfig().getDouble("default-voltage");
-  private final double defaultFrequency = getConfig().getDouble("default-frequency");
   private final Duration pollingInterval = getConfig().getDuration("polling-interval");
   private final String consumptionChannel = getConfig().getString("energy-consumption-channel");
   private final String productionChannel = getConfig().getString("energy-production-channel");
   private final String powerChannel = getConfig().getString("power-channel");
+  private final PhaseMode powerPhaseMode = getPhaseMode("power-phase-mode");
+  private final String powerPhase = getConfig().getString("power-phase");
+  private final PhaseMode energyPhaseMode = getPhaseMode("energy-phase-mode");
+  private final String energyPhase = getConfig().getString("energy-phase");
   private final int lastEnergyValuesQueueSize = getConfig().getInt("last-energy-values-queue-size");
   private final Deque<VzLoggerValue> lastProductionValues = new ArrayDeque<>();
   private final Deque<VzLoggerValue> lastConsumptionValues = new ArrayDeque<>();
@@ -134,8 +136,7 @@ public class VzLogger extends HttpInputDevice {
         tryAddToQueue(lastProductionValues, productionValue);
       }
 
-      OutputDevice.EnergyData energyData = new OutputDevice.EnergyData(consumption, production);
-      getOutputDevice().tell(new OutputDevice.NotifyTotalEnergyData(0, energyData, getOutputDeviceAckAdapter()));
+      notifyEnergyData(energyPhaseMode, energyPhase, production, consumption);
 
       double power = 0.0;
       VzLoggerValue powerValue = response.dataByUuid(powerChannel);
@@ -151,16 +152,8 @@ public class VzLogger extends HttpInputDevice {
         power = powerValue.tuples().get(0).get(1);
         logger.debug("current power usage: {} W", power);
       }
-
-      OutputDevice.PowerData data = new OutputDevice.PowerData(
-            power,
-            power,
-            1.0,
-            power / defaultVoltage,
-            defaultVoltage,
-            defaultFrequency);
-
-      getOutputDevice().tell(new OutputDevice.NotifyTotalPowerData(0, data, getOutputDeviceAckAdapter()));
+      
+      notifyPowerData(powerPhaseMode, powerPhase, power);
     } catch (Exception e) {
       logger.error("Failed to parse response: {}", e.getMessage());
     }

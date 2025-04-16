@@ -24,9 +24,11 @@ public class Tasmota extends HttpInputDevice {
   public static final String TYPE = "Tasmota";
 
   // Instance members
+  private final PhaseMode powerPhaseMode = getPhaseMode("power-phase-mode");
+  private final String powerPhase = getConfig().getString("power-phase");
+  private final PhaseMode energyPhaseMode = getPhaseMode("energy-phase-mode");
+  private final String energyPhase = getConfig().getString("energy-phase");
   private final Duration statusPollingInterval = getConfig().getDuration("polling-interval");
-  private final double defaultVoltage = getConfig().getDouble("default-voltage");
-  private final double defaultFrequency = getConfig().getDouble("default-frequency");
   private final String powerJsonPath = getConfig().getString("power-json-path");
   private final double powerScale = getConfig().getDouble("power-scale");
   private final String energyConsumptionJsonPath = getConfig().getString("energy-consumption-json-path");
@@ -105,18 +107,7 @@ public class Tasmota extends HttpInputDevice {
       if (! powerJsonPath.isEmpty()) {
         Double power = Json.readDoubleValue(powerJsonPath, message.entity().getData().utf8String(), powerScale);
         if (power != null) {
-          getOutputDevice().tell(
-                new OutputDevice.NotifyTotalPowerData(
-                      getNextMessageId(),
-                      new OutputDevice.PowerData(
-                            power,
-                            power,
-                            1.0,
-                            power / defaultVoltage,
-                            defaultVoltage,
-                            defaultFrequency),
-                      getOutputDeviceAckAdapter()));
-          
+          notifyPowerData(powerPhaseMode, powerPhase, power);
         } else {
           logger.debug("no power data available: {}", powerJsonPath);
         }
@@ -126,13 +117,7 @@ public class Tasmota extends HttpInputDevice {
         Double energyConsumption = Json.readDoubleValue(energyConsumptionJsonPath, message.entity().getData().utf8String(), energyConsumptionScale);
         Double energyProduction = Json.readDoubleValue(energyProductionJsonPath, message.entity().getData().utf8String(), energyProductionScale);
         if (energyConsumption != null && energyProduction != null) {
-          getOutputDevice().tell(
-                new OutputDevice.NotifyTotalEnergyData(
-                      getNextMessageId(),
-                      new OutputDevice.EnergyData(
-                            energyConsumption,
-                            energyProduction),
-                      getOutputDeviceAckAdapter()));
+          notifyEnergyData(energyPhaseMode, energyPhase, energyConsumption, energyProduction);
         }
       }
     } catch (Exception e) {

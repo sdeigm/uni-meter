@@ -33,8 +33,10 @@ public class ShrDzm extends InputDevice {
   private final int port = getConfig().getInt("port");
   private final String bindInterface = getConfig().getString("interface");
   private final Duration socketTimeout = getConfig().getDuration("socket-timeout");
-  private final double defaultVoltage = getConfig().getDouble("default-voltage");
-  private final double defaultFrequency = getConfig().getDouble("default-frequency");
+  private final PhaseMode powerPhaseMode = getPhaseMode("power-phase-mode");
+  private final String powerPhase = getConfig().getString("power-phase");
+  private final PhaseMode energyPhaseMode = getPhaseMode("energy-phase-mode");
+  private final String energyPhase = getConfig().getString("energy-phase");
   private final AtomicBoolean doReceive = new AtomicBoolean(true);
 
   /**
@@ -144,19 +146,8 @@ public class ShrDzm extends InputDevice {
       }
       
       double power = Double.parseDouble(powerString);
-      OutputDevice.PowerData data = new OutputDevice.PowerData(
-            power,
-            power,
-            1.0,
-            power / defaultVoltage,
-            defaultVoltage,
-            defaultFrequency);
-
-      getOutputDevice().tell(
-            new OutputDevice.NotifyTotalPowerData(
-                  getNextMessageId(), 
-                  data, 
-                  getOutputDeviceAckAdapter()));
+      
+      notifyPowerData(powerPhaseMode, powerPhase, power);
     } catch (Exception e) {
       logger.error("failed to notify single phase power data: {}", e.getMessage());
     }
@@ -184,12 +175,7 @@ public class ShrDzm extends InputDevice {
         production = Double.parseDouble(productionString);
       }
 
-      OutputDevice.EnergyData energyData = new OutputDevice.EnergyData(consumption / 1000.0, production / 1000.0);
-      getOutputDevice().tell(
-            new OutputDevice.NotifyTotalEnergyData(
-                  getNextMessageId(), 
-                  energyData, 
-                  getOutputDeviceAckAdapter()));
+      notifyEnergyData(energyPhaseMode, energyPhase, consumption / 1000.0, production / 1000.0);
     } catch (Exception e) {
       logger.error("failed to notify energy data: {}", e.getMessage());
     }
