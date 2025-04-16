@@ -27,7 +27,6 @@ public class Shelly3EM extends HttpInputDevice {
 
   // Instance members
   private final Duration statusPollingInterval = getConfig().getDuration("polling-interval");
-  private final double defaultFrequency = getConfig().getDouble("default-frequency");
 
   /**
    * Static factory method to create a new Shelly3EM actor.
@@ -101,21 +100,21 @@ public class Shelly3EM extends HttpInputDevice {
             response.emeters.get(0).pf(),
             response.emeters.get(0).current(),
             response.emeters.get(0).voltage(),
-            defaultFrequency);
+            getDefaultFrequency());
       OutputDevice.PowerData phase2PowerData = new OutputDevice.PowerData(
             response.emeters.get(1).power(),
             response.emeters.get(1).power() / response.emeters.get(1).pf(),
             response.emeters.get(1).pf(),
             response.emeters.get(1).current(),
             response.emeters.get(1).voltage(),
-            defaultFrequency);
+            getDefaultFrequency());
       OutputDevice.PowerData phase3PowerData = new OutputDevice.PowerData(
             response.emeters.get(2).power(),
             response.emeters.get(2).power() / response.emeters.get(2).pf(),
             response.emeters.get(2).pf(),
             response.emeters.get(2).current(),
             response.emeters.get(2).voltage(),
-            defaultFrequency);
+            getDefaultFrequency());
 
       getOutputDevice().tell(
             new OutputDevice.NotifyPhasesPowerData(

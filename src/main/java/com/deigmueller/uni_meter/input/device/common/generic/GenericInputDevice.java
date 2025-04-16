@@ -25,8 +25,6 @@ public abstract class GenericInputDevice extends InputDevice {
   private final Materializer materializer = Materializer.createMaterializer(getContext());
   private final PhaseMode powerPhaseMode = getPhaseMode("power-phase-mode");
   private final PhaseMode energyPhaseMode = getPhaseMode("energy-phase-mode");
-  private final double defaultVoltage = getConfig().getDouble("default-voltage");
-  private final double defaultFrequency = getConfig().getDouble("default-frequency");
 
   private double powerTotal;
   private double powerTotalProduction;
@@ -140,7 +138,7 @@ public abstract class GenericInputDevice extends InputDevice {
       getOutputDevice().tell(new OutputDevice.NotifyTotalPowerData(
             getNextMessageId(),
             new OutputDevice.PowerData(
-                  resultingPower, resultingPower, 1.0, resultingPower / defaultVoltage, defaultVoltage, defaultFrequency),
+                  resultingPower, resultingPower, 1.0, resultingPower / getDefaultVoltage(), getDefaultVoltage(), getDefaultFrequency()),
             getOutputDeviceAckAdapter()));
     } else {
       double resultingPowerL1 = powerL1 - powerL1Production;
@@ -150,11 +148,11 @@ public abstract class GenericInputDevice extends InputDevice {
       getOutputDevice().tell(new OutputDevice.NotifyPhasesPowerData(
             getNextMessageId(),
             new OutputDevice.PowerData(
-                  resultingPowerL1, resultingPowerL1, 1.0, resultingPowerL1 / defaultVoltage, defaultVoltage, defaultFrequency),
+                  resultingPowerL1, resultingPowerL1, 1.0, resultingPowerL1 / getDefaultVoltage(), getDefaultVoltage(), getDefaultFrequency()),
             new OutputDevice.PowerData(
-                  resultingPowerL2, resultingPowerL2, 1.0, resultingPowerL2 / defaultVoltage, defaultVoltage, defaultFrequency),
+                  resultingPowerL2, resultingPowerL2, 1.0, resultingPowerL2 / getDefaultVoltage(), getDefaultVoltage(), getDefaultFrequency()),
             new OutputDevice.PowerData(
-                  resultingPowerL3, resultingPowerL3, 1.0, resultingPowerL3 / defaultVoltage, defaultVoltage, defaultFrequency),
+                  resultingPowerL3, resultingPowerL3, 1.0, resultingPowerL3 / getDefaultVoltage(), getDefaultVoltage(), getDefaultFrequency()),
             getOutputDeviceAckAdapter()));
     }
   }

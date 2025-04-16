@@ -26,8 +26,6 @@ public class EnergyMeter extends InputDevice {
   
   // Instance members
   private final Executor executor = getContext().getSystem().dispatchers().lookup(DispatcherSelector.blocking());
-  private final double defaultVoltage = getConfig().getDouble("default-voltage");
-  private final double defaultFrequency = getConfig().getDouble("default-frequency");
   private final int port = getConfig().getInt("port");
   private final String group = getConfig().getString("group");
   private final List<String> networkInterface = getConfig().getStringList("network-interfaces");
@@ -193,7 +191,7 @@ public class EnergyMeter extends InputDevice {
             phaseApparentPowerPlus, 
             phaseApparentPowerMinus, 
             phaseCurrent,
-            phaseVoltage != null ? phaseVoltage : defaultVoltage);
+            phaseVoltage != null ? phaseVoltage : getDefaultVoltage());
     }
     
     return null;
@@ -215,7 +213,7 @@ public class EnergyMeter extends InputDevice {
             phaseApparentPowerPlus,
             phaseApparentPowerMinus,
             phaseCurrent,
-            phaseVoltage != null ? phaseVoltage : defaultVoltage);
+            phaseVoltage != null ? phaseVoltage : getDefaultVoltage());
     }
 
     return null;
@@ -237,7 +235,7 @@ public class EnergyMeter extends InputDevice {
             phaseApparentPowerPlus,
             phaseApparentPowerMinus,
             phaseCurrent,
-            phaseVoltage != null ? phaseVoltage : defaultVoltage);
+            phaseVoltage != null ? phaseVoltage : getDefaultVoltage());
     }
 
     return null;
@@ -261,7 +259,7 @@ public class EnergyMeter extends InputDevice {
           power / apparentPower,
           phaseCurrent,
           phaseVoltage,
-          defaultFrequency);
+          getDefaultFrequency());
   }
 
 
@@ -274,17 +272,14 @@ public class EnergyMeter extends InputDevice {
     if (powerPlus != null && powerMinus != null && apparentPowerPlus != null && apparentPowerMinus != null) {
       double power = powerPlus - powerMinus;
       double apparentPower = apparentPowerPlus - apparentPowerMinus;
-      if (apparentPower == 0.0) {
-        apparentPower = power; // Avoid division by zero
-      }
       
       return new OutputDevice.PowerData(
             power,
             apparentPower,
-            power / apparentPower,
-            power / defaultVoltage,
-            defaultVoltage,
-            defaultFrequency);
+            apparentPower != 0.0 ? power / apparentPower : 1.0,
+            power / getDefaultVoltage(),
+            getDefaultVoltage(),
+            getDefaultFrequency());
     }
     
     return null;
