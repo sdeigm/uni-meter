@@ -17,6 +17,10 @@ public class Sdm120 extends Modbus {
   public static final String TYPE = "SDM120";
    
   // Instance members
+  private final PhaseMode powerPhaseMode = getPhaseMode("power-phase-mode");
+  private final String powerPhase = getConfig().getString("power-phase");
+  private final PhaseMode energyPhaseMode = getPhaseMode("energy-phase-mode");
+  private final String energyPhase = getConfig().getString("energy-phase");
   private float voltage;
   private float current;
   private float activePower;
@@ -156,10 +160,7 @@ public class Sdm120 extends Modbus {
       float frequency = bytesToFloat(message.response().registers());
       logger.debug("frequency: {}", frequency);
       
-      getOutputDevice().tell(new OutputDevice.NotifyTotalPowerData(
-            getNextMessageId(),
-            new OutputDevice.PowerData(activePower, apparentPower, powerFactor, current, voltage, frequency),
-            getOutputDeviceAckAdapter()));
+      notifyPowerData(powerPhaseMode, powerPhase, activePower, apparentPower, powerFactor, current, voltage, frequency);
       
       readImportActiveEnergy();
     } catch (Exception exception) {
@@ -191,10 +192,7 @@ public class Sdm120 extends Modbus {
       float exportActiveEnergy = bytesToFloat(message.response().registers());
       logger.debug("export active energy: {}", exportActiveEnergy);
       
-      getOutputDevice().tell(new OutputDevice.NotifyTotalEnergyData(
-            getNextMessageId(),
-            new OutputDevice.EnergyData(importActiveEnergy, exportActiveEnergy),
-            getOutputDeviceAckAdapter()));
+      notifyEnergyData(energyPhaseMode, energyPhase, importActiveEnergy, exportActiveEnergy);
       
       startNextPollingTimer();
     } catch (Exception exception) {
