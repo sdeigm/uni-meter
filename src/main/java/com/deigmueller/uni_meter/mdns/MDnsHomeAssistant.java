@@ -113,10 +113,10 @@ public class MDnsHomeAssistant extends MDnsKind {
         }
       } else {
         if (! serviceDetectionErrorShown) {
-          LOGGER.error("failed to lookup available services, http request returned with status {}", message.response.status());
+          LOGGER.warn("failed to lookup available services, http request returned with status {}. retrying ...", message.response.status());
           serviceDetectionErrorShown = true;
         } else {
-          LOGGER.debug("failed to lookup available services, http request returned with status {}", message.response.status());
+          LOGGER.debug("failed to lookup available services, http request returned with status {}. retrying ...", message.response.status());
         }
       }
     } catch (Exception e) {
@@ -182,11 +182,11 @@ public class MDnsHomeAssistant extends MDnsKind {
       }
     } else {
       if (! serviceRegistrationErrorShown) {
-        LOGGER.error("failed to register mdns service {}: http request returned with status {}", 
+        LOGGER.warn("failed to register mdns service {}: http request returned with status {}. retrying ...", 
               message.registerService.name(), message.response.status());
         serviceRegistrationErrorShown = true;
       } else {
-        LOGGER.debug("failed to register mdns service {}: http request returned with status {}",
+        LOGGER.debug("failed to register mdns service {}: http request returned with status {}. retrying ...",
               message.registerService.name(), message.response.status());
       }
       startRetryRegistrationTimer();
