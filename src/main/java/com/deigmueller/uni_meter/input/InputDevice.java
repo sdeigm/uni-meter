@@ -60,15 +60,34 @@ public abstract class InputDevice extends AbstractBehavior<InputDevice.Command> 
   protected void notifyPowerData(@NotNull PhaseMode powerPhaseMode,
                                  @NotNull String powerPhase,
                                  double power) {
+    notifyPowerData(
+          powerPhaseMode,
+          powerPhase,
+          power,
+          power,
+          1.0,
+          power / getDefaultVoltage(),
+          getDefaultVoltage(),
+          getDefaultFrequency());
+  }
+
+  protected void notifyPowerData(@NotNull PhaseMode powerPhaseMode,
+                                 @NotNull String powerPhase,
+                                 double power,
+                                 double apparentPower,
+                                 double powerFactor,
+                                 double current,
+                                 double voltage,
+                                 double frequency) {
     logger.trace("Pulse.notifyPowerData()");
 
     OutputDevice.PowerData powerData = new OutputDevice.PowerData(
-          power,  //act_power
-          power,  //aprt_power
-          1.0,
-          power/defaultVoltage,   //act_current
-          defaultVoltage,
-          defaultFrequency);
+          power,
+          apparentPower,
+          powerFactor,
+          current,
+          voltage,
+          frequency);
 
     if (powerPhaseMode == PhaseMode.TRI) {
       getOutputDevice().tell(
