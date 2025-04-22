@@ -181,7 +181,7 @@ public abstract class Shelly extends OutputDevice {
   }
 
   /**
-   * Get the hostname to use for the specified remote address
+   * Get the hostname to use it for the specified remote address
    * @param remoteAddress Remote address
    * @return Hostname to use
    */
@@ -195,7 +195,7 @@ public abstract class Shelly extends OutputDevice {
   }
   
   /**
-   * Get the MAC address to use for the specified remote address
+   * Get the MAC address to use it for the specified remote address
    * @param remoteAddress Remote address
    * @return MAC address to use
    */
@@ -365,17 +365,10 @@ public abstract class Shelly extends OutputDevice {
   protected static class WebsocketContext {
     private final InetAddress remoteAddress;
     private final ActorRef<WebsocketOutput.Command> output;
-    private final UniqueKillSwitch killSwitch;
-    private final SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest> throttlingQueue;
     private Rpc.Request lastEmGetStatusRequest;
     
-    public void close() {
-      killSwitch.shutdown();
-    }
-    
-    public void handleEmGetStatusRequest(@NotNull Message wsMessage, @NotNull Rpc.Request emGetStatusRequest) {
+    public void handleEmGetStatusRequest(@NotNull Rpc.Request emGetStatusRequest) {
       lastEmGetStatusRequest = emGetStatusRequest;
-      throttlingQueue.offer(new WebsocketProcessPendingEmGetStatusRequest(this, wsMessage));
     }
   }
 
@@ -384,25 +377,16 @@ public abstract class Shelly extends OutputDevice {
   @AllArgsConstructor
   protected static class UdpClientContext {
     private final InetSocketAddress remote;
-    private final UniqueKillSwitch killSwitch;
-    private final SourceQueueWithComplete<UdpClientProcessPendingEmGetStatusRequest> throttlingQueue;
     private Rpc.Request lastEmGetStatusRequest;
     private Instant lastEmGetStatusRequestTime;
     
-    public static UdpClientContext of(@NotNull InetSocketAddress remote,
-                                      @NotNull UniqueKillSwitch killSwitch,
-                                      @NotNull SourceQueueWithComplete<UdpClientProcessPendingEmGetStatusRequest> throttlingQueue) {
-      return new UdpClientContext(remote, killSwitch, throttlingQueue, null, Instant.now());
+    public static UdpClientContext of(@NotNull InetSocketAddress remote) {
+      return new UdpClientContext(remote, null, Instant.now());
     }
 
     public void handleEmGetStatusRequest(@NotNull Datagram datagram, @NotNull Rpc.Request emGetStatusRequest) {
       lastEmGetStatusRequest = emGetStatusRequest;
       lastEmGetStatusRequestTime = Instant.now();
-        throttlingQueue.offer(new UdpClientProcessPendingEmGetStatusRequest(this, datagram));
-    }
-    
-    public void close() {
-      killSwitch.shutdown();
     }
   }
 }

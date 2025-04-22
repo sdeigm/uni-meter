@@ -61,7 +61,12 @@ public class ShellyPro3EM extends Shelly {
         getContext().messageAdapter(UdpServer.Notification.class, WrappedUdpServerNotification::new);
 
   private final Map<String, WebsocketContext> websocketConnections = new HashMap<>();
+  private SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest> websocketThrottlingQueue;
+  private UniqueKillSwitch websocketKillSwitch;
+  
   private final Map<InetSocketAddress, UdpClientContext> udpClients = new HashMap<>();
+  private SourceQueueWithComplete<UdpClientProcessPendingEmGetStatusRequest> udpThrottlingQueue;
+  private UniqueKillSwitch udpKillSwitch;
 
   private final int udpPort = getConfig().getInt("udp-port");
   private final String udpInterface = getConfig().getString("udp-interface");
@@ -131,7 +136,7 @@ public class ShellyPro3EM extends Shelly {
           .onMessage(HttpRpcRequest.class, this::onHttpRpcRequest)
           
           .onMessage(WebsocketOutputOpened.class, this::onWebsocketOutputOpened)
-          .onMessage(WebsocketProcessPendingEmGetStatusRequest.class, this::onProcessPendingEmGetStatusRequest)
+          .onMessage(WebsocketProcessPendingEmGetStatusRequest.class, this::onWebsocketProcessPendingEmGetStatusRequest)
           .onMessage(WrappedWebsocketInputNotification.class, this::onWrappedWebsocketInputNotification)
           
           .onMessage(OutboundWebsocketConnectionOpened.class, this::onOutboundWebsocketConnectionOpened)
@@ -147,7 +152,7 @@ public class ShellyPro3EM extends Shelly {
 
   /**
    * Handle the PostStop signal
-   * @param message Post stop signal
+   * @param message Post-stop signal
    * @return Same behavior
    */
   @Override
@@ -303,7 +308,7 @@ public class ShellyPro3EM extends Shelly {
   }
 
   /**
-   * Handle the 
+   * Handle the request to get device information 
    */
   protected @NotNull Behavior<Command> onShellyGetDeviceInfo(@NotNull ShellyGetDeviceInfo request) {
     logger.trace("ShellyPro3EM.onShellyGetDeviceInfo()");
@@ -433,21 +438,23 @@ public class ShellyPro3EM extends Shelly {
     logger.trace("ShellyPro3EM.onWebsocketOutputOpened()");
 
     logger.debug("outgoing websocket connection {} to {} created", message.connectionId(), message.remoteAddress());
-
-    Pair<SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest>, UniqueKillSwitch> queueSwitchPair =
-          Source.<WebsocketProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
-                .viaMat(KillSwitches.single(), Keep.both())
-                .throttle(1, minSamplePeriod)
-                .to(Sink.actorRef(Adapter.toClassic(getContext().getSelf()), ThrottlingQueueClosed.INSTANCE))
-                .run(getMaterializer());
+    
+    if (websocketThrottlingQueue == null) {
+      Pair<SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest>, UniqueKillSwitch> queueSwitchPair =
+            Source.<WebsocketProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
+                  .viaMat(KillSwitches.single(), Keep.both())
+                  .throttle(1, minSamplePeriod)
+                  .to(Sink.actorRef(Adapter.toClassic(getContext().getSelf()), ThrottlingQueueClosed.INSTANCE))
+                  .run(getMaterializer());
+      websocketThrottlingQueue = queueSwitchPair.first();
+      websocketKillSwitch = queueSwitchPair.second();
+    }
 
     websocketConnections.put(
           message.connectionId(),
           WebsocketContext.create(
                 message.remoteAddress(),
                 message.sourceActor(),
-                queueSwitchPair.second(),
-                queueSwitchPair.first(),
                 null));
 
     return Behaviors.same();
@@ -533,9 +540,11 @@ public class ShellyPro3EM extends Shelly {
   }
   
   protected void handleWebsocketClosed(@NotNull String connectionId) {
-    WebsocketContext context = websocketConnections.remove(connectionId);
-    if (context != null) {
-      context.close();
+    websocketConnections.remove(connectionId);
+    if (websocketConnections.isEmpty()) {
+      websocketKillSwitch.shutdown();
+      websocketThrottlingQueue = null;
+      websocketKillSwitch = null;
     }
 
     if (Objects.equals(connectionId, outboundWebsocketConnectionId)) {
@@ -578,7 +587,10 @@ public class ShellyPro3EM extends Shelly {
     Rpc.Request request = Rpc.parseRequest(text);
 
     if ("EM.GetStatus".equals(request.method())) {
-      websocketContext.handleEmGetStatusRequest(wsMessage, request);
+      websocketContext.handleEmGetStatusRequest(request);
+      if (websocketThrottlingQueue != null) {
+        websocketThrottlingQueue.offer(new WebsocketProcessPendingEmGetStatusRequest(websocketContext, wsMessage));
+      }
     } else {
       processRpcRequest(message.remoteAddress(), request, wsMessage.isText(), websocketContext.getOutput());
     }
@@ -732,7 +744,7 @@ public class ShellyPro3EM extends Shelly {
   }
 
   /**
-   * Handle the notification, that a UDP datagram was received
+   * Handle the notification that a UDP datagram was received
    * @param message Notification of a received UDP datagram
    */
   protected void onUdpServerDatagramReceived(UdpServer.DatagramReceived message) throws JsonProcessingException {
@@ -761,10 +773,14 @@ public class ShellyPro3EM extends Shelly {
   protected Behavior<Command> onUdpClientProcessPendingEmGetStatusRequest(UdpClientProcessPendingEmGetStatusRequest message) {
     logger.trace("ShellyPro3EM.onUdpClientProcessPendingEmGetStatusRequest()");
 
-    UdpClientContext udpClientContext = message.udpClientContext();
-
-    processUdpRpcRequest(udpClientContext.getRemote(), udpClientContext.getLastEmGetStatusRequest());
-
+    for (UdpClientContext udpClientContext : udpClients.values()) {
+      if (udpClientContext.getLastEmGetStatusRequest() != null) {
+        processUdpRpcRequest(
+              udpClientContext.getRemote(),
+              udpClientContext.getLastEmGetStatusRequest());
+      }
+    }
+    
     return Behaviors.same();
   }
 
@@ -789,20 +805,24 @@ public class ShellyPro3EM extends Shelly {
    * @param message Notification to process a pending EM.GetStatus request
    * @return Same behavior
    */
-  protected Behavior<Command> onProcessPendingEmGetStatusRequest(WebsocketProcessPendingEmGetStatusRequest message) {
+  protected Behavior<Command> onWebsocketProcessPendingEmGetStatusRequest(WebsocketProcessPendingEmGetStatusRequest message) {
     logger.trace("ShellyPro3EM.onProcessPendingEmGetStatusRequest()");
-
-    processRpcRequest(
-          message.websocketContext().getRemoteAddress(),
-          message.websocketContext().getLastEmGetStatusRequest(),
-          message.websocketMessage().isText(),
-          message.websocketContext().getOutput());
+    
+    for (WebsocketContext websocketContext : websocketConnections.values()) {
+      if (websocketContext.getLastEmGetStatusRequest() != null) {
+        processRpcRequest(
+              websocketContext.getRemoteAddress(),
+              websocketContext.getLastEmGetStatusRequest(),
+              message.websocketMessage().isText(),
+              websocketContext.getOutput());
+      }
+    }
 
     return Behaviors.same();
   }
 
   /**
-   * Handle the event, that the power data has changed
+   * Handle the event that the power data has changed
    */
   @Override
   protected void eventPowerDataChanged() {
@@ -1180,8 +1200,8 @@ public class ShellyPro3EM extends Shelly {
   }
 
   /**
-   * Create the device's components list
-   * @return Device's components list
+   * Create the device's component list
+   * @return Device's component list
    */
   private Rpc.ShellyGetComponentsResponse createComponents(@NotNull InetAddress remoteAddress) {
     return new Rpc.ShellyGetComponentsResponse(
@@ -1372,7 +1392,7 @@ public class ShellyPro3EM extends Shelly {
   }
 
   /**
-   * Lookup the UDP client context for the specified remote address
+   * Look up the UDP client context for the specified remote address
    * @param remote Remote address
    * @return UDP client context
    */
@@ -1383,15 +1403,21 @@ public class ShellyPro3EM extends Shelly {
     if (udpClientContext != null) {
       return udpClientContext;
     }
+    
+    if (udpThrottlingQueue == null) {
+      Pair<SourceQueueWithComplete<UdpClientProcessPendingEmGetStatusRequest>, UniqueKillSwitch> queueSwitchPair =
+            Source.<UdpClientProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
+                  .viaMat(KillSwitches.single(), Keep.both())
+                  .throttle(1, minSamplePeriod)
+                  .to(Sink.actorRef(Adapter.toClassic(getContext().getSelf()), ThrottlingQueueClosed.INSTANCE))
+                  .run(getMaterializer());
+      
+      udpThrottlingQueue = queueSwitchPair.first();
+      udpKillSwitch = queueSwitchPair.second();
+    }
 
-    Pair<SourceQueueWithComplete<UdpClientProcessPendingEmGetStatusRequest>, UniqueKillSwitch> queueSwitchPair =
-          Source.<UdpClientProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
-                .viaMat(KillSwitches.single(), Keep.both())
-                .throttle(1, minSamplePeriod)
-                .to(Sink.actorRef(Adapter.toClassic(getContext().getSelf()), ThrottlingQueueClosed.INSTANCE))
-                .run(getMaterializer());
 
-    udpClientContext = UdpClientContext.of(remote, queueSwitchPair.second(), queueSwitchPair.first());
+    udpClientContext = UdpClientContext.of(remote);
 
     udpClients.put(remote, udpClientContext);
 
@@ -1404,10 +1430,12 @@ public class ShellyPro3EM extends Shelly {
     }
 
     for (InetSocketAddress key : toToRemove) {
-      UdpClientContext context = udpClients.remove(key);
-      if (context != null) {
-        context.close();
-      }
+      udpClients.remove(key);
+    }
+    
+    if (udpClients.isEmpty() && udpThrottlingQueue != null) {
+      udpKillSwitch.shutdown();
+      udpThrottlingQueue = null;
     }
 
     return udpClientContext;

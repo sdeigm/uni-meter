@@ -86,6 +86,10 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
       clientContextsInitializer.initClientContexts(
             logger,
             config.getConfigList("client-contexts"), clientContexts);
+      
+      for (ClientContext clientContext : clientContexts.values()) {
+        logger.info("{}", clientContext);
+      } 
     }
   }
   
