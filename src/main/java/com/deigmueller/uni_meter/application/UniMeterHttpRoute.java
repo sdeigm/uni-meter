@@ -29,7 +29,7 @@ public class UniMeterHttpRoute extends AllDirectives {
   public Route createRoute() {
     return pathPrefix("api", () -> concat(
           path("switch_on", () -> 
-                get(() -> onSwitchOn())
+                get(this::onSwitchOn)
           ),
           path("switch_off", () -> 
                 get(() ->
@@ -44,8 +44,8 @@ public class UniMeterHttpRoute extends AllDirectives {
   private Route onSwitchOn() {
     return completeWithFutureStatus(
           AskPattern.ask(
-                outputDevice,
-                (ActorRef<OutputDevice.SwitchOnResponse> replyTo) -> new OutputDevice.SwitchOn(replyTo),
+                outputDevice, 
+                OutputDevice.SwitchOn::new,
                 Duration.ofSeconds(15),
                 actorSystem.scheduler()
           ).thenApply(response -> StatusCodes.OK)

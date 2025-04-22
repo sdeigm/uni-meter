@@ -22,6 +22,7 @@ import java.net.InetAddress;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -140,7 +141,12 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   protected @NotNull Behavior<Command> onSwitchOff(@NotNull SwitchOff message) {
     logger.trace("OutputDevice.onSwitchOff()");
     
-    offUntil = Instant.now().plusSeconds(Math.max(1, message.seconds()));
+    Instant newOffUntil = Instant.now().plusSeconds(Math.max(1, message.seconds()));
+    if (newOffUntil.isAfter(offUntil)) {
+      offUntil = newOffUntil; 
+      logger.debug("device is switched off until {}", 
+            offUntil.atOffset(ZoneOffset.systemDefault().getRules().getOffset(offUntil)));
+    }
     
     message.replyTo().tell(new SwitchOffResponse(offUntil));
     

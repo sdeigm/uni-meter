@@ -10,7 +10,6 @@ import com.deigmueller.uni_meter.common.shelly.RpcException;
 import com.deigmueller.uni_meter.common.utils.MathUtils;
 import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.deigmueller.uni_meter.output.TemporaryNotAvailableException;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -248,10 +247,18 @@ public class ShellyPro3EM extends Shelly {
     logger.trace("ShellyPro3EM.onEmDataGetStatus()");
 
     if (request.id() == 0) {
-      request.replyTo().tell(
-            new EmDataGetStatusOrFailureResponse(
-                  null,
-                  rpcEmDataGetStatus()));
+      try {
+        request.replyTo().tell(
+              new EmDataGetStatusOrFailureResponse(
+                    null,
+                    rpcEmDataGetStatus()));
+      } catch (RuntimeException e) {
+        request.replyTo().tell(
+              new EmDataGetStatusOrFailureResponse(e, null));
+      } catch (Exception e) {
+        request.replyTo().tell(
+              new EmDataGetStatusOrFailureResponse(new RuntimeException(e), null));
+      }
     } else  {
       request.replyTo().tell(
             new EmDataGetStatusOrFailureResponse(
@@ -1094,6 +1101,10 @@ public class ShellyPro3EM extends Shelly {
 
   private Rpc.EmDataGetStatusResponse rpcEmDataGetStatus() {
     logger.trace("ShellyPro3EM.rpcEmDataGetStatus()");
+
+    if (isSwitchedOff()) {
+      throw new TemporaryNotAvailableException("device is not available until " + getOffUntil());
+    }
 
     return new Rpc.EmDataGetStatusResponse(
           0,
