@@ -22,9 +22,7 @@ import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
 import org.apache.pekko.http.javadsl.model.ws.*;
 import org.apache.pekko.http.javadsl.server.Route;
-import org.apache.pekko.stream.UniqueKillSwitch;
 import org.apache.pekko.stream.connectors.udp.Datagram;
-import org.apache.pekko.stream.javadsl.*;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -384,7 +382,7 @@ public abstract class Shelly extends OutputDevice {
       return new UdpClientContext(remote, null, Instant.now());
     }
 
-    public void handleEmGetStatusRequest(@NotNull Datagram datagram, @NotNull Rpc.Request emGetStatusRequest) {
+    public void handleEmGetStatusRequest(@NotNull Rpc.Request emGetStatusRequest) {
       lastEmGetStatusRequest = emGetStatusRequest;
       lastEmGetStatusRequestTime = Instant.now();
     }

@@ -9,7 +9,6 @@ import com.deigmueller.uni_meter.common.shelly.RpcError;
 import com.deigmueller.uni_meter.common.shelly.RpcException;
 import com.deigmueller.uni_meter.common.utils.MathUtils;
 import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -759,7 +758,7 @@ public class ShellyPro3EM extends Shelly {
     Rpc.Request request = Rpc.parseRequest(text);
 
     if ("EM.GetStatus".equals(request.method())) {
-      udpClientContext.handleEmGetStatusRequest(message.datagram(), request);
+      udpClientContext.handleEmGetStatusRequest(request);
     } else {
       processUdpRpcRequest(message.datagram().remote(), request);
     }
@@ -1203,7 +1202,7 @@ public class ShellyPro3EM extends Shelly {
    * Create the device's component list
    * @return Device's component list
    */
-  private Rpc.ShellyGetComponentsResponse createComponents(@NotNull InetAddress remoteAddress) {
+  private Rpc.ShellyGetComponentsResponse createComponents(@NotNull InetAddress ignore) {
     return new Rpc.ShellyGetComponentsResponse(
           List.of(
                 new Rpc.Component("em:0", null, null),
@@ -1545,12 +1544,6 @@ public class ShellyPro3EM extends Shelly {
   public enum RetryOpenOutboundWebsocketConnection implements Command {
     INSTANCE
   }
-
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  public record ShellyComponents(
-        @JsonProperty("components") List<Rpc.Component> component
-  ) implements Rpc.Response {}
   
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record ShellyConfig(
