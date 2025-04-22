@@ -27,6 +27,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Represents an output device responsible for handling power and energy data,
+ * switching states, and initializing configurations. This class serves as an
+ * abstraction layer for specific implementations of output devices.
+ *
+ * Extends:
+ * - org.apache.pekko.actor.typed.javadsl.AbstractBehavior<Command>
+ */
 @Getter(AccessLevel.PROTECTED)
 @Setter(AccessLevel.PROTECTED)
 public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command> {
@@ -41,6 +49,8 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   private final double defaultFrequency;
   private final double defaultClientPowerFactor;
   private final Map<InetAddress, ClientContext> clientContexts = new HashMap<>();
+  
+  private Instant offUntil = Instant.MIN;
   
   private Instant lastPowerPhase0Update = Instant.now();
   private double offsetPhase0 = 0;
@@ -95,6 +105,8 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   public ReceiveBuilder<Command> newReceiveBuilder() {
     return super.newReceiveBuilder()
           .onSignal(PostStop.class, this::onPostStop)
+          .onMessage(SwitchOn.class, this::onSwitchOn)
+          .onMessage(SwitchOff.class, this::onSwitchOff)
           .onMessage(NotifyPhasePowerData.class, this::onNotifyPhasePowerData)
           .onMessage(NotifyPhasesPowerData.class, this::onNotifyPhasesPowerData)
           .onMessage(NotifyTotalPowerData.class, this::onNotifyTotalPowerData)
@@ -104,12 +116,34 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   }
 
   /**
-   * Handle the post stop signal
-   * @param message Post stop signal
+   * Handle the post-stop signal
+   * @param message Post-stop signal
    */
   protected @NotNull Behavior<Command> onPostStop(@NotNull PostStop message) {
     logger.trace("OutputDevice.onPostStop()");
 
+    return Behaviors.same();
+  }
+  
+  
+  protected @NotNull Behavior<Command> onSwitchOn(@NotNull SwitchOn message) {
+    logger.trace("OutputDevice.onSwitchOn()");
+    offUntil = Instant.MIN;
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the request to switch off the output device temporarily
+   * @param message Request message
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onSwitchOff(@NotNull SwitchOff message) {
+    logger.trace("OutputDevice.onSwitchOff()");
+    
+    offUntil = Instant.now().plusSeconds(Math.max(1, message.seconds()));
+    
+    message.replyTo().tell(new SwitchOffResponse(offUntil));
+    
     return Behaviors.same();
   }
 
@@ -389,7 +423,26 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     }
   }
   
+  protected boolean isSwitchedOff() {
+    return Instant.now().isBefore(offUntil);
+  }
+  
   public interface Command {}
+  
+  public record SwitchOn(
+        @NotNull ActorRef<SwitchOnResponse> replyTo
+  ) implements Command {}
+  
+  public record SwitchOnResponse() {}
+  
+  public record SwitchOff(
+        int seconds,
+        @NotNull ActorRef<SwitchOffResponse> replyTo
+  ) implements Command {}
+  
+  public record SwitchOffResponse(
+        @NotNull Instant offUntil
+  ) {}
 
   public record NotifyPhasePowerData(
         int messageId,

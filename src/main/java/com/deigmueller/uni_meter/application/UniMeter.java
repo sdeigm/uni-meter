@@ -52,6 +52,12 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
 
       ActorRef<InputDevice.Command> input = createInput(output);
       getContext().watch(input);       
+      
+      httpServerController.tell(
+            new HttpServerController.RegisterHttpRoute(
+                  "0.0.0.0", 
+                  80, 
+                  new UniMeterHttpRoute(context.getSystem(), output).createRoute()));
     } catch (Exception e) {
       logger.error("failed to initialize the main controller", e);
       throw e;

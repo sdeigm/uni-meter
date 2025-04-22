@@ -9,6 +9,8 @@ import com.deigmueller.uni_meter.common.shelly.RpcError;
 import com.deigmueller.uni_meter.common.shelly.RpcException;
 import com.deigmueller.uni_meter.common.utils.MathUtils;
 import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
+import com.deigmueller.uni_meter.output.TemporaryNotAvailableException;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -772,11 +774,13 @@ public class ShellyPro3EM extends Shelly {
   protected Behavior<Command> onUdpClientProcessPendingEmGetStatusRequest(UdpClientProcessPendingEmGetStatusRequest message) {
     logger.trace("ShellyPro3EM.onUdpClientProcessPendingEmGetStatusRequest()");
 
-    for (UdpClientContext udpClientContext : udpClients.values()) {
-      if (udpClientContext.getLastEmGetStatusRequest() != null) {
-        processUdpRpcRequest(
-              udpClientContext.getRemote(),
-              udpClientContext.getLastEmGetStatusRequest());
+    if (! isSwitchedOff()) {
+      for (UdpClientContext udpClientContext : udpClients.values()) {
+        if (udpClientContext.getLastEmGetStatusRequest() != null) {
+          processUdpRpcRequest(
+                udpClientContext.getRemote(),
+                udpClientContext.getLastEmGetStatusRequest());
+        }
       }
     }
     
@@ -807,16 +811,18 @@ public class ShellyPro3EM extends Shelly {
   protected Behavior<Command> onWebsocketProcessPendingEmGetStatusRequest(WebsocketProcessPendingEmGetStatusRequest message) {
     logger.trace("ShellyPro3EM.onProcessPendingEmGetStatusRequest()");
     
-    for (WebsocketContext websocketContext : websocketConnections.values()) {
-      if (websocketContext.getLastEmGetStatusRequest() != null) {
-        processRpcRequest(
-              websocketContext.getRemoteAddress(),
-              websocketContext.getLastEmGetStatusRequest(),
-              message.websocketMessage().isText(),
-              websocketContext.getOutput());
+    if (!isSwitchedOff()) {
+      for (WebsocketContext websocketContext : websocketConnections.values()) {
+        if (websocketContext.getLastEmGetStatusRequest() != null) {
+          processRpcRequest(
+                websocketContext.getRemoteAddress(),
+                websocketContext.getLastEmGetStatusRequest(),
+                message.websocketMessage().isText(),
+                websocketContext.getOutput());
+        }
       }
     }
-
+    
     return Behaviors.same();
   }
 
@@ -843,6 +849,8 @@ public class ShellyPro3EM extends Shelly {
                 new WebsocketOutput.Send(TextMessage.create(Rpc.notificationToString(notification))));
         } catch (RpcException e) {
           logger.debug("RPC error: {}", e.getMessage());
+        } catch (TemporaryNotAvailableException e) {
+          logger.debug("temporary not available: {}", e.getMessage());
         } catch (Exception e) {
           logger.error("unhandled exception: {}", e.getMessage());
         }
@@ -1022,6 +1030,10 @@ public class ShellyPro3EM extends Shelly {
 
   private Rpc.EmGetStatusResponse rpcEmGetStatus(double factor) throws RpcException {
     logger.trace("ShellyPro3EM.rpcEmGetStatus()");
+    
+    if (isSwitchedOff()) {
+      throw new TemporaryNotAvailableException("device is not available until " + getOffUntil());
+    }
     
     PowerData powerPhase0 = getPowerPhase0();
     PowerData powerPhase1 = getPowerPhase1();
