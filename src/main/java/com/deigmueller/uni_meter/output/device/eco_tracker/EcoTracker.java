@@ -78,7 +78,12 @@ public class EcoTracker  extends OutputDevice {
    */
   private Behavior<Command> onV1GetJson(@NotNull V1GetJson message) {
     getLogger().trace("EcoTracer.onV1GetJson()");
-
+    
+    if (isSwitchedOff()) {
+      // Device is disabled
+      return Behaviors.same();
+    }
+    
     PowerData powerPhase0 = getPowerPhase0();
     PowerData powerPhase1 = getPowerPhase1();
     PowerData powerPhase2 = getPowerPhase2();
