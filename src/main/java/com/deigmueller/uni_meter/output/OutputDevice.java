@@ -41,7 +41,6 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   private final double defaultFrequency;
   private final double defaultClientPowerFactor;
   private final Map<InetAddress, ClientContext> clientContexts = new HashMap<>();
-  private final List<TimerOverride> timerOverrides = new ArrayList<>();
   
   private Instant lastPowerPhase0Update = Instant.now();
   private double offsetPhase0 = 0;
@@ -73,12 +72,6 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     this.defaultVoltage = config.getDouble("default-voltage");
     this.defaultFrequency = config.getDouble("default-frequency");
     this.defaultClientPowerFactor = config.getDouble("default-client-power-factor");
-    
-    if (config.hasPath("timer-overrides")) {
-      for (Config timerOverrideConfig : config.getConfigList("timer-overrides")) {
-        timerOverrides.add(new TimerOverride(timerOverrideConfig));
-      }
-    }
     
     initPowerOffsets(config);
 
@@ -361,17 +354,6 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   protected abstract Route createRoute();
   
   protected abstract void eventPowerDataChanged();
-  
-  private @Nullable TimerOverride getPowerTimerOverride() {
-    LocalDateTime now = LocalDateTime.now();
-    
-    for (TimerOverride timerOverride : timerOverrides) {
-      if (timerOverride.matches(now)) {
-        return timerOverride;
-      }
-    }
-    return null;  
-  }
   
   protected void initPowerOffsets(@NotNull Config config) {
     offsetPhase0 = config.getDouble("power-offset-l1");
