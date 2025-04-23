@@ -129,7 +129,11 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   
   protected @NotNull Behavior<Command> onSwitchOn(@NotNull SwitchOn message) {
     logger.trace("OutputDevice.onSwitchOn()");
+
     offUntil = Instant.MIN;
+
+    message.replyTo().tell(new SwitchOnResponse());
+
     return Behaviors.same();
   }
 
