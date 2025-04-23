@@ -904,7 +904,7 @@ If everything is set up correctly, the tool should start up, and you should see 
 ```
 
 To check if the configuration works and if its up you can check
-http://<uni-meter:port>/status with e.g. `curl "http://grobi:8084/status" | jq
+http://<uni-meter:port>/status with e.g. `curl "http://<uni-meter>:<port>/status" | jq
 ".emeters"` which returns some json output like:
 
 ```json
