@@ -2,7 +2,7 @@ from homeassistant.components import zeroconf
 from zeroconf.asyncio import AsyncServiceInfo
 
 def ip_to_bytes(ip):
-    return bytes(int(x) for x in ip.split("."))
+    return bytes(map(int, ip.split('.')))
 
 @service
 def uni_meter_mdns_register(type, name, ip, port, properties):
