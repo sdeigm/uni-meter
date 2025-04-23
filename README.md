@@ -971,9 +971,9 @@ sudo systemctl status uni-meter
 
 ## Docker
 
-To run this project in a docker container you can call see the example
-below. This exposes UDP Port 1010 and also exposes the httpd daemon on on `8080`
-which can be changed to your needs.
+To run this project in a docker container you can see the example below. This
+exposes UDP Port `1010` and also exposes the httpd daemon on on `8080` which
+can be changed to your needs.
 
 ```sh
 docker run -d \
