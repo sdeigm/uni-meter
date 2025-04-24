@@ -705,6 +705,14 @@ uni-meter {
 To use a Solaredge electrical meter as an input source, set up the `/etc/uni-meter.conf` file as
 follows:
 
+* The address is the IP of your solaredge inverter, which is connected to the
+  Modbus counter
+* To retrieve the data, the Modbus TCP interface must be activated on the
+  inverter. To do this, you can either use the SetApp or connect directly to
+  the inverter's WiFi from another PC / notebook / tablet and open the
+  configuration page.
+* Default port is 1502
+
 ```hocon
 uni-meter {
   output = "uni-meter.output-devices.shelly-pro3em"
@@ -714,7 +722,7 @@ uni-meter {
   input-devices {   
     solaredge {
       address = "192.168.178.125"
-      port = 502
+      port = 1502
       unit-id = 1
     }
   }  
@@ -755,6 +763,31 @@ If you have set a username and password for the device, you have to provide them
 Additionally, you have to configure the JSON paths for the power, energy consumption and energy production values to
 access the actual values within the JSON data. If you have to scale these values, you can provide a scale factor which
 is 1.0 as a default.
+
+To retrieve the needed data for the JSON paths, check
+http://<tasmota-ir-read-head-ip>/cm?cmnd=Status%2010 which should give you
+something like:
+
+```json
+{
+  "StatusSNS": {
+    "Time": "2025-04-23T09:28:35",
+    "DWS7410": {
+      "energy": 7418.4061,
+      "en_out": 9032.9393,
+      "power": -1962.05,
+      "meter_id": "XXXXXX"
+    }
+  }
+}
+```
+
+matching config paths from that example would be:
+```hocon
+  power-json-path = "$.StatusSNS.DWS7410.power"
+  energy-consumption-json-path = "$.StatusSNS.DWS7410.energy"
+  energy-production-json-path = "$.StatusSNS.DWS7410.en_out"
+```
 
 ### Using Tibber Pulse as input source
 
@@ -870,7 +903,44 @@ If everything is set up correctly, the tool should start up, and you should see 
 24-12-04 07:29:16.254 INFO  uni-meter.http.port-80   - HTTP server is listening on /[0:0:0:0:0:0:0:0]:80
 ```
 
-Now you should be able to connect your Hoymiles storage to the emulator using the Hoymiles app.
+To check if the configuration works and if its up you can check
+http://<uni-meter:port>/status with e.g. `curl "http://<uni-meter>:<port>/status" | jq
+".emeters"` which returns some json output like:
+
+```json
+[
+  {
+    "power": 257.0,
+    "pf": 0.88,
+    "current": 1.2,
+    "voltage": 231.26,
+    "is_valid": true,
+    "total": 2282.33,
+    "total_returned": 4020.62
+  },
+  {
+    "power": 674.0,
+    "pf": 0.99,
+    "current": 3.0,
+    "voltage": 228.33,
+    "is_valid": true,
+    "total": 3738.87,
+    "total_returned": 2908.64
+  },
+  {
+    "power": 657.0,
+    "pf": 0.97,
+    "current": 2.9,
+    "voltage": 229.51,
+    "is_valid": true,
+    "total": 4038.92,
+    "total_returned": 1380.2
+  }
+]
+```
+
+Now you should be able to connect your Hoymiles, Marstek or whatever storage to
+the emulator using the vendors app.
 
 ## Automatic start using systemd
 
@@ -897,6 +967,21 @@ The status of the service can be checked using
 
 ```shell
 sudo systemctl status uni-meter
+```
+
+## Docker
+
+To run this project in a docker container you can see the example below. This
+exposes UDP Port `1010` and also exposes the httpd daemon on on `8080` which
+can be changed to your needs.
+
+```sh
+docker run -d \
+    -p 1010:1010/udp -p 8080:80 --name uni-meter \
+    --restart=unless-stopped \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v $PWD/uni-meter.conf:/etc/uni-meter.conf \
+    sdeigm/uni-meter
 ```
 
 ## Troubleshooting
@@ -927,8 +1012,4 @@ As a default the log level is just set to `INFO`. For debugging purposes you can
 ```
 
 A restart is necessary for these changes to take effect.
-
-
-
-
 
