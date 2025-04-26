@@ -1,5 +1,20 @@
 # Configure the Shelly Pro 3EM output device
 
+To use the Shelly Pro 3EM output device, set up the `uni-meter.conf` file as follows:
+
+```hocon
+uni-meter {
+  output = "uni-meter.output-devices.shelly-pro3em"
+  
+  # ...
+  output-devices {
+    shelly-pro3em {
+      # ...
+    }
+  }
+}
+```
+
 ## Enabling JSON RPC over UDP (necessary for the Marstek storage)
 
 As a default, the JSON RPC over UDP interface of the Shelly Pro3EM emulator is disabled. To enable it, configure the
