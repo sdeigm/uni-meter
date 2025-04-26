@@ -54,8 +54,8 @@ There are different installation options available. You can choose to
 The configuration is done using a configuration file in the [HOCON format](https://github.com/lightbend/config/blob/main/HOCON.md). 
 
 The basic structure of that configuration file is common in all setups. You have to choose which input device to use and
-which output device to use. Based on that choice, you have a configuration section for your input and your output device,
-which contain the parameters specific to that device type:
+which output device to use. Based on that choice, you have a configuration section for your input and your output device.
+These sections contain the parameters specific to that device type:
 
 ```hocon
 uni-meter {
