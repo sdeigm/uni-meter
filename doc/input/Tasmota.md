@@ -34,7 +34,7 @@ access the actual values within the JSON data. If you have to scale these values
 is 1.0 as a default.
 
 To retrieve the needed data for the JSON paths, check
-http://<tasmota-ir-read-head-ip>/cm?cmnd=Status%2010 which should give you
+`http://<tasmota-ir-read-head-ip>/cm?cmnd=Status%2010` which should give you
 something like:
 
 ```json
