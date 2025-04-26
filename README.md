@@ -94,7 +94,7 @@ To configure the input device, follow the instructions in the sections:
 * **[Generic HTTP](doc/input/GenericHttp.md)**
 * **[Home Assistant](doc/input/HomeAssistant.md)**
 * **[IO Broker](doc/input/IoBroker.md)**
-* **[MQTT](doc/input/Mqtt)**
+* **[MQTT](doc/input/Mqtt.md)**
 * **[Shelly 3EM](doc/input/Shelly3Em.md)**
 * **[SHRDZM](doc/input/ShrDzm.md)**
 * **[SMA Energy Meter](doc/input/SmaEnergyMeter.md)**
