@@ -78,7 +78,7 @@ uni-meter {
 
 ```
 
-## Output configuration
+## Output device configuration
 
 To configure the output device, follow the instructions in these sections:
 
@@ -86,7 +86,7 @@ To configure the output device, follow the instructions in these sections:
 * **[Eco-Tracker](doc/output/EcoTracker.md)**
 * **[Shelly Pro 3EM](doc/output/ShellyPro3EM.md)**
 
-## Input 
+## Input device configuration
 
 To configure the input device, follow the instructions in the sections:
 
