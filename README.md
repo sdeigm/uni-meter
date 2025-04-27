@@ -104,6 +104,14 @@ To configure the input device, follow the instructions in the sections:
 * **[Tibber Pulse](doc/input/TibberPulse.md)**
 * **[VzLogger](doc/input/VzLogger.md)**
 
+## External API
+
+Starting with version 1.1.7, the `uni-meter` provides a REST API which can be used to externally control or change the
+behavior. Currently, the API only consists of two methods which can be used to switch on/off the `uni-meter` for instance
+while loading your BEV. The idea is to enhance that in the future.
+
+* **[REST API to switch on/off](doc/api/SwitchOnOff.md)**
+
 ## Troubleshooting
 
 `uni-meter` use the Java logback logging system. In the default setup only info, warning and error messages are written
