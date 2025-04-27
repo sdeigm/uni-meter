@@ -44,7 +44,7 @@ as an alternative on such systems.
 
 There are different installation options available. You can choose to 
 
-* **install the tool on a [physical server](doc/install/BareMetal.md)**
+* **install the tool on a [Physical Server](doc/install/BareMetal.md)**
 * **install the tool as [Home Assistant Add-On](doc/install/HomeAssistant.md)**
 * **run the tool as [Docker Container](doc/install/Docker.md)**
 * **or build it from [Source Code](doc/install/Building.md)** 
@@ -88,7 +88,7 @@ To configure the output device, follow the instructions in these sections:
 
 ## Input device configuration
 
-To configure the input device, follow the instructions in the sections:
+To configure the input device, follow the instructions in these sections:
 
 * **[Fronius](doc/input/Fronius.md)**
 * **[Generic HTTP](doc/input/GenericHttp.md)**
