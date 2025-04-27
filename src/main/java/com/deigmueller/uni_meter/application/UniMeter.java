@@ -55,8 +55,8 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
       
       httpServerController.tell(
             new HttpServerController.RegisterHttpRoute(
-                  "0.0.0.0", 
-                  80, 
+                  getContext().getSystem().settings().config().getString("uni-meter.http-server.interface"), 
+                  getContext().getSystem().settings().config().getInt("uni-meter.http-server.port"), 
                   new UniMeterHttpRoute(context.getSystem(), output).createRoute()));
     } catch (Exception e) {
       logger.error("failed to initialize the main controller", e);
