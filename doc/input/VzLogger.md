@@ -1,6 +1,14 @@
 # Using VzLogger webserver as input source
 
-To use the VzLogger webserver as an input source set up the `/etc/uni-meter.conf` file as follows and replace the
+To use the VzLogger webserver as an input device, there are two options. First, there is a VzLogger specific input device
+that directly takes the VzLogger channel UUIDs in its configuration. This was uni-meter's first input device and is still
+working, but has the limitation that it only supports mono phase data. With the availability of the GenericHttp input
+device, this might be the better choice for many users, especially if they want to use tri-phase data. The following
+sections describe both methods to access VzLogger data
+
+## Using the classic VzLogger input device
+
+To use the ols VzLogger specific input source set up the `/etc/uni-meter.conf` file as follows and replace the
 `<vzlogger-host>` and `<vzlogger-port>` placeholders with the actual host and port of your VzLogger webserver.
 Additionally, provide the channel UUIDs of your system.
 
@@ -62,3 +70,51 @@ readings as a Web service and extracts the necessary information from that file:
 }
 ````
 
+## Using the GenericHttp input device for VzLogger
+
+To use the GenericHttp input device to access VzLogger data in tri-phase mode, a `/etc/uni-meter.conf` could look like
+the following one. Please adjust the JSON path index values behind `$.data[1]...` according to the configuration of your
+VzLogger:
+
+```hocon
+uni-meter {
+  output = "uni-meter.output-devices.shelly-pro3em"
+  
+  input = "uni-meter.input-devices.generic-http"
+
+  input-devices {
+    generic-http {
+      url = "http://xxx.xxx.xxx.xxx:yyyy" # put your vzlogger web IP and port here
+      #username = "username"
+      #password = "password"
+
+      power-phase-mode = "tri-phase"
+      energy-phase-mode = "mono-phase"
+
+      channels = [{
+        type = "json"
+        channel = "energy-consumption-total"
+        json-path = "$.data[4].tuples[0][1]" # adjust the index behind data according to your VzLogger setup
+        scale = 1
+      },{
+        type = "json"
+        channel = "energy-production-total"
+        json-path = "$.data[5].tuples[0][1]"
+        scale = 1
+      },{
+        type = "json"
+        channel = "power-l1"
+        json-path = "$.data[1].tuples[0][1]"
+      },{
+        type = "json"
+        channel = "power-l2"
+        json-path = "$.data[2].tuples[0][1]"
+      },{
+        type = "json"
+        channel = "power-l3"
+        json-path = "$.data[3].tuples[0][1]"
+      }]
+    }
+  }
+}
+```
