@@ -23,6 +23,7 @@ The real electrical meter data can be gathered from the following input devices:
 - ioBroker datapoints (via simple API adapter)
 - MQTT
 - Shelly 3EM
+- Shelly Pro 3EM
 - SHRDZM smartmeter interface module (UDP)
 - SMA energy meter / Sunny Home Manager (UDP protocol)
 - SMD120 modbus energy meter (via Protos PE11) (SMD630 could be added, I have no test device)
@@ -96,6 +97,7 @@ To configure the input device, follow the instructions in these sections:
 * **[IO Broker](doc/input/IoBroker.md)**
 * **[MQTT](doc/input/Mqtt.md)**
 * **[Shelly 3EM](doc/input/Shelly3Em.md)**
+* **[Shelly Pro 3EM](doc/input/ShellyPro3Em.md)**
 * **[SHRDZM](doc/input/ShrDzm.md)**
 * **[SMA Energy Meter](doc/input/SmaEnergyMeter.md)**
 * **[SMD 120](doc/input/Smd120.md)**
