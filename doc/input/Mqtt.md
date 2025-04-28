@@ -23,6 +23,25 @@ from. The following channels exist for the different energy and power phase mode
     * `energy-production-l2` - energy production phase 2
     * `energy-production-l3` - energy production phase 3
 
+If you have a setup where the power values are split up between power production and power consumption, you can
+additionally specify the channels for the production.
+
+* Power `mono-phase`
+  * `power-production-total` - total current production power
+* Power `tri-phase`
+  * `power-production-l1` - current production power phase 1
+  * `power-production-l2` - current production power phase 2
+  * `power-production-l3` - current production power phase 3
+
+The current power values are then calculated as
+
+``current power = power-total - power-production-total``
+
+or
+
+``current power lx = power-lx - power-production-lx``
+
+
 Each channel is linked to a topic where the data is gathered from and has a type which specifies how the data is
 stored within the MQTT topic. Currently, two types are supported: `value` and `json`. Use the `value` type for data
 stored as a number string within the topic. Use the `json` type for data stored as JSON within the topic. For
