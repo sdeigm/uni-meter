@@ -1,4 +1,4 @@
-# Using SHRDZM smartmeter interface as input source
+# Using SHRDZM smartmeter interface as the input source
 
 To use a SHRDZM smartmeter interface providing the smart meter readings via UDP, set up the `/etc/uni-meter.conf` file
 as follows

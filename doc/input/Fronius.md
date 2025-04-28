@@ -1,4 +1,4 @@
-# Using a Fronius smart meter as input source
+# Using a Fronius smart meter as the input source
 
 A Fronius smart meter can be accessed using the generic-http input source. To access the Fronius smart meter, use the
 following configuration in the `/etc/uni-meter.conf` file:

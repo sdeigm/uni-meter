@@ -1,4 +1,4 @@
-# Using VzLogger webserver as input source
+# Using a VzLogger webserver as the input source
 
 To use the VzLogger webserver as an input device, there are two options. First, there is a VzLogger specific input device
 that directly takes the VzLogger channel UUIDs in its configuration. This was uni-meter's first input device and is still

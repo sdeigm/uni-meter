@@ -1,4 +1,4 @@
-# Using Solaredge electrical meter input source
+# Using a Solaredge electrical meter input source
 
 To use a Solaredge electrical meter as an input source, set up the `/etc/uni-meter.conf` file as
 follows:

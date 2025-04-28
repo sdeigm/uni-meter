@@ -1,4 +1,4 @@
-# Using MQTT as input source
+# Using MQTT as the input source
 
 The MQTT input source can operate in two modes. Either in a `mono-phase` mode, where the power and/or the energy data is
 provided as a single value for all three phases, or in a `tri-phase` mode, where the power and/or the energy data is

@@ -1,6 +1,6 @@
-# Using ioBroker as input source
+# Using ioBroker as the input source
 
-Reading ioBroker datapoints as input source can be done using the generic http interface on the uni-meter side and using
+Reading ioBroker datapoints as the input source can be done using the generic http interface on the uni-meter side and using
 the [simpleAPI](https://github.com/ioBroker/ioBroker.simple-api) adapter on the ioBroker side. When the simpleAPI adapter
 is installed and configured on the ioBroker, you can use the following configuration in the `/etc/uni-meter.conf` file:
 

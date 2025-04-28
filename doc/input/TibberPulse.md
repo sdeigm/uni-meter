@@ -1,4 +1,4 @@
-# Using Tibber Pulse as input source
+# Using Tibber Pulse as the input source
 
 The Tibber Pulse local API can be used as an input source. To use this API, the local HTTP server has to be enabled on
 the Pulse bridge. How this can be done is described for instance here

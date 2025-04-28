@@ -1,4 +1,4 @@
-# Using Shelly Pro 3EM as input source
+# Using a Shelly Pro 3EM as the input source
 
 To use a Shelly Pro 3EM as an input source, set up the `/etc/uni-meter.conf` file as follows
 
@@ -16,5 +16,5 @@ uni-meter {
 }
 ```
 
-Replace the `<shelly-pro3em-url>` placeholder with the actual URL of your Shelly 3EM device.
+Replace the `<shelly-pro3em-url>` placeholder with the actual URL of your Shelly Pro 3EM device.
 

@@ -1,4 +1,4 @@
-# Using Shelly 3EM as input source
+# Using a Shelly 3EM as the input source
 
 To use a Shelly 3EM as an input source, set up the `/etc/uni-meter.conf` file as follows
 

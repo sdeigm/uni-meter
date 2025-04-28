@@ -1,6 +1,6 @@
-# Using Home Assistant sensors as input source
+# Using Home Assistant sensors as the input source
 
-Home Assistant sensors can be used as input source. To access the sensors, you have to create an access token in
+Home Assistant sensors can be used as the input source. To access the sensors, you have to create an access token in
 Home Assistant and configure the uni-meter with that ``access-token`` and the URL of your system.
 
 Also, with this input, the input source can operate in two modes.

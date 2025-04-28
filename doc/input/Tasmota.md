@@ -1,4 +1,4 @@
-# Using Tasmota IR read head as input source
+# Using a Tasmota IR read head as the input source
 
 To use a Tasmota IR read head as an input source, set up the `/etc/uni-meter.conf` file as follows:
 
