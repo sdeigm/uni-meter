@@ -11,7 +11,7 @@ uni-meter {
 
   input-devices {
     generic-http {
-      url = "http://192.168.x.x" 
+      url = "http://192.168.x.x/pages/getinformation.php?export&meterindex=1" 
 
       power-phase-mode = "tri-phase"
       energy-phase-mode = "mono-phase"
@@ -24,7 +24,7 @@ uni-meter {
       },{
         type = "json"
         channel = "energy-production-total"
-        json-path = "$.Zaehlerstand_Lieferung.Stand180"
+        json-path = "$.Zaehlerstand_Lieferung.Stand280"
         scale = 1
       },{
         type = "json"
