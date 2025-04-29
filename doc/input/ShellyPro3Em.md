@@ -9,7 +9,7 @@ uni-meter {
   input = "uni-meter.input-devices.shelly-pro3em"
 
   input-devices {
-    shelly-3em {
+    shelly-pro3em {
       url = "<shelly-pro3em-url>"
     }
   }
