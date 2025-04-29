@@ -174,6 +174,7 @@ public class GenericHttp extends GenericInputDevice {
                       .toStrict(5000, getMaterializer())
                       .whenComplete((strictEntity, toStrictFailure) -> {
                         if (toStrictFailure != null) {
+                          response.discardEntityBytes(getMaterializer());
                           getContext().getSelf().tell(new HttpRequestFailed(toStrictFailure));
                         } else {
                           getContext().getSelf().tell(new HttpRequestSuccess(strictEntity));

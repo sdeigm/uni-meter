@@ -70,6 +70,7 @@ public class ShellyPro3EM extends HttpInputDevice {
                     .toStrict(5000, getMaterializer())
                     .whenComplete((strictEntity, toStrictFailure) -> {
                         if (toStrictFailure != null) {
+                            httpResponse.discardEntityBytes(getMaterializer());
                             getContext().getSelf().tell(new EmDataStatusRequestFailed(toStrictFailure));
                         } else {
                             handleEmStatusEntity(strictEntity);
@@ -111,6 +112,7 @@ public class ShellyPro3EM extends HttpInputDevice {
                     .toStrict(5000, getMaterializer())
                     .whenComplete((strictEntity, toStrictFailure) -> {
                         if (toStrictFailure != null) {
+                            httpResponse.discardEntityBytes(getMaterializer());
                             getContext().getSelf().tell(new EmDataStatusRequestFailed(toStrictFailure));
                         } else {
                             handleEmDataStatusEntity(strictEntity);

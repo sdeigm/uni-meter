@@ -86,6 +86,7 @@ public class VzLogger extends HttpInputDevice {
               .toStrict(5000, getMaterializer())
               .whenComplete((strictEntity, toStrictFailure) -> {
                 if (toStrictFailure != null) {
+                  httpResponse.discardEntityBytes(getMaterializer());
                   getContext().getSelf().tell(new HttpRequestFailed(toStrictFailure));
                 } else {
                   handleEntity(strictEntity);

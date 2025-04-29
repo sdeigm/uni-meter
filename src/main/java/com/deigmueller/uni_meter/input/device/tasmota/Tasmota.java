@@ -161,6 +161,7 @@ public class Tasmota extends HttpInputDevice {
                       .toStrict(5000, getMaterializer())
                       .whenComplete((strictEntity, toStrictFailure) -> {
                         if (toStrictFailure != null) {
+                          response.discardEntityBytes(getMaterializer());
                           getContext().getSelf().tell(new StatusRequestFailed(toStrictFailure));
                         } else {
                           getContext().getSelf().tell(new StatusRequestSuccess(strictEntity));

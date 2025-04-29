@@ -82,6 +82,7 @@ public class Pulse extends HttpInputDevice {
                     .toStrict(5000, getMaterializer())
                     .whenComplete((strictEntity, toStrictFailure) -> {
                         if (toStrictFailure != null) {
+                            httpResponse.discardEntityBytes(getMaterializer());
                             getContext().getSelf().tell(new PulseStatusRequestFailed(toStrictFailure));
                         } else {
                             handlePulseStatusEntity(strictEntity);

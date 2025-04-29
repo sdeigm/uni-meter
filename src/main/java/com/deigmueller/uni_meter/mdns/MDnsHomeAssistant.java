@@ -257,6 +257,7 @@ public class MDnsHomeAssistant extends MDnsKind {
                       .toStrict(5000, materializer)
                       .whenComplete((strictEntity, toStrictFailure) -> {
                         if (toStrictFailure != null) {
+                          response.discardEntityBytes(materializer);
                           getContext().getSelf().tell(new ServiceDetectionFailed(toStrictFailure));
                         } else {
                           getContext().getSelf().tell(new ServiceDetectionSucceeded(response, strictEntity));
@@ -316,6 +317,7 @@ public class MDnsHomeAssistant extends MDnsKind {
                       .toStrict(5000, materializer)
                       .whenComplete((strictEntity, toStrictFailure) -> {
                         if (toStrictFailure != null) {
+                          response.discardEntityBytes(materializer);
                           getContext().getSelf().tell(new ServiceRegistrationFailed(registerService, toStrictFailure));
                         } else {
                           getContext().getSelf().tell(new ServiceRegistrationSucceeded(registerService, response, strictEntity));
