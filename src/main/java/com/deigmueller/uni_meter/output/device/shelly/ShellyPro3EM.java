@@ -768,6 +768,9 @@ public class ShellyPro3EM extends Shelly {
 
     if ("EM.GetStatus".equals(request.method())) {
       udpClientContext.handleEmGetStatusRequest(request);
+      if (udpThrottlingQueue != null) {
+        udpThrottlingQueue.offer(new UdpClientProcessPendingEmGetStatusRequest(udpClientContext, message.datagram()));
+      }
     } else {
       processUdpRpcRequest(message.datagram().remote(), request);
     }
