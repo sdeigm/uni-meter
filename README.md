@@ -55,15 +55,21 @@ There are different installation options available. You can choose to
 
 The configuration is done using a configuration file in the [HOCON format](https://github.com/lightbend/config/blob/main/HOCON.md). 
 
-The basic structure of that configuration file is common in all setups. You have to choose which input device to use and
-which output device to use. Based on that choice, you have a configuration section for your input and your output device.
-These sections contain the parameters specific to that device type:
+The basic structure of that configuration file is common in all setups.
+
+You can configure the HTTP server port used by the ``uni-meter`` itself for its external API which defaults to port 80. 
+Additionally, you have to choose which input device to use and which output device to use. Based on that choice, there 
+are device-specific configuration sections for the input and output device. 
 
 ```hocon
 uni-meter {
   output = "uni-meter.output-devices.<output-device-type>"
   
   input = "uni-meter.input-devices.<input-device-type>"
+
+  http-server {
+    port = 80
+  }
   
   output-devices {
     <output-device-type> {
@@ -77,8 +83,9 @@ uni-meter {
     }
   }
 }
-
 ```
+
+Some sample configurations for different devices can be found [here](https://github.com/sdeigm/uni-meter/tree/main/samples).
 
 ## Output device configuration
 
