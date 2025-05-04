@@ -11,7 +11,6 @@ import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.ActorSystem;
 import org.apache.pekko.actor.typed.javadsl.AskPattern;
 import org.apache.pekko.http.javadsl.marshallers.jackson.Jackson;
-import org.apache.pekko.http.javadsl.model.HttpEntity;
 import org.apache.pekko.http.javadsl.model.RemoteAddress;
 import org.apache.pekko.http.javadsl.model.StatusCodes;
 import org.apache.pekko.http.javadsl.model.ws.Message;
@@ -25,10 +24,12 @@ import org.apache.pekko.stream.javadsl.Source;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.concurrent.duration.FiniteDuration;
 
 import java.net.InetAddress;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 class HttpRoute extends AllDirectives {
   // Class members
@@ -40,6 +41,7 @@ class HttpRoute extends AllDirectives {
   private final ActorRef<OutputDevice.Command> shelly;
   private final ActorRef<WebsocketInput.Notification> websocketInput;
   private final Duration timeout = Duration.ofSeconds(5);
+  private final FiniteDuration finiteTimeout = FiniteDuration.apply(5, TimeUnit.SECONDS);
   private final ObjectMapper objectMapper = Rpc.createObjectMapper();
   
   public HttpRoute(Logger logger, 
@@ -69,10 +71,7 @@ class HttpRoute extends AllDirectives {
                 ),
                 path("rpc", () ->
                       concat(
-                            post(() -> extractEntity(entity -> {
-                              HttpEntity.Strict strict = (HttpEntity.Strict) entity;
-                              strict.discardBytes(materializer);
-
+                            post(() -> extractStrictEntity(finiteTimeout, strict -> {
                               logger.trace("POST RpcRequest: {}", strict.getData().utf8String());
                               return onRpcRequest(remoteAddress, Rpc.parseRequest(strict.getData().toArray()));
                             })),
@@ -103,6 +102,9 @@ class HttpRoute extends AllDirectives {
                                   path("Script.List", () ->
                                         onScripList(remoteAddress)
                                   ),
+                                  path("Script.GetCode", () ->
+                                        onScriptGetCode(remoteAddress)
+                                  ),
                                   path("Shelly.GetComponents", () ->
                                         onShellyGetComponents(remoteAddress)
                                   ),
@@ -132,13 +134,12 @@ class HttpRoute extends AllDirectives {
                                   })
                             )
                       ),
-                      post(() -> extractEntity(entity -> {
-                        HttpEntity.Strict strict = (HttpEntity.Strict) entity;
-                        strict.discardBytes(materializer);
-
-                        logger.trace("POST RpcRequest: {}", strict.getData().utf8String());
-                        return onRpcRequest(remoteAddress, Rpc.parseRequest(strict.getData().toArray()));
-                      })),
+                      post(() -> extractStrictEntity(finiteTimeout, strictEntity ->
+                            extractUnmatchedPath(unmatchedPath -> {
+                              logger.trace("POST RpcRequest /rpc/{}: {}", unmatchedPath, strictEntity.getData().utf8String());
+                              return onRpcRequest(remoteAddress, Rpc.parseRequest(strictEntity.getData().toArray()));
+                            })
+                      )),
                       extractWebSocketUpgrade(upgrade ->
                             createWebsocketFlow(remoteAddress, upgrade)
                       )
@@ -221,6 +222,19 @@ class HttpRoute extends AllDirectives {
           AskPattern.ask(
                 shelly,
                 (ActorRef<Rpc.ScriptListResponse> replyTo) -> new ShellyPro3EM.ScriptList(
+                      remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
+                      replyTo),
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onScriptGetCode(@NotNull RemoteAddress remoteAddress) {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<Rpc.ScriptGetCodeResponse> replyTo) -> new ShellyPro3EM.ScriptGetCode(
                       remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
                       replyTo),
                 timeout,

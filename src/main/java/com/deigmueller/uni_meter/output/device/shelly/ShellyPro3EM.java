@@ -125,6 +125,7 @@ public class ShellyPro3EM extends Shelly {
           .onMessage(EmDataGetStatus.class, this::onEmDataGetStatus)
           .onMessage(ResetData.class, this::onResetData)
           .onMessage(ScriptList.class, this::onScriptList)
+          .onMessage(ScriptGetCode.class, this::onScriptGetCode)
           .onMessage(ShellyGetComponents.class, this::onShellyGetComponents)
           .onMessage(ShellyGetConfig.class, this::onShellyGetConfig)
           .onMessage(ShellyGetDeviceInfo.class, this::onShellyGetDeviceInfo)
@@ -289,6 +290,17 @@ public class ShellyPro3EM extends Shelly {
     logger.trace("ShellyPro3EM.onScriptList()");
 
     request.replyTo().tell(rpcScriptList());
+
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the "Script.GetCode" request
+   */
+  protected @NotNull Behavior<Command> onScriptGetCode(@NotNull ScriptGetCode request) {
+    logger.trace("ShellyPro3EM.onScriptGetCode()");
+
+    request.replyTo().tell(rpcScriptGetCode());
 
     return Behaviors.same();
   }
@@ -924,6 +936,7 @@ public class ShellyPro3EM extends Shelly {
       case "em.getstatus" -> rpcEmGetStatus(getPowerFactorForRemoteAddress(remoteAddress));
       case "emdata.getstatus" -> rpcEmDataGetStatus();
       case "script.list" -> rpcScriptList();
+      case "script.getcode" -> rpcScriptGetCode();
       case "shelly.getcomponents" -> rpcShellyGetComponents(remoteAddress);
       case "shelly.getconfig" -> rpcShellyGetConfig(remoteAddress);
       case "shelly.getstatus" -> rpcShellyGetStatus(remoteAddress);
@@ -956,6 +969,11 @@ public class ShellyPro3EM extends Shelly {
   private Rpc.ScriptListResponse rpcScriptList() {
     logger.trace("Shelly.rpcScriptList()");
     return new Rpc.ScriptListResponse(Collections.emptyList());
+  }
+
+  private Rpc.ScriptGetCodeResponse rpcScriptGetCode() {
+    logger.trace("Shelly.rpcScriptGetCode()");
+    return new Rpc.ScriptGetCodeResponse("", 0);
   }
 
   private Rpc.ShellyGetComponentsResponse rpcShellyGetComponents(@NotNull InetAddress remoteAddress) {
@@ -1469,6 +1487,11 @@ public class ShellyPro3EM extends Shelly {
   public record ScriptList(
         @JsonProperty("remoteAddress") InetAddress remoteAddress,
         @JsonProperty("replyTo") ActorRef<Rpc.ScriptListResponse> replyTo
+  ) implements Command {}
+
+  public record ScriptGetCode(
+        @JsonProperty("remoteAddress") InetAddress remoteAddress,
+        @JsonProperty("replyTo") ActorRef<Rpc.ScriptGetCodeResponse> replyTo
   ) implements Command {}
 
   public record ShellyGetComponents(

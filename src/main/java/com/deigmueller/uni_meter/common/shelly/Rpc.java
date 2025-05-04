@@ -95,6 +95,7 @@ public class Rpc {
         case "em.getstatus" -> objectMapper.treeToValue(tree, EmGetStatus.class);
         case "emdata.getstatus" -> objectMapper.treeToValue(tree, EmDataGetStatus.class);
         case "script.list" -> objectMapper.treeToValue(tree, ScriptList.class);
+        case "script.getcode" -> objectMapper.treeToValue(tree, ScriptGetCode.class);
         case "shelly.getcomponents" -> objectMapper.treeToValue(tree, ShellyGetComponents.class);
         case "shelly.getconfig" -> objectMapper.treeToValue(tree, ShellyGetConfig.class);
         case "shelly.getstatus" -> objectMapper.treeToValue(tree, ShellyGetStatus.class);
@@ -114,7 +115,7 @@ public class Rpc {
     String method();
     Long id();
     String src();
-    String dest();
+    String dst();
   }
 
   public interface Response {}
@@ -138,7 +139,7 @@ public class Rpc {
       @JsonProperty("result") Response result,
       @JsonProperty("error") Error error
   ) {
-    @Override public String toString() { return Rpc.toString(this); }
+    @Override public @NotNull String toString() { return Rpc.toString(this); }
   }
 
   @JsonIgnoreProperties(ignoreUnknown = true)
@@ -150,7 +151,7 @@ public class Rpc {
       @JsonProperty("method") String method,
       @JsonProperty("params") EventParams params
   ) {
-    @Override public String toString() { return Rpc.toString(this); }
+    @Override public @NotNull String toString() { return Rpc.toString(this); }
   }
 
   public record EventParams(
@@ -181,7 +182,7 @@ public class Rpc {
         @JsonProperty("method") String method,
         @JsonProperty("params") NotificationParam param
   ) {
-    @Override public String toString() { return Rpc.toString(this); }
+    @Override public @NotNull String toString() { return Rpc.toString(this); }
   }
 
   public interface NotificationParam {
@@ -194,13 +195,15 @@ public class Rpc {
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
-        @JsonProperty("dest") String dest
+        @JsonProperty("dst") String dst
   ) implements Request {}
   
   public record ScriptListResponse(
         @JsonProperty("scripts") List<Script> scripts
   ) implements Response {}
-  
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public record Script(
         @JsonProperty("id") int id,
         @JsonProperty("name") String name,
@@ -210,11 +213,36 @@ public class Rpc {
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ScriptGetCode(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst,
+        @JsonProperty("params") ScriptGetCodeParams params
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ScriptGetCodeParams(
+        @JsonProperty("id") int id
+  ) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public record ScriptGetCodeResponse(
+        @JsonProperty("data") String data,
+        @JsonProperty("left") long left
+  ) implements Rpc.Response {
+    @Override public @NotNull String toString() { return Rpc.toString(this); }
+  }
+  
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public record ShellyGetComponents(
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
-        @JsonProperty("dest") String dest,
+        @JsonProperty("dst") String dst,
         @JsonProperty("params") ShellyGetComponentsParams params
   ) implements Request {}
 
@@ -250,7 +278,7 @@ public class Rpc {
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
-        @JsonProperty("dest") String dest
+        @JsonProperty("dst") String dst
   ) implements Request {}
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -259,7 +287,7 @@ public class Rpc {
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
-        @JsonProperty("dest") String dest
+        @JsonProperty("dst") String dst
   ) implements Request {}
   
   public record ShellyGetStatusResponse(
@@ -333,7 +361,7 @@ public class Rpc {
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
-        @JsonProperty("dest") String dest,
+        @JsonProperty("dst") String dst,
         @JsonProperty("params") ShellyRebootParams params
   ) implements Request {}
 
@@ -348,7 +376,7 @@ public class Rpc {
   public record ShellyRebootResponse(
   ) implements Response {
     @Override
-    public String toString() {
+    public @NotNull String toString() {
       try {
         return objectMapper.writeValueAsString(this);
       } catch (JsonProcessingException e) {
@@ -363,7 +391,7 @@ public class Rpc {
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
-        @JsonProperty("dest") String dest
+        @JsonProperty("dst") String dst
   ) implements Request {}
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -384,7 +412,7 @@ public class Rpc {
         @JsonProperty("profile") String profile
   ) implements Response {
     @Override
-    public String toString() {
+    public @NotNull String toString() {
       try {
         return objectMapper.writeValueAsString(this);
       } catch (JsonProcessingException e) {
@@ -399,7 +427,7 @@ public class Rpc {
         @JsonProperty("id") Long id, 
         @JsonProperty("method") String method,
         @JsonProperty("src") String src, 
-        @JsonProperty("dest") String dest,
+        @JsonProperty("dst") String dst,
         @JsonProperty("params") EmGetStatusParams params
   ) implements Request {}
 
@@ -447,7 +475,7 @@ public class Rpc {
         @JsonProperty("user_calibrated_phase") List<String> user_calibrated_phase,
         @JsonProperty("errors") List<String> errors
   ) implements Response {
-    @Override public String toString() { return Rpc.toString(this); }
+    @Override public @NotNull String toString() { return Rpc.toString(this); }
   }
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -456,7 +484,7 @@ public class Rpc {
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
-        @JsonProperty("dest") String dest,
+        @JsonProperty("dst") String dst,
         @JsonProperty("params") EmGetConfigParams params
   ) implements Request {}
 
@@ -478,7 +506,7 @@ public class Rpc {
         @JsonProperty("reverse") ReverseConfig reverse,
         @JsonProperty("ct_type") String ct_type
   ) implements Response {
-    @Override public String toString() { return Rpc.toString(this); }
+    @Override public @NotNull String toString() { return Rpc.toString(this); }
   }
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -520,7 +548,7 @@ public class Rpc {
         @JsonProperty("id") Long id, 
         @JsonProperty("method") String method,
         @JsonProperty("src") String src, 
-        @JsonProperty("dest") String dest,
+        @JsonProperty("dst") String dst,
         @JsonProperty("params") EmDataGetStatusParams params) implements Request {
   }
 
@@ -570,7 +598,7 @@ public class Rpc {
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
-        @JsonProperty("dest") String dest,
+        @JsonProperty("dst") String dst,
         @JsonProperty("params") SysGetConfigParams params
   ) implements Request {}
 
@@ -590,7 +618,7 @@ public class Rpc {
         @JsonProperty("sntp") Sntp sntp,
         @JsonProperty("cfg_rev") int cfg_rev
   ) implements Response {
-    @Override public String toString() { return Rpc.toString(this); }
+    @Override public @NotNull String toString() { return Rpc.toString(this); }
   }
   
   public record Device(
@@ -643,7 +671,7 @@ public class Rpc {
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
-        @JsonProperty("dest") String dest
+        @JsonProperty("dst") String dst
   ) implements Request {}
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -658,7 +686,7 @@ public class Rpc {
     public @NotNull CloudGetConfigResponse withServer(@Nullable String server) {
       return new CloudGetConfigResponse(enable, RpcStringOrNull.of(server));
     }
-    @Override public String toString() { return Rpc.toString(this); }
+    @Override public @NotNull String toString() { return Rpc.toString(this); }
   }
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -667,7 +695,7 @@ public class Rpc {
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
-        @JsonProperty("dest") String dest,
+        @JsonProperty("dst") String dst,
         @JsonProperty("params") CloudSetConfigParams params
   ) implements Request {}
 
@@ -689,7 +717,7 @@ public class Rpc {
   public record CloudSetConfigResponse(
         @JsonProperty("restart_required") Boolean restart_required
   ) implements Response {
-    @Override public String toString() { return Rpc.toString(this); }
+    @Override public @NotNull String toString() { return Rpc.toString(this); }
   }
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -698,7 +726,7 @@ public class Rpc {
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
-        @JsonProperty("dest") String dest
+        @JsonProperty("dst") String dst
   ) implements Request {}
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -724,7 +752,7 @@ public class Rpc {
       return new WsGetConfigResponse(enable, server, ssl_ca);
     }
     
-    @Override public String toString() { return Rpc.toString(this); }
+    @Override public @NotNull String toString() { return Rpc.toString(this); }
   }
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -733,7 +761,7 @@ public class Rpc {
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
         @JsonProperty("src") String src,
-        @JsonProperty("dest") String dest,
+        @JsonProperty("dst") String dst,
         @JsonProperty("params") WsSetConfigParams params
   ) implements Request {}
 
@@ -750,7 +778,7 @@ public class Rpc {
   public record WsSetConfigResponse(
         @JsonProperty("restart_required") Boolean restart_required
   ) implements Response {
-    @Override public String toString() { return Rpc.toString(this); }
+    @Override public @NotNull String toString() { return Rpc.toString(this); }
   }
 
   public record RpcNull() {}
