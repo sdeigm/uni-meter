@@ -22,6 +22,8 @@ import org.openmuc.jsml.structures.SmlMessage;
 import org.openmuc.jsml.structures.EMessageBody;
 import org.openmuc.jsml.structures.responses.SmlGetListRes;
 import org.openmuc.jsml.structures.SmlListEntry;
+
+import java.io.IOException;
 import java.util.List;
 import java.time.Duration;
 
@@ -38,6 +40,7 @@ public class Pulse extends HttpInputDevice {
     private final String userId = getConfig().getString("user-id");
     private final String password = getConfig().getString("password");
     private final Duration pulseStatusPollingInterval = getConfig().getDuration("polling-interval");
+    private final String requestUrl = getUrl() + "/data.json?node_id=" + nodeId;
     
     private final HttpCredentials credentials = BasicHttpCredentials.createBasicHttpCredentials(userId, password);
 
@@ -85,7 +88,12 @@ public class Pulse extends HttpInputDevice {
                             httpResponse.discardEntityBytes(getMaterializer());
                             getContext().getSelf().tell(new PulseStatusRequestFailed(toStrictFailure));
                         } else {
-                            handlePulseStatusEntity(strictEntity);
+                            if (httpResponse.status().isSuccess()) {
+                                handlePulseStatusEntity(strictEntity);
+                            } else {
+                                getContext().getSelf().tell(new PulseStatusRequestFailed(new IOException(
+                                      "http request to " + requestUrl + " failed with status " + httpResponse.status())));
+                            }
                         }
                     });
         } catch (Exception e) {
@@ -182,14 +190,15 @@ public class Pulse extends HttpInputDevice {
     private void executePulseStatusPolling() {
         logger.trace("Pulse.executePulseStatusPolling()");
 
-        getHttp().singleRequest(HttpRequest.create(getUrl() + "/data.json?node_id=" + nodeId).addCredentials(credentials))
-                .whenComplete((response, throwable) -> {
-                    if (throwable != null) {
-                        getContext().getSelf().tell(new PulseStatusRequestFailed(throwable));
-                    } else {
-                        getContext().getSelf().tell(new PulseStatusRequestSuccess(response));
-                    }
-                });
+        getHttp()
+              .singleRequest(HttpRequest.create(requestUrl).addCredentials(credentials))
+              .whenComplete((response, throwable) -> {
+                  if (throwable != null) {
+                      getContext().getSelf().tell(new PulseStatusRequestFailed(throwable));
+                  } else {
+                      getContext().getSelf().tell(new PulseStatusRequestSuccess(response));
+                  }
+              });
     }
 
     private void startNextPulseStatusPollingTimer() {

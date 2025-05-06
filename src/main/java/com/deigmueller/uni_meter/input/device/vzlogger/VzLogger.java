@@ -17,6 +17,7 @@ import org.apache.pekko.http.javadsl.model.HttpResponse;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -89,7 +90,12 @@ public class VzLogger extends HttpInputDevice {
                   httpResponse.discardEntityBytes(getMaterializer());
                   getContext().getSelf().tell(new HttpRequestFailed(toStrictFailure));
                 } else {
-                  handleEntity(strictEntity);
+                  if (httpResponse.status().isSuccess()) {
+                    handleEntity(strictEntity);
+                  } else {
+                    getContext().getSelf().tell(new HttpRequestFailed(new IOException(
+                          "http request to " + getUrl() + " failed with status " + httpResponse.status())));
+                  }
                 }
               });
       } catch (Exception e) {

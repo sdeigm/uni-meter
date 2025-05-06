@@ -14,6 +14,7 @@ import org.apache.pekko.http.javadsl.model.HttpRequest;
 import org.apache.pekko.http.scaladsl.model.headers.HttpCredentials;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.time.Duration;
 
 /**
@@ -145,8 +146,10 @@ public class Tasmota extends HttpInputDevice {
   
   private void executeStatusPolling() {
     logger.trace("Tasmota.executeStatusPolling()");
+    
+    final String requestUrl = getUrl() + "/cm?cmnd=Status%2010";
 
-    HttpRequest httpRequest = HttpRequest.create(getUrl() + "/cm?cmnd=Status%2010");
+    HttpRequest httpRequest = HttpRequest.create(requestUrl);
     if (credentials != null) {
       httpRequest = httpRequest.addCredentials(credentials);
     }
@@ -164,7 +167,12 @@ public class Tasmota extends HttpInputDevice {
                           response.discardEntityBytes(getMaterializer());
                           getContext().getSelf().tell(new StatusRequestFailed(toStrictFailure));
                         } else {
-                          getContext().getSelf().tell(new StatusRequestSuccess(strictEntity));
+                          if (response.status().isSuccess()) {
+                            getContext().getSelf().tell(new StatusRequestSuccess(strictEntity));
+                          } else {
+                            getContext().getSelf().tell(new StatusRequestFailed(new IOException(
+                                  "http request to " + requestUrl + " failed with status " + response.status())));
+                          }
                         }
                       });
               } catch (Exception e) {
