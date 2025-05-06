@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.typesafe.config.Config;
 import lombok.AccessLevel;
 import lombok.Getter;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.javadsl.ActorContext;
 import org.apache.pekko.http.javadsl.Http;
@@ -18,7 +19,7 @@ public abstract class HttpInputDevice extends InputDevice {
     private final Http http = Http.get(getContext().getSystem());
     private final Materializer materializer = Materializer.createMaterializer(getContext());
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final String url = getConfig().getString("url");
+    private final String url = StringUtils.stripEnd(getConfig().getString("url"), "/");
 
     protected HttpInputDevice(@NotNull ActorContext<Command> context, 
                               @NotNull ActorRef<OutputDevice.Command> outputDevice, 

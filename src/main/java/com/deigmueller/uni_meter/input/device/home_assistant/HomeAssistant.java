@@ -29,7 +29,7 @@ public class HomeAssistant extends GenericInputDevice {
   // Instance members
   private final Http http = Http.get(getContext().getSystem());
   private final ObjectMapper objectMapper = new ObjectMapper();
-  private final String url = getConfig().getString("url");
+  private final String url = StringUtils.stripEnd(getConfig().getString("url"), "/");
   private final Duration pollingInterval = getConfig().getDuration("polling-interval");
   private final Map<String,String> sensorChannelMap = new HashMap<>();
   private final HttpCredentials credentials;
