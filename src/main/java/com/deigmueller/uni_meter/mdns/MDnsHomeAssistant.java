@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.typesafe.config.Config;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.PostStop;
 import org.apache.pekko.actor.typed.javadsl.ActorContext;
@@ -36,7 +37,7 @@ public class MDnsHomeAssistant extends MDnsKind {
   
   // Instance members
   private final Http http = Http.get(getContext().getSystem());
-  private final String url = getConfig().getString("url");
+  private final String url = StringUtils.stripEnd(getConfig().getString("url"), "/");
   private final HttpCredentials credentials = HttpCredentials.createOAuth2BearerToken(getConfig().getString("access-token"));
   private final Materializer materializer = Materializer.createMaterializer(getContext().getSystem());
   private final Set<RegisterService> pendingRegistrations = new HashSet<>();
