@@ -96,7 +96,7 @@ public class MDnsHomeAssistant extends MDnsKind {
     LOGGER.trace("MDnsHomeAssistant.onServiceDetectionSucceeded");
 
     try {
-      if (message.response.status() == StatusCodes.OK) {
+      if (message.response.status().isSuccess()) {
         LOGGER.debug("list services returned: {}", message.entity.getData().utf8String());
         
         List<Domain> domains = MAPPER.readValue(message.entity.getData().toArray(), CollectionsTypeFactory.listOfDomain());
@@ -172,7 +172,7 @@ public class MDnsHomeAssistant extends MDnsKind {
     
     registrationRunning = false;
     
-    if (message.response.status() == StatusCodes.OK) {
+    if (message.response.status().isSuccess()) {
       LOGGER.info("successfully registered mdns service {}", message.registerService.name());
       serviceRegistrationErrorShown = false;
       pendingRegistrations.remove(message.registerService);

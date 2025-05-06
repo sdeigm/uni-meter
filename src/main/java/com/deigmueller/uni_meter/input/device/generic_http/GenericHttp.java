@@ -18,6 +18,7 @@ import org.apache.pekko.http.javadsl.model.HttpRequest;
 import org.apache.pekko.http.javadsl.model.headers.HttpCredentials;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -177,7 +178,12 @@ public class GenericHttp extends GenericInputDevice {
                           response.discardEntityBytes(getMaterializer());
                           getContext().getSelf().tell(new HttpRequestFailed(toStrictFailure));
                         } else {
-                          getContext().getSelf().tell(new HttpRequestSuccess(strictEntity));
+                          if (response.status().isSuccess()) {
+                            getContext().getSelf().tell(new HttpRequestSuccess(strictEntity));
+                          } else {
+                            getContext().getSelf().tell(new HttpRequestFailed(new IOException(
+                                  "http request to " + url + " failed with status " + response.status())));
+                          }
                         }
                       });
               } catch (Exception e) {

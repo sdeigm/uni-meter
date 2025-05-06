@@ -18,6 +18,7 @@ import org.apache.pekko.http.javadsl.model.HttpRequest;
 import org.apache.pekko.http.javadsl.model.headers.HttpCredentials;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
 
@@ -141,7 +142,7 @@ public class HomeAssistant extends GenericInputDevice {
     String sensor = remainingSensors.iterator().next();
     remainingSensors.remove(sensor);
     
-    String path = getUrl() +"/api/states/" + sensor;
+    final String path = getUrl() + "/api/states/" + sensor;
     
     HttpRequest httpRequest = HttpRequest
           .create(path)
@@ -161,8 +162,14 @@ public class HomeAssistant extends GenericInputDevice {
                           getContext().getSelf().tell(
                                 new HttpRequestFailed(toStrictFailure));
                         } else {
-                          getContext().getSelf().tell(
-                                new HttpRequestSuccess(sensor, remainingSensors, strictEntity));
+                          if (response.status().isSuccess()) {
+                            getContext().getSelf().tell(
+                                  new HttpRequestSuccess(sensor, remainingSensors, strictEntity));
+                          } else {
+                            getContext().getSelf().tell(new HttpRequestFailed(new IOException(
+                                  "http request to " + path + " failed with status " + response.status())));
+                            
+                          }
                         }
                       });
               } catch (Exception e) {

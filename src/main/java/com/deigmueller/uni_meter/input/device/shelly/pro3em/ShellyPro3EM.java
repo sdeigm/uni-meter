@@ -14,6 +14,7 @@ import org.apache.pekko.http.javadsl.model.HttpRequest;
 import org.apache.pekko.http.javadsl.model.HttpResponse;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.time.Duration;
 
 public class ShellyPro3EM extends HttpInputDevice {
@@ -23,8 +24,9 @@ public class ShellyPro3EM extends HttpInputDevice {
     // Instance members
     private final Duration emStatusPollingInterval = getConfig().getDuration("em-status-polling-interval");
     private final Duration emDataStatusPollingInterval = getConfig().getDuration("em-data-status-polling-interval");
+    private final String emStatusUrl = getUrl() + "/rpc/EM.GetStatus?id=0";
+    private final String emDataStatusUrl = getUrl() + "/rpc/EMData.GetStatus?id=0";
     
-
     public static Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> outputDevice,
                                            @NotNull Config config) {
         return Behaviors.setup(context -> new ShellyPro3EM(context, outputDevice, config));
@@ -67,15 +69,20 @@ public class ShellyPro3EM extends HttpInputDevice {
 
         try {
             httpResponse.entity()
-                    .toStrict(5000, getMaterializer())
-                    .whenComplete((strictEntity, toStrictFailure) -> {
-                        if (toStrictFailure != null) {
-                            httpResponse.discardEntityBytes(getMaterializer());
-                            getContext().getSelf().tell(new EmDataStatusRequestFailed(toStrictFailure));
-                        } else {
-                            handleEmStatusEntity(strictEntity);
-                        }
-                    });
+                  .toStrict(5000, getMaterializer())
+                  .whenComplete((strictEntity, toStrictFailure) -> {
+                      if (toStrictFailure != null) {
+                          httpResponse.discardEntityBytes(getMaterializer());
+                          getContext().getSelf().tell(new EmStatusRequestFailed(toStrictFailure));
+                      } else {
+                          if (httpResponse.status().isSuccess()) {
+                              handleEmStatusEntity(strictEntity);
+                          } else {
+                              getContext().getSelf().tell(new EmStatusRequestFailed(new IOException(
+                                    "http request to " + emStatusUrl + " failed with status " + httpResponse.status())));
+                          }
+                      }
+                  });
         } catch (Exception e) {
             // Failed to get a strict entity
             getContext().getSelf().tell(new EmDataStatusRequestFailed(e));
@@ -115,7 +122,12 @@ public class ShellyPro3EM extends HttpInputDevice {
                             httpResponse.discardEntityBytes(getMaterializer());
                             getContext().getSelf().tell(new EmDataStatusRequestFailed(toStrictFailure));
                         } else {
-                            handleEmDataStatusEntity(strictEntity);
+                            if (httpResponse.status().isSuccess()) {
+                                handleEmDataStatusEntity(strictEntity);
+                            } else {
+                                getContext().getSelf().tell(new EmDataStatusRequestFailed(new IOException(
+                                      "http request to " + emDataStatusUrl + " failed with status " + httpResponse.status())));
+                            }
                         }
                     });
         } catch (Exception e) {
@@ -180,7 +192,7 @@ public class ShellyPro3EM extends HttpInputDevice {
     private void executeEmStatusPolling() {
         logger.trace("ShellyPro3EM.executeEmStatusPolling()");
 
-        getHttp().singleRequest(HttpRequest.create(getUrl() + "/rpc/EM.GetStatus?id=0"))
+        getHttp().singleRequest(HttpRequest.create(emStatusUrl))
                 .whenComplete((response, throwable) -> {
                     if (throwable != null) {
                         getContext().getSelf().tell(new EmStatusRequestFailed(throwable));
@@ -202,7 +214,7 @@ public class ShellyPro3EM extends HttpInputDevice {
     private void executeEmDataStatusPolling() {
         logger.trace("ShellyPro3EM.executeEmDataStatusPolling()");
 
-        getHttp().singleRequest(HttpRequest.create(getUrl() + "/rpc/EMData.GetStatus?id=0"))
+        getHttp().singleRequest(HttpRequest.create(emDataStatusUrl))
                 .whenComplete((response, throwable) -> {
                     if (throwable != null) {
                         getContext().getSelf().tell(new EmDataStatusRequestFailed(throwable));

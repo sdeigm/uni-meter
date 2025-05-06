@@ -15,6 +15,7 @@ import org.apache.pekko.http.javadsl.model.HttpEntity;
 import org.apache.pekko.http.javadsl.model.HttpRequest;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 
@@ -166,8 +167,10 @@ public class Shelly3EM extends HttpInputDevice {
   
   private void executeStatusPolling() {
     logger.trace("Shelly3EM.executeStatusPolling()");
+    
+    final String requestUrl = getUrl() + "/status";
 
-    getHttp().singleRequest(HttpRequest.create(getUrl() + "/status"))
+    getHttp().singleRequest(HttpRequest.create(requestUrl))
           .whenComplete((response, throwable) -> {
             if (throwable != null) {
               getContext().getSelf().tell(new StatusRequestFailed(throwable));
@@ -180,7 +183,12 @@ public class Shelly3EM extends HttpInputDevice {
                           response.discardEntityBytes(getMaterializer());
                           getContext().getSelf().tell(new StatusRequestFailed(toStrictFailure));
                         } else {
-                          getContext().getSelf().tell(new StatusRequestSuccess(strictEntity));
+                          if (response.status().isSuccess()) {
+                            getContext().getSelf().tell(new StatusRequestSuccess(strictEntity));
+                          } else {
+                            getContext().getSelf().tell(new StatusRequestFailed(new IOException(
+                                  "http request to " + requestUrl + " failed with status " + response.status())));
+                          }
                         }
                       });
               } catch (Exception e) {
