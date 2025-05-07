@@ -103,7 +103,7 @@ To configure the input device, follow the instructions in these sections:
 * **[Fronius](doc/input/Fronius.md)**
 * **[Generic HTTP](doc/input/GenericHttp.md)**
 * **[Home Assistant](doc/input/HomeAssistant.md)**
-* **[IO Broker](doc/input/IoBroker.md)**
+* **[ioBroker](doc/input/IoBroker.md)**
 * **[MQTT](doc/input/Mqtt.md)**
 * **[Shelly 3EM](doc/input/Shelly3Em.md)**
 * **[Shelly Pro 3EM](doc/input/ShellyPro3Em.md)**
