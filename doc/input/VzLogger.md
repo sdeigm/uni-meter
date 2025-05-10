@@ -24,6 +24,11 @@ uni-meter {
       energy-consumption-channel = "5478b110-b577-11ec-873f-179XXXXXXXX"
       energy-production-channel = "6fda4300-b577-11ec-8636-7348XXXXXXXX"
       power-channel = "e172f5b5-76cd-42da-abcc-effeXXXXXXXX"
+
+      # The Marstek storage needs input data on a single phase. This can be controlled by
+      # the configuration options below
+      power-phase-mode = "mono-phase"
+      power-phase = "l1"
     }
   }
 }

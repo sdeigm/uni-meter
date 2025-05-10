@@ -20,6 +20,11 @@ uni-meter {
         energy-consumption-scale = 1.0 # default, can be omitted
         energy-production-json-path = "$..export_total_kwh"
         energy-production-scale = 1.0 # default, can be omitted
+
+        # The Marstek storage needs input data on a single phase. This can be controlled by
+        # the configuration options below
+        power-phase-mode = "mono-phase"
+        power-phase = "l1"
       }
     }
   }

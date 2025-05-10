@@ -13,6 +13,11 @@ uni-meter {
     shrdzm {
       port = 9522
       interface = "0.0.0.0"
+
+      # The Marstek storage needs input data on a single phase. This can be controlled by
+      # the configuration options below
+      power-phase-mode = "mono-phase"
+      power-phase = "l1"
     }
   }
 }

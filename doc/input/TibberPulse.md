@@ -18,6 +18,11 @@ uni-meter {
       node-id = 1
       user-id = "admin"
       password = "<tibber-device-password>"
+
+      # The Marstek storage needs input data on a single phase. This can be controlled by
+      # the configuration options below
+      power-phase-mode = "mono-phase"
+      power-phase = "l1"
     }
   }
 }
