@@ -15,6 +15,12 @@ uni-meter {
 }
 ```
 
+Use your browser or the curl utility and open the URL
+
+``http://<uni-meter-ip>/rpc/EM.GetStatus?id=0``
+
+to check if the virtual shelly is providing the electrical meter readings.
+
 ## Enabling JSON RPC over UDP (necessary for the Marstek storage)
 
 As a default, the JSON RPC over UDP interface of the Shelly Pro3EM emulator is disabled. To enable it, configure the
