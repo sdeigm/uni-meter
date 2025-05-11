@@ -4,28 +4,26 @@ To use a Tasmota IR read head as an input source, set up the `/etc/uni-meter.con
 
 ```hocon
 uni-meter {
-  uni-meter {
-    output = "uni-meter.output-devices.shelly-pro3em"
+  output = "uni-meter.output-devices.shelly-pro3em"
 
-    input = "uni-meter.input-devices.tasmota"
+  input = "uni-meter.input-devices.tasmota"
 
-    input-devices {
-      tasmota {
-        url = "http://<tasmota-ir-read-head-ip>"
-        # username=""
-        # password=""
-        power-json-path = "$..curr_w"
-        power-scale = 1.0 # default, can be omitted
-        energy-consumption-json-path = "$..total_kwh"
-        energy-consumption-scale = 1.0 # default, can be omitted
-        energy-production-json-path = "$..export_total_kwh"
-        energy-production-scale = 1.0 # default, can be omitted
+  input-devices {
+    tasmota {
+      url = "http://<tasmota-ir-read-head-ip>"
+      # username=""
+      # password=""
+      power-json-path = "$..curr_w"
+      power-scale = 1.0 # default, can be omitted
+      energy-consumption-json-path = "$..total_kwh"
+      energy-consumption-scale = 1.0 # default, can be omitted
+      energy-production-json-path = "$..export_total_kwh"
+      energy-production-scale = 1.0 # default, can be omitted
 
-        # The Marstek storage needs input data on a single phase. This can be controlled by
-        # the configuration options below
-        power-phase-mode = "mono-phase"
-        power-phase = "l1"
-      }
+      # The Marstek storage needs input data on a single phase. This can be controlled by
+      # the configuration options below
+      power-phase-mode = "mono-phase"
+      power-phase = "l1"
     }
   }
 }
