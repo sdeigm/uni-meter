@@ -25,7 +25,7 @@ public class Solaredge extends Modbus {
 
   // Instance members
   private final int baseRegisterAddress = getConfig().getInt("base-register-address");
-  
+  private final double powerSign = getConfig().getBoolean("invert-power") ? 1.0 : -1.0;
   
   public static Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> outputDevice,
                                          @NotNull Config config) {
@@ -76,7 +76,7 @@ public class Solaredge extends Modbus {
       short currentA = byteBuffer.getShort();
       short currentB = byteBuffer.getShort();
       short currentC = byteBuffer.getShort();
-      double currentScale = Math.pow(10.0, byteBuffer.getShort());
+      double currentScale = powerSign * Math.pow(10.0, byteBuffer.getShort());
       
       // 40195 - Line to Neutral Voltage
       short voltageLtN_Average = byteBuffer.getShort();
@@ -104,7 +104,7 @@ public class Solaredge extends Modbus {
       short realPowerB = byteBuffer.getShort();
       short realPowerC = byteBuffer.getShort();
       
-      double realPowerScale = Math.pow(10.0, byteBuffer.getShort());
+      double realPowerScale = powerSign * Math.pow(10.0, byteBuffer.getShort());
 
       // 40211 - Apparent Power
       short apparentPowerSum = byteBuffer.getShort();
@@ -112,7 +112,7 @@ public class Solaredge extends Modbus {
       short apparentPowerB = byteBuffer.getShort();
       short apparentPowerC = byteBuffer.getShort();
       
-      double apparentPowerScale = Math.pow(10.0, byteBuffer.getShort());
+      double apparentPowerScale = powerSign * Math.pow(10.0, byteBuffer.getShort());
 
       // 40216 - Reactive Power
       skip(byteBuffer, 10);
