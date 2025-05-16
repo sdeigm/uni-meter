@@ -1246,11 +1246,11 @@ public class ShellyPro3EM extends Shelly {
    * Create the device's component list
    * @return Device's component list
    */
-  private Rpc.ShellyGetComponentsResponse createComponents(@NotNull InetAddress ignore) {
+  private Rpc.ShellyGetComponentsResponse createComponents(@NotNull InetAddress remoteAddress) {
     return new Rpc.ShellyGetComponentsResponse(
           List.of(
-                new Rpc.Component("em:0", null, null),
-                new Rpc.Component("emdata:0", null, null)
+                new Rpc.Component("em:0", rpcEmGetStatus(getPowerFactorForRemoteAddress(remoteAddress)), rpcEmGetConfig()),
+                new Rpc.Component("emdata:0", rpcEmDataGetStatus(), new Rpc.EmDataGetConfigResponse())
           ),
           1,
           0,

@@ -474,7 +474,7 @@ public class Rpc {
         @JsonProperty("total_aprt_power") Double total_aprt_power,
         @JsonProperty("user_calibrated_phase") List<String> user_calibrated_phase,
         @JsonProperty("errors") List<String> errors
-  ) implements Response {
+  ) implements Response, Status {
     @Override public @NotNull String toString() { return Rpc.toString(this); }
   }
 
@@ -505,7 +505,7 @@ public class Rpc {
         @JsonProperty("monitor_phase_sequence") Boolean monitor_phase_sequence,
         @JsonProperty("reverse") ReverseConfig reverse,
         @JsonProperty("ct_type") String ct_type
-  ) implements Response {
+  ) implements Response, Config {
     @Override public @NotNull String toString() { return Rpc.toString(this); }
   }
 
@@ -573,8 +573,13 @@ public class Rpc {
         @JsonProperty("total_act") Double total_act,
         @JsonProperty("total_act_ret") Double total_act_ret,
         @JsonProperty("errors") String[] errors
-  ) implements Response {}
+  ) implements Response, Status {}
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record EmDataGetConfigResponse(
+  ) implements Response, Config {}
+  
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   @JsonPropertyOrder({"ts", "emdata:0"})
