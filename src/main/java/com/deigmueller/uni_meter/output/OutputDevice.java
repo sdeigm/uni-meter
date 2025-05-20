@@ -21,20 +21,14 @@ import org.jetbrains.annotations.NotNull;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
  * Represents an output device responsible for handling power and energy data,
  * switching states, and initializing configurations. This class serves as an
  * abstraction layer for specific implementations of output devices.
- *
- * Extends:
- * - org.apache.pekko.actor.typed.javadsl.AbstractBehavior<Command>
  */
 @Getter(AccessLevel.PROTECTED)
 @Setter(AccessLevel.PROTECTED)
