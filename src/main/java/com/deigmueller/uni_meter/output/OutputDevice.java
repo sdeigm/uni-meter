@@ -22,6 +22,7 @@ import java.net.InetAddress;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -35,6 +36,7 @@ import java.util.Map;
 public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command> {
   // Instance members
   protected final Logger logger = LoggerFactory.getLogger("uni-meter.output");
+  protected final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
   private final Materializer materializer = Materializer.createMaterializer(getContext());
   private final ActorRef<UniMeter.Command> controller;
   private final ActorRef<MDnsRegistrator.Command> mdnsRegistrator;
@@ -46,6 +48,9 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   private final Map<InetAddress, ClientContext> clientContexts = new HashMap<>();
   
   private Instant offUntil = Instant.MIN;
+  private Instant usageConstraintUntil = Instant.MIN;
+  private UsageConstraint usageConstraint = UsageConstraint.NONE;
+  private double lastUsageConstraintPower = 0;
   
   private Instant lastPowerPhase0Update = Instant.now();
   private double offsetPhase0 = 0;
@@ -102,6 +107,8 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
           .onSignal(PostStop.class, this::onPostStop)
           .onMessage(SwitchOn.class, this::onSwitchOn)
           .onMessage(SwitchOff.class, this::onSwitchOff)
+          .onMessage(NoCharge.class, this::onNoCharge)
+          .onMessage(NoDischarge.class, this::onNoDischarge)
           .onMessage(NotifyPhasePowerData.class, this::onNotifyPhasePowerData)
           .onMessage(NotifyPhasesPowerData.class, this::onNotifyPhasesPowerData)
           .onMessage(NotifyTotalPowerData.class, this::onNotifyTotalPowerData)
@@ -120,12 +127,20 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     return Behaviors.same();
   }
   
-  
+  /**
+   * Handle the request to switch on the output device
+   * @param message Request message
+   * @return Same behavior
+   */
   protected @NotNull Behavior<Command> onSwitchOn(@NotNull SwitchOn message) {
     logger.trace("OutputDevice.onSwitchOn()");
 
     offUntil = Instant.MIN;
-
+    usageConstraintUntil = Instant.MIN;
+    usageConstraint = UsageConstraint.NONE;
+    
+    logger.info("device is switched on and back to normal operation");
+    
     message.replyTo().tell(new SwitchOnResponse());
 
     return Behaviors.same();
@@ -142,12 +157,48 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     Instant newOffUntil = Instant.now().plusSeconds(Math.max(1, message.seconds()));
     if (newOffUntil.isAfter(offUntil)) {
       offUntil = newOffUntil; 
-      logger.debug("device is switched off until {}", 
-            offUntil.atOffset(ZoneOffset.systemDefault().getRules().getOffset(offUntil)));
+      logger.info("device is switched off until {}", dateTimeInfo(offUntil));
     }
     
     message.replyTo().tell(new SwitchOffResponse(offUntil));
     
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the request to disable charging
+   * @param message Request message
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onNoCharge(@NotNull NoCharge message) {
+    logger.trace("OutputDevice.onNoCharge()");
+
+    offUntil = Instant.MIN;
+    usageConstraintUntil = Instant.now().plusSeconds(Math.max(1, message.seconds()));
+    usageConstraint = UsageConstraint.NO_CHARGE;
+
+    logger.info("no charging until {}", dateTimeInfo(usageConstraintUntil));
+
+    message.replyTo().tell(new NoChargeResponse(usageConstraintUntil));
+
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the request to disable discharging
+   * @param message Request message
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onNoDischarge(@NotNull NoDischarge message) {
+    logger.trace("OutputDevice.onNoDischarge()");
+
+    usageConstraintUntil = Instant.now().plusSeconds(Math.max(1, message.seconds()));
+    usageConstraint = UsageConstraint.NO_DISCHARGE;
+
+    logger.info("no discharging until {}", dateTimeInfo(usageConstraintUntil));
+
+    message.replyTo().tell(new NoDischargeResponse(usageConstraintUntil));
+
     return Behaviors.same();
   }
 
@@ -431,6 +482,28 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     return Instant.now().isBefore(offUntil);
   }
   
+  protected boolean checkUsageConstraint(double power) {
+    if (! Instant.now().isBefore(usageConstraintUntil)) {
+      return false;
+    }
+    
+    boolean result;
+    
+    result = switch (usageConstraint) {
+      case NONE -> false;
+      case NO_CHARGE -> lastUsageConstraintPower < 0 && power < 0;
+      case NO_DISCHARGE -> lastUsageConstraintPower > 0 && power > 0;
+    };
+    
+    lastUsageConstraintPower = power;
+    
+    return result;
+  }
+  
+  protected String dateTimeInfo(@NotNull Instant instant) {
+    return dateTimeFormatter.format(instant.atOffset(ZoneOffset.systemDefault().getRules().getOffset(instant)));
+  }
+  
   public interface Command {}
   
   public record SwitchOn(
@@ -445,6 +518,24 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   ) implements Command {}
   
   public record SwitchOffResponse(
+        @NotNull Instant offUntil
+  ) {}
+
+  public record NoCharge(
+        int seconds,
+        @NotNull ActorRef<NoChargeResponse> replyTo
+  ) implements Command {}
+
+  public record NoChargeResponse(
+        @NotNull Instant offUntil
+  ) {}
+
+  public record NoDischarge(
+        int seconds,
+        @NotNull ActorRef<NoDischargeResponse> replyTo
+  ) implements Command {}
+
+  public record NoDischargeResponse(
         @NotNull Instant offUntil
   ) {}
 

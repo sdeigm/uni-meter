@@ -28,6 +28,20 @@ public class UniMeterHttpRoute extends AllDirectives {
 
   public Route createRoute() {
     return pathPrefix("api", () -> concat(
+          path("no_charge", () ->
+                get(() ->
+                      parameterOptional(StringUnmarshallers.INTEGER, "seconds", seconds ->
+                            onNoCharge(seconds.orElse(Integer.MAX_VALUE))
+                      )
+                )
+          ),
+          path("no_discharge", () ->
+                get(() ->
+                      parameterOptional(StringUnmarshallers.INTEGER, "seconds", seconds ->
+                            onNoDischarge(seconds.orElse(Integer.MAX_VALUE))
+                      )
+                )
+          ),
           path("switch_on", () -> 
                 get(this::onSwitchOn)
           ),
@@ -40,7 +54,29 @@ public class UniMeterHttpRoute extends AllDirectives {
           )
     ));
   }
-  
+
+  private Route onNoCharge(int seconds) {
+    return completeWithFutureStatus(
+          AskPattern.ask(
+                outputDevice,
+                (ActorRef<OutputDevice.NoChargeResponse> replyTo) -> new OutputDevice.NoCharge(Math.max(1, seconds), replyTo),
+                Duration.ofSeconds(15),
+                actorSystem.scheduler()
+          ).thenApply(response -> StatusCodes.OK)
+    );
+  }
+
+  private Route onNoDischarge(int seconds) {
+    return completeWithFutureStatus(
+          AskPattern.ask(
+                outputDevice,
+                (ActorRef<OutputDevice.NoDischargeResponse> replyTo) -> new OutputDevice.NoDischarge(Math.max(1, seconds), replyTo),
+                Duration.ofSeconds(15),
+                actorSystem.scheduler()
+          ).thenApply(response -> StatusCodes.OK)
+    );
+  }
+
   private Route onSwitchOn() {
     return completeWithFutureStatus(
           AskPattern.ask(
