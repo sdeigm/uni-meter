@@ -1081,6 +1081,12 @@ public class ShellyPro3EM extends Shelly {
       powerPhase2 = getPowerPhase2OrDefault();
     }
     
+    double totalPower = (powerPhase0.power() + powerPhase1.power() + powerPhase2.power()) * factor;
+    
+    if (checkUsageConstraint(totalPower)) {
+      throw new RpcException(RpcError.ERROR_USAGE_CONSTRAINT, RpcError.ERROR_USAGE_CONSTRAINT_MSG);
+    }
+    
     return new Rpc.EmGetStatusResponse(
           0,
           MathUtils.round(powerPhase0.current() * factor, 2),
@@ -1110,7 +1116,7 @@ public class ShellyPro3EM extends Shelly {
                 (powerPhase0.current() + powerPhase1.current() + powerPhase2.current()) * factor, 
                 2),
           MathUtils.round(
-                (powerPhase0.power() + powerPhase1.power() + powerPhase2.power()) * factor, 
+                totalPower, 
                 2),
           MathUtils.round(
                 (powerPhase0.apparentPower() + powerPhase1.apparentPower() + powerPhase2.apparentPower()) * factor, 
@@ -1127,6 +1133,30 @@ public class ShellyPro3EM extends Shelly {
       throw new TemporaryNotAvailableException("device is not available until " + getOffUntil());
     }
 
+    PowerData powerPhase0 = getPowerPhase0();
+    PowerData powerPhase1 = getPowerPhase1();
+    PowerData powerPhase2 = getPowerPhase2();
+
+    if (powerPhase0 == null && powerPhase1 == null && powerPhase2 == null) {
+      throw new RpcException(RpcError.ERROR_NO_POWER_DATA, RpcError.ERROR_NO_POWER_DATA_MSG);
+    }
+
+    if (powerPhase0 == null) {
+      powerPhase0 = getPowerPhase0OrDefault();
+    }
+    if (powerPhase1 == null) {
+      powerPhase1 = getPowerPhase1OrDefault();
+    }
+    if (powerPhase2 == null) {
+      powerPhase2 = getPowerPhase2OrDefault();
+    }
+
+    double totalPower = (powerPhase0.power() + powerPhase1.power() + powerPhase2.power());
+
+    if (checkUsageConstraint(totalPower)) {
+      throw new RpcException(RpcError.ERROR_USAGE_CONSTRAINT, RpcError.ERROR_USAGE_CONSTRAINT_MSG);
+    }
+    
     return new Rpc.EmDataGetStatusResponse(
           0,
           getEnergyPhase0().totalConsumption(),

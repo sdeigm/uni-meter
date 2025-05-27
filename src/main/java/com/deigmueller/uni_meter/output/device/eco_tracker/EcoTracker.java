@@ -83,7 +83,7 @@ public class EcoTracker  extends OutputDevice {
       // Device is disabled
       return Behaviors.same();
     }
-    
+
     PowerData powerPhase0 = getPowerPhase0();
     PowerData powerPhase1 = getPowerPhase1();
     PowerData powerPhase2 = getPowerPhase2();
@@ -102,8 +102,15 @@ public class EcoTracker  extends OutputDevice {
     if (powerPhase2 == null) {
       powerPhase2 = getPowerPhase2OrDefault();
     }
-    
-    long power = (long) (powerPhase0.power() + powerPhase1.power() + powerPhase2.power());
+
+    double factor = getPowerFactorForRemoteAddress(message.remoteAddress());
+
+    double power = (powerPhase0.power() + powerPhase1.power() + powerPhase2.power()) * factor;
+
+    if (checkUsageConstraint(power)) {
+      // Usage constraint => notify failure
+      return Behaviors.same();
+    }
     
     double powerAverage = 0.0;
     for (PowerHistory history : powerHistory) {
@@ -111,6 +118,7 @@ public class EcoTracker  extends OutputDevice {
     }
     if (!powerHistory.isEmpty()) {
       powerAverage /= powerHistory.size();
+      powerAverage *= factor;
     }
     
     EnergyData energyPhase0 = getEnergyPhase0();
@@ -120,11 +128,10 @@ public class EcoTracker  extends OutputDevice {
     double energyIn = energyPhase0.totalConsumption() + energyPhase1.totalConsumption() + energyPhase2.totalConsumption();
     
     double energyOut = energyPhase0.totalProduction() + energyPhase1.totalProduction() + energyPhase2.totalProduction();
-
-
+    
     message.replyTo().tell(
           new V1GetJsonResponse(
-                power,
+                (long) power,
                 (long) powerAverage, 
                 MathUtils.round(energyIn * 1000.0, 2),
                 null,
