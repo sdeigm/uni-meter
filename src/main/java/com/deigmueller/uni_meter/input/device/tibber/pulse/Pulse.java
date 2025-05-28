@@ -24,7 +24,7 @@ import org.openmuc.jsml.structures.responses.SmlGetListRes;
 import org.openmuc.jsml.structures.SmlListEntry;
 
 import java.io.IOException;
-import java.util.HexFormat;
+import java.time.Instant;
 import java.util.List;
 import java.time.Duration;
 
@@ -43,8 +43,10 @@ public class Pulse extends HttpInputDevice {
     private final Duration pulseStatusPollingInterval = getConfig().getDuration("polling-interval");
     private final Duration jsmlTimeout = getConfig().getDuration("jsml-timeout");
     private final String requestUrl = getUrl() + "/data.json?node_id=" + nodeId;
-    
     private final HttpCredentials credentials = BasicHttpCredentials.createBasicHttpCredentials(userId, password);
+    
+    private int nParseErrorsLogged = 0;
+    private Instant lastParseErrorLogged = Instant.MIN;
 
     /**
      * Create a new Pulse actor instance.
@@ -167,18 +169,17 @@ public class Pulse extends HttpInputDevice {
 
                 notifyEnergyData(energyPhaseMode, energyPhase, energyImport, energyExport);
             }
+        } catch (IOException e) {
+            logParseError(e);
         } catch (Exception e) {
-            logger.error("Failed to parse status response: {}", e.getMessage());
-            if (logger.isDebugEnabled()) {
-                logger.debug("Raw data: {}", HexFormat.of().formatHex(strictEntity.getData().toArray()));
-            }
+            logger.error("failure: {}", e.getMessage());
         }
 
         startNextPulseStatusPollingTimer();
 
         return Behaviors.same();
     }
-
+    
     /**
      * Handle the notification to execute the next pulse status polling.
      * @param message Notification message
@@ -257,6 +258,25 @@ public class Pulse extends HttpInputDevice {
                 pulseStatusPollingInterval,
                 () -> getContext().getSelf().tell(ExecuteNextPulseStatusPolling.INSTANCE),
                 getContext().getExecutionContext());
+    }
+
+    private void logParseError(@NotNull IOException e) {
+        if (nParseErrorsLogged >= 5) {
+            if (Instant.now().isAfter(lastParseErrorLogged.plusSeconds(86400))) {
+                nParseErrorsLogged = 0;
+            } else {
+                logger.debug("failed to parse status response: {}", e.getMessage());
+            }
+        }
+
+        if (nParseErrorsLogged < 5) {
+            logger.error("failed to parse status response: {}", e.getMessage());
+            nParseErrorsLogged++;
+            lastParseErrorLogged = Instant.now();
+            if (nParseErrorsLogged == 5) {
+                logger.info("omitting further parse errors for the next 24 hours");
+            }
+        }
     }
 
     protected record PulseStatusRequestFailed(
