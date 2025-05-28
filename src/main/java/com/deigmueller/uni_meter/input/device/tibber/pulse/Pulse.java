@@ -24,6 +24,7 @@ import org.openmuc.jsml.structures.responses.SmlGetListRes;
 import org.openmuc.jsml.structures.SmlListEntry;
 
 import java.io.IOException;
+import java.util.HexFormat;
 import java.util.List;
 import java.time.Duration;
 
@@ -40,15 +41,28 @@ public class Pulse extends HttpInputDevice {
     private final String userId = getConfig().getString("user-id");
     private final String password = getConfig().getString("password");
     private final Duration pulseStatusPollingInterval = getConfig().getDuration("polling-interval");
+    private final Duration jsmlTimeout = getConfig().getDuration("jsml-timeout");
     private final String requestUrl = getUrl() + "/data.json?node_id=" + nodeId;
     
     private final HttpCredentials credentials = BasicHttpCredentials.createBasicHttpCredentials(userId, password);
 
+    /**
+     * Create a new Pulse actor instance.
+     * @param outputDevice The output device actor reference
+     * @param config The configuration
+     * @return Behavior of the created actor
+     */
     public static Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> outputDevice,
                                            @NotNull Config config) {
         return Behaviors.setup(context -> new Pulse(context, outputDevice, config));
     }
 
+    /**
+     * Protected constructor called by the static factory method.
+     * @param context The actor context
+     * @param outputDevice The output device actor reference
+     * @param config The configuration
+     */
     protected Pulse(@NotNull ActorContext<Command> context,
                            @NotNull ActorRef<OutputDevice.Command> outputDevice,
                            @NotNull Config config) {
@@ -57,14 +71,24 @@ public class Pulse extends HttpInputDevice {
         executePulseStatusPolling();
     }
 
+    /**
+     * Create the actor's ReceiveBuilder.
+     * @return The actor's ReceiveBuilder
+     */
     @Override
     public ReceiveBuilder<Command> newReceiveBuilder() {
         return super.newReceiveBuilder()
-                .onMessage(PulseStatusRequestFailed.class, this::onPulseStatusRequestFailed)
-                .onMessage(PulseStatusRequestSuccess.class, this::onPulseStatusRequestSuccess)
-                .onMessage(ExecuteNextPulseStatusPolling.class, this::onExecuteNextPulseStatusPolling);
+              .onMessage(PulseStatusRequestFailed.class, this::onPulseStatusRequestFailed)
+              .onMessage(PulseStatusRequestSuccess.class, this::onPulseStatusRequestSuccess)
+              .onMessage(StrictEntity.class, this::onStrictEntity)
+              .onMessage(ExecuteNextPulseStatusPolling.class, this::onExecuteNextPulseStatusPolling);
     }
 
+    /**
+     * Handle the notification that the pulse status request failed.
+     * @param message PulseStatusRequestFailed message containing the failure information
+     * @return Same behavior to continue processing
+     */
     protected Behavior<Command> onPulseStatusRequestFailed(@NotNull PulseStatusRequestFailed message) {
         logger.trace("Pulse.onPulseStatusRequestFailed()");
 
@@ -75,6 +99,11 @@ public class Pulse extends HttpInputDevice {
         return Behaviors.same();
     }
 
+    /**
+     * Handle the successful response of the pulse status request.
+     * @param message PulseStatusRequestSuccess message containing the HTTP response
+     * @return Same behavior to continue processing
+     */
     protected Behavior<Command> onPulseStatusRequestSuccess(@NotNull PulseStatusRequestSuccess message) {
         logger.trace("Pulse.onPulseStatusRequestSuccess()");
 
@@ -89,7 +118,7 @@ public class Pulse extends HttpInputDevice {
                             getContext().getSelf().tell(new PulseStatusRequestFailed(toStrictFailure));
                         } else {
                             if (httpResponse.status().isSuccess()) {
-                                handlePulseStatusEntity(strictEntity);
+                                getContext().getSelf().tell(new StrictEntity(strictEntity));
                             } else {
                                 getContext().getSelf().tell(new PulseStatusRequestFailed(new IOException(
                                       "http request to " + requestUrl + " failed with status " + httpResponse.status())));
@@ -103,7 +132,58 @@ public class Pulse extends HttpInputDevice {
 
         return Behaviors.same();
     }
+    
+    /**
+     * Handle the strict entity message containing the parsed SML data.
+     * @param message StrictEntity message containing the HTTP entity
+     * @return Same behavior to continue processing
+     */
+    protected Behavior<Command> onStrictEntity(@NotNull StrictEntity message) {
+        logger.trace("Pulse.onStrictEntity()");
 
+        HttpEntity.Strict strictEntity = message.entity();
+
+        try {
+            byte[] rawData = strictEntity.getData().toArray();
+            DataInputStream dataStream = new DataInputStream(new ByteArrayInputStream(rawData));
+            
+            Transport smlTransport = new Transport();
+            smlTransport.setTimeout((int) jsmlTimeout.toMillis());
+            
+            SmlFile smlData = smlTransport.getSMLFile(dataStream);
+            List<SmlMessage> messages = smlData.getMessages();
+
+            SmlGetListRes listResponse = findListResponse(messages);
+            if(listResponse != null) {
+                double energyImport = findEnergyImportEntry(listResponse);
+                double energyExport = findEnergyExportEntry(listResponse);
+                double power        = findPowerEntry(listResponse);
+
+                logger.debug("Energy Import (Wh): {}", energyImport);
+                logger.debug("Energy Export (Wh): {}", energyExport);
+                logger.debug("Power (W): {}", power);
+
+                notifyPowerData(powerPhaseMode, powerPhase, power);
+
+                notifyEnergyData(energyPhaseMode, energyPhase, energyImport, energyExport);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to parse status response: {}", e.getMessage());
+            if (logger.isDebugEnabled()) {
+                logger.debug("Raw data: {}", HexFormat.of().formatHex(strictEntity.getData().toArray()));
+            }
+        }
+
+        startNextPulseStatusPollingTimer();
+
+        return Behaviors.same();
+    }
+
+    /**
+     * Handle the notification to execute the next pulse status polling.
+     * @param message Notification message
+     * @return Same behavior to continue processing
+     */
     protected Behavior<Command> onExecuteNextPulseStatusPolling(@NotNull ExecuteNextPulseStatusPolling message) {
         logger.trace("Pulse.onExecuteNextPulseStatusPolling()");
 
@@ -156,37 +236,6 @@ public class Pulse extends HttpInputDevice {
         return 0.0;
     }
 
-    private void handlePulseStatusEntity(@NotNull HttpEntity.Strict strictEntity) {
-        logger.trace("Pulse.handlePulseStatusEntity()");
-
-        try {
-            byte[] rawData = strictEntity.getData().toArray();
-            DataInputStream dataStream = new DataInputStream(new ByteArrayInputStream(rawData));
-            Transport smlTransport = new Transport();
-            SmlFile smlData = smlTransport.getSMLFile(dataStream);
-            List<SmlMessage> messages = smlData.getMessages();
-
-            SmlGetListRes listResponse = findListResponse(messages);
-            if(listResponse != null) {
-                double energyImport = findEnergyImportEntry(listResponse);
-                double energyExport = findEnergyExportEntry(listResponse);
-                double power        = findPowerEntry(listResponse);
-
-                logger.debug("Energy Import (Wh): {}", energyImport);
-                logger.debug("Energy Export (Wh): {}", energyExport);
-                logger.debug("Power (W): {}", power);
-                
-                notifyPowerData(powerPhaseMode, powerPhase, power);
-
-                notifyEnergyData(energyPhaseMode, energyPhase, energyImport, energyExport);
-            }
-        } catch (Exception e) {
-            logger.error("Failed to parse status response: {}", e.getMessage());
-        }
-
-        startNextPulseStatusPollingTimer();
-    }
-    
     private void executePulseStatusPolling() {
         logger.trace("Pulse.executePulseStatusPolling()");
 
@@ -216,6 +265,10 @@ public class Pulse extends HttpInputDevice {
 
     protected record PulseStatusRequestSuccess(
             @NotNull HttpResponse response
+    ) implements Command {}
+    
+    protected record StrictEntity(
+            @NotNull HttpEntity.Strict entity
     ) implements Command {}
 
     protected enum ExecuteNextPulseStatusPolling implements Command {
