@@ -11,14 +11,16 @@ To stop these operation modes again, you can use the `switch_on` API call as des
 ## Prevent charging
 
 Using this API call, you can prevent the storage from charging for a certain time. This might, for instance, be used to 
-prevent charging before 11am to use your storage in a more "grid-friendly" way.
+prevent charging before 11am to use your storage in a more "grid-friendly" way. The command takes an optional parameter for the duration of the behavior.
+Afterward, the `uni-meter` switches automatically back to its normal operation mode:
 
 `http://<uni-meter-ip>:<uni-meter-port>/api/no_charge?seconds=3600`
 
 ## Prevent discharging
 
 Using this API call, you can prevent the storage from discharging for a certain time. This might, for instance, be used
-to prevent discharging while charging your BEV. The command takes an optional parameter for the duration of the
+to prevent discharging while charging your BEV. The command takes an optional parameter for the duration of the behavior.
+Afterward, the `uni-meter` switches automatically back to its normal operation mode:
 
 `http://<uni-meter-ip>:<uni-meter-port>/api/no_discharge?seconds=3600`
 
