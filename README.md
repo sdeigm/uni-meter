@@ -118,10 +118,10 @@ To configure the input device, follow the instructions in these sections:
 ## External API
 
 Starting with version 1.1.7, the `uni-meter` provides a REST API which can be used to externally control or change the
-behavior. Currently, the API only consists of two methods which can be used to switch on/off the `uni-meter` for instance
-while loading your BEV. The idea is to enhance that in the future.
+behavior. That API might, for instance, be used via a cron job using curl or directly from a web-browser.
 
 * **[REST API to switch on/off](doc/api/SwitchOnOff.md)**
+* **[REST API to prevent charging/discharging](doc/api/DontChargeDischarge.md)**
 
 ## Troubleshooting
 
