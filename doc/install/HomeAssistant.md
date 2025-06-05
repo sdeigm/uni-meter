@@ -33,7 +33,7 @@ directory of your instance.
 
 Make sure that within the pyscript add-on the "Allow All Imports?" check-box is checked:
 
-![pyscript configuration](https://github.com/sdeigm/uni-meter/doc/image/PyScriptConfig.jpg "pyscript configuration")
+![pyscript configuration](https://github.com/sdeigm/uni-meter/blob/main/doc/image/PyScriptConfig.jpg "pyscript configuration")
 
 
 If that is done, the `uni-meter` automatically detects the provided services and announces itself using mDNS.  
