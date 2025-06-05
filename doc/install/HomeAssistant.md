@@ -27,9 +27,14 @@ existent, the file is automatically evaluated.
 If your storage - like the Hoymiles MS-A2 - is discovering the virtual Shelly using mDNS, additional steps are necessary.
 This step is not needed for storages like the Marstek Venus.
 
-To use mDNS it is necessary to additionally install the Pyscript add-on. Afterward, copy the provided 
+To use mDNS it is necessary to additionally install the pyscript add-on. Afterward, copy the provided 
 [uni-meter-mdns.py](https://github.com/sdeigm/uni-meter/blob/main/ha_addon/uni-meter-mdns.py) into the `/config/pyscript` 
 directory of your instance.
+
+Make sure that within the pyscript add-on the "Allow All Imports?" check-box is checked:
+
+![pyscript configuration](https://github.com/sdeigm/uni-meter/doc/image/PyScriptConfig.jpg "pyscript configuration")
+
 
 If that is done, the `uni-meter` automatically detects the provided services and announces itself using mDNS.  
 
