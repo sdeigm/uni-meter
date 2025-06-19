@@ -51,7 +51,7 @@ public class NetUtils {
       // ignore
     }
     
-    List<String> list = macAddresses.stream().toList();
+    List<String> list = macAddresses.stream().sorted(String::compareToIgnoreCase).toList();
     
     return list.isEmpty() ? null : list.get(list.size() - 1);
   }
