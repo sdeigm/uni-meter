@@ -3,6 +3,6 @@
 /usr/sbin/avahi-daemon -D
 
 /usr/bin/java \
- -Dlogback.configurationFile=/opt/uni-meter/config/logback.xml \
- -Dconfig.file=/etc/uni-meter.conf \
+ -Dlogback.configurationFile=${UNI_LOGGING:-/opt/uni-meter/config/logback.xml} \
+ -Dconfig.file=${UNI_CONFIG:-/etc/uni-meter.conf} \
  -jar /opt/uni-meter/lib/uni-meter-${project.version}.jar
