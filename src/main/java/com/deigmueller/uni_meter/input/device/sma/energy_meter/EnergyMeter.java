@@ -32,7 +32,7 @@ public class EnergyMeter extends InputDevice {
   private final Duration socketTimeout = getConfig().getDuration("socket-timeout");
   private final AtomicBoolean doReceive = new AtomicBoolean(true);
   private int susyId = getConfig().getInt("susy-id");
-  private long serialNumber = getConfig().getInt("serial-number");
+  private long serialNumber = getConfig().getLong("serial-number");
   
   public static Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> outputDevice,
                                          @NotNull Config config) {
