@@ -1,10 +1,6 @@
 # Change Log
 All notable changes to the `uni-meter` will be documented in this file.
 
-The format is based on [Keep a Changelog](http://keepachangelog.com/)
-and this project adheres to [Semantic Versioning](http://semver.org/).
-
-
 ## [1.1.13] - 2025-07-09
 
 ### Fixed
