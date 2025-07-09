@@ -37,7 +37,7 @@ public class MDnsAvahi extends MDnsKind {
     LOGGER.trace("MDnsAvahi.onRegisterService()");
     
     final String directory = AVAHI_SERVICES_DIR;
-    final String file = directory + "/" + registerService.name() + ".service";
+    final String file = directory + "/" + registerService.name() + registerService.type() + ".service";
     
     Path directoryPath = Paths.get(directory);
     if (Files.exists(directoryPath)) {
@@ -50,7 +50,7 @@ public class MDnsAvahi extends MDnsKind {
                         registerService.name(), 
                         registerService.port(), 
                         registerService.properties()));
-            LOGGER.info("successfully registered mdns service {}", registerService.name());
+            LOGGER.info("successfully registered mdns service {}/{}", registerService.name(), registerService.type());
           } catch (IOException ioException) {
             LOGGER.error("could not write avahi service file {}: {}", file, ioException.getMessage());
           }
@@ -92,8 +92,4 @@ public class MDnsAvahi extends MDnsKind {
 
     return sb.toString();
   }
-
-  private record AvahiMDnsHandle(
-        @Nullable String fileName
-  ) implements MDnsHandle {} 
 }

@@ -80,7 +80,7 @@ public class EcoTracker  extends OutputDevice {
     getLogger().trace("EcoTracer.onV1GetJson()");
     
     if (isSwitchedOff()) {
-      // Device is disabled
+      // The device is disabled
       return Behaviors.same();
     }
 
@@ -213,6 +213,17 @@ public class EcoTracker  extends OutputDevice {
     getMdnsRegistrator().tell(
           new MDnsRegistrator.RegisterService(
                 "_http",
+                getDefaultHostname(),
+                getBindPort(),
+                Map.of(
+                      "name", getDefaultHostname(),
+                      "id", getDefaultHostname()
+                )
+          )
+    );
+    getMdnsRegistrator().tell(
+          new MDnsRegistrator.RegisterService(
+                "_everhome",
                 getDefaultHostname(),
                 getBindPort(),
                 Map.of(

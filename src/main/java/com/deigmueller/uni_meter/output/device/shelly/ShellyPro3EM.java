@@ -1444,6 +1444,20 @@ public class ShellyPro3EM extends Shelly {
                 )
           )
     );
+
+    getMdnsRegistrator().tell(
+          new MDnsRegistrator.RegisterService(
+                "_shelly",
+                getDefaultHostname(),
+                getBindPort(),
+                Map.of(
+                      "gen", "2",
+                      "id", getDefaultHostname(),
+                      "arch", "esp8266",
+                      "fw_id", getConfig().getString("fw")
+                )
+          )
+    );
   }
 
   /**
