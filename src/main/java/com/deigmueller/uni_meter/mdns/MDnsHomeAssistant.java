@@ -173,7 +173,8 @@ public class MDnsHomeAssistant extends MDnsKind {
     registrationRunning = false;
     
     if (message.response.status().isSuccess()) {
-      LOGGER.info("successfully registered mdns service {}", message.registerService.name());
+      LOGGER.info("successfully registered mdns service {}/{}", 
+            message.registerService.name(), message.registerService.type());
       serviceRegistrationErrorShown = false;
       pendingRegistrations.remove(message.registerService);
       registeredServices.add(message.registerService);
