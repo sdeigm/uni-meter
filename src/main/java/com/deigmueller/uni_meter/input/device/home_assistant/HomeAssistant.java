@@ -87,14 +87,22 @@ public class HomeAssistant extends GenericInputDevice {
     logger.trace("HomeAssistant.onHttpRequestSuccess()");
 
     try {
-      String response = message.strictEntity().getData().utf8String();
-      logger.debug("http response: {}", response);
-      
-      Entity entity = getObjectMapper().readValue(response, Entity.class);
-      
-      String channel = sensorChannelMap.get(message.sensor());
-      
-      setChannelData(channel, Double.parseDouble(entity.state()));
+      try {
+        String response = message.strictEntity().getData().utf8String();
+        logger.debug("http response: {}", response);
+        
+        Entity entity = getObjectMapper().readValue(response, Entity.class);
+        
+        String channel = sensorChannelMap.get(message.sensor());
+        
+        if (entity.state().equals("unknown")) {
+          setChannelData(channel, 0.0);
+        } else {
+          setChannelData(channel, Double.parseDouble(entity.state()));
+        }
+      } catch (Exception e) {
+        logger.error("failed to parse http response: {} - {}", e.getClass(), e.getMessage());
+      }
       
       if (message.remainingSensors().isEmpty()) {
         notifyOutputDevice();
@@ -103,7 +111,7 @@ public class HomeAssistant extends GenericInputDevice {
         readNextSensorValue(message.remainingSensors());
       }
     } catch (Exception e) {
-      logger.error("failed to process http response: {}", e.getMessage());
+      logger.error("failed to process http response: {} - {}", e.getClass(), e.getMessage());
       startNextPollingTimer();
     }
 
