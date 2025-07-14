@@ -28,12 +28,20 @@ public abstract class GenericInputDevice extends InputDevice {
 
   private double powerTotal;
   private double powerTotalProduction;
+  private double voltage = getDefaultVoltage();
+  private double frequency = getDefaultFrequency();
   private double powerL1;
   private double powerL1Production;
+  private double voltageL1 = getDefaultVoltage();
+  private double frequencyL1 = getDefaultFrequency();
   private double powerL2;
   private double powerL2Production;
+  private double voltageL2 = getDefaultVoltage();
+  private double frequencyL2 = getDefaultFrequency();
   private double powerL3;
   private double powerL3Production;
+  private double voltageL3 = getDefaultVoltage();
+  private double frequencyL3 = getDefaultFrequency();
 
   private double energyConsumptionTotal;
   private double energyConsumptionL1;
@@ -72,24 +80,52 @@ public abstract class GenericInputDevice extends InputDevice {
       case "power-production-total":
         powerTotalProduction = value;
         break;
+      case "voltage": 
+        voltage = value;
+        break;
+      case "frequency":
+        frequency = value;
+        break;
+        
       case "power-l1":
         powerL1 = value;
         break;
       case "power-production-l1":
         powerL1Production = value;
         break;
+      case "voltage-l1":
+        voltageL1 = value;
+        break;
+      case "frequency-l1":
+        frequencyL1 = value;
+        break;
+        
       case "power-l2":
         powerL2 = value;
         break;
       case "power-production-l2":
         powerL2Production = value;
         break;
+      case "voltage-l2":
+        voltageL2 = value;
+        break;
+      case "frequency-l2":
+        frequencyL2 = value;
+        break;
+        
       case "power-l3":
         powerL3 = value;
         break;
       case "power-production-l3":
         powerL3Production = value;
         break;
+      case "voltage-l3":
+        voltageL3 = value;
+        break;
+      case "frequency-l3":
+        frequencyL3 = value;
+        break;
+        
       case "energy-consumption-total":
         energyConsumptionTotal = value;
         break;
@@ -102,6 +138,7 @@ public abstract class GenericInputDevice extends InputDevice {
       case "energy-consumption-l3":
         energyConsumptionL3 = value;
         break;
+        
       case "energy-production-total":
         energyProductionTotal = value;
         break;
@@ -138,7 +175,7 @@ public abstract class GenericInputDevice extends InputDevice {
       getOutputDevice().tell(new OutputDevice.NotifyTotalPowerData(
             getNextMessageId(),
             new OutputDevice.PowerData(
-                  resultingPower, resultingPower, 1.0, resultingPower / getDefaultVoltage(), getDefaultVoltage(), getDefaultFrequency()),
+                  resultingPower, resultingPower, 1.0, calcCurrent(resultingPower, voltage), voltage, frequency),
             getOutputDeviceAckAdapter()));
     } else {
       double resultingPowerL1 = powerL1 - powerL1Production;
@@ -148,13 +185,26 @@ public abstract class GenericInputDevice extends InputDevice {
       getOutputDevice().tell(new OutputDevice.NotifyPhasesPowerData(
             getNextMessageId(),
             new OutputDevice.PowerData(
-                  resultingPowerL1, resultingPowerL1, 1.0, resultingPowerL1 / getDefaultVoltage(), getDefaultVoltage(), getDefaultFrequency()),
+                  resultingPowerL1, resultingPowerL1, 1.0, calcCurrent(resultingPowerL1, voltageL1), voltageL1, frequencyL1),
             new OutputDevice.PowerData(
-                  resultingPowerL2, resultingPowerL2, 1.0, resultingPowerL2 / getDefaultVoltage(), getDefaultVoltage(), getDefaultFrequency()),
+                  resultingPowerL2, resultingPowerL2, 1.0, calcCurrent(resultingPowerL2, voltageL2), voltageL2, frequencyL2),
             new OutputDevice.PowerData(
-                  resultingPowerL3, resultingPowerL3, 1.0, resultingPowerL3 / getDefaultVoltage(), getDefaultVoltage(), getDefaultFrequency()),
+                  resultingPowerL3, resultingPowerL3, 1.0, calcCurrent(resultingPowerL3, voltageL3), voltageL3, frequencyL3),
             getOutputDeviceAckAdapter()));
     }
+  }
+
+  /**
+   * Calculate the current based on current power and voltage values
+   * @param power Current power value
+   * @param voltage Current voltage value
+   * @return Calculated current
+   */
+  protected double calcCurrent(double power, double voltage) {
+    if (voltage == 0.0) {
+      return 0.0;
+    }
+    return power / voltage;
   }
 
   /**
