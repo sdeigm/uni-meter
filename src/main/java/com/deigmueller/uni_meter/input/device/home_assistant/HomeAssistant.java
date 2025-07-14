@@ -194,13 +194,21 @@ public class HomeAssistant extends GenericInputDevice {
     if (getPowerPhaseMode() == PhaseMode.MONO) {
       initChannelSensor("power-sensor", "power-total");
       initChannelSensor("power-production-sensor", "power-production-total");
+      initChannelSensor("voltage-sensor", "voltage");
+      initChannelSensor("frequency-sensor", "frequency");
     } else {
       initChannelSensor("power-l1-sensor", "power-l1");
       initChannelSensor("power-production-l1-sensor", "power-production-l1");
+      initChannelSensor("voltage-l1-sensor", "voltage-l1");
+      initChannelSensor("frequency-l1-sensor", "frequency-l1");
       initChannelSensor("power-l2-sensor", "power-l2");
       initChannelSensor("power-production-l2-sensor", "power-production-l2");
+      initChannelSensor("voltage-l2-sensor", "voltage-l2");
+      initChannelSensor("frequency-l2-sensor", "frequency-l2");
       initChannelSensor("power-l3-sensor", "power-l3");
       initChannelSensor("power-production-l3-sensor", "power-production-l3");
+      initChannelSensor("voltage-l3-sensor", "voltage-l3");
+      initChannelSensor("frequency-l3-sensor", "frequency-l3");
     }
     
     if (getEnergyPhaseMode() == PhaseMode.MONO) {
