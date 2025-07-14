@@ -2,6 +2,7 @@ package com.deigmueller.uni_meter.output;
 
 import com.deigmueller.uni_meter.application.UniMeter;
 import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.typesafe.config.Config;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -105,6 +106,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   public ReceiveBuilder<Command> newReceiveBuilder() {
     return super.newReceiveBuilder()
           .onSignal(PostStop.class, this::onPostStop)
+          .onMessage(GetStatus.class, this::onGetStatus)
           .onMessage(SwitchOn.class, this::onSwitchOn)
           .onMessage(SwitchOff.class, this::onSwitchOff)
           .onMessage(NoCharge.class, this::onNoCharge)
@@ -123,6 +125,29 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
    */
   protected @NotNull Behavior<Command> onPostStop(@NotNull PostStop message) {
     logger.trace("OutputDevice.onPostStop()");
+
+    return Behaviors.same();
+  }
+  
+  /**
+   * Handle the request to get the status of the output device
+   * @param message Request message
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onGetStatus(@NotNull GetStatus message) {
+    logger.trace("OutputDevice.onGetStatus()");
+
+
+    message.replyTo().tell(
+          new GetStatusResponse(
+                usageConstraint,
+                usageConstraint != UsageConstraint.NONE ? dateTimeInfo(usageConstraintUntil) : null,
+                getPowerPhase0OrDefault(), 
+                getPowerPhase1OrDefault(), 
+                getPowerPhase2OrDefault(),
+                getEnergyPhase0(), 
+                getEnergyPhase1(), 
+                getEnergyPhase2()));
 
     return Behaviors.same();
   }
@@ -505,6 +530,22 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   }
   
   public interface Command {}
+  
+  public record GetStatus(
+        @NotNull ActorRef<GetStatusResponse> replyTo
+  ) implements Command {}
+  
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public record GetStatusResponse(
+        @NotNull UsageConstraint usageConstraint,
+        @Nullable String usageConstraintUntil,
+        @NotNull PowerData powerPhase0,
+        @NotNull PowerData powerPhase1,
+        @NotNull PowerData powerPhase2,
+        @NotNull EnergyData energyPhase0,
+        @NotNull EnergyData energyPhase1,
+        @NotNull EnergyData energyPhase2
+  ) {}                                                                                                  
   
   public record SwitchOn(
         @NotNull ActorRef<SwitchOnResponse> replyTo

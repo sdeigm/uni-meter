@@ -1,13 +1,10 @@
-/*
- * Copyright (C) 2018-2023 layline.io GmbH <http://www.layline.io>
- */
-
 package com.deigmueller.uni_meter.application;
 
 import com.deigmueller.uni_meter.output.OutputDevice;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.ActorSystem;
 import org.apache.pekko.actor.typed.javadsl.AskPattern;
+import org.apache.pekko.http.javadsl.marshallers.jackson.Jackson;
 import org.apache.pekko.http.javadsl.model.StatusCodes;
 import org.apache.pekko.http.javadsl.server.AllDirectives;
 import org.apache.pekko.http.javadsl.server.Route;
@@ -27,32 +24,47 @@ public class UniMeterHttpRoute extends AllDirectives {
   }
 
   public Route createRoute() {
-    return pathPrefix("api", () -> concat(
-          path("no_charge", () ->
-                get(() ->
-                      parameterOptional(StringUnmarshallers.INTEGER, "seconds", seconds ->
-                            onNoCharge(seconds.orElse(Integer.MAX_VALUE))
+    return concat(
+          path("", () -> get(this::onGetStatus)),
+          pathPrefix("api", () -> concat(
+                path("no_charge", () ->
+                      get(() ->
+                            parameterOptional(StringUnmarshallers.INTEGER, "seconds", seconds ->
+                                  onNoCharge(seconds.orElse(Integer.MAX_VALUE))
+                            )
                       )
-                )
-          ),
-          path("no_discharge", () ->
-                get(() ->
-                      parameterOptional(StringUnmarshallers.INTEGER, "seconds", seconds ->
-                            onNoDischarge(seconds.orElse(Integer.MAX_VALUE))
+                ),
+                path("no_discharge", () ->
+                      get(() ->
+                            parameterOptional(StringUnmarshallers.INTEGER, "seconds", seconds ->
+                                  onNoDischarge(seconds.orElse(Integer.MAX_VALUE))
+                            )
                       )
-                )
-          ),
-          path("switch_on", () -> 
-                get(this::onSwitchOn)
-          ),
-          path("switch_off", () -> 
-                get(() ->
-                      parameterOptional(StringUnmarshallers.INTEGER, "seconds", seconds -> 
-                            onSwitchOff(seconds.orElse(Integer.MAX_VALUE))
+                ),
+                path("switch_on", () -> 
+                      get(this::onSwitchOn)
+                ),
+                path("switch_off", () -> 
+                      get(() ->
+                            parameterOptional(StringUnmarshallers.INTEGER, "seconds", seconds -> 
+                                  onSwitchOff(seconds.orElse(Integer.MAX_VALUE))
+                            )
                       )
                 )
           )
     ));
+  }
+
+  private Route onGetStatus() {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                outputDevice,
+                OutputDevice.GetStatus::new,
+                Duration.ofSeconds(15),
+                actorSystem.scheduler()
+          ),
+          Jackson.marshaller()
+    );
   }
 
   private Route onNoCharge(int seconds) {
@@ -86,7 +98,6 @@ public class UniMeterHttpRoute extends AllDirectives {
                 actorSystem.scheduler()
           ).thenApply(response -> StatusCodes.OK)
     );
-    
   }
   
   private Route onSwitchOff(int seconds) {
