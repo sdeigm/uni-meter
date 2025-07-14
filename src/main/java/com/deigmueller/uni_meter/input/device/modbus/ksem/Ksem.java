@@ -29,8 +29,6 @@ public class Ksem extends Modbus {
   public static final String TYPE = "KSEM";
 
   // Instance members
-  private final int baseRegisterAddress = getConfig().getInt("base-register-address");
-  private final double powerSign = getConfig().getBoolean("invert-power") ? 1.0 : -1.0;
 
   private long activePowerPlus;
 
@@ -144,7 +142,9 @@ public class Ksem extends Modbus {
     logger.trace("Ksem.onReadMetaDataSucceeded()");
 
     try {
-    	
+
+// seems not be necessary to provide this --> total power is calculated based on phase power
+//
 //    	long activePower = activePowerPlus - activePowerMinus;
 //    	long apparentPower = apparentPowerPlus - apparentPowerMinus;
 //    	
