@@ -17,6 +17,7 @@ Currently, the following output devices are supported:
 
 The real electrical meter data can be gathered from the following input devices:
 
+- AMIS reader
 - Emlog smart meter
 - Fronius smart meter
 - Generic HTTP (configurable HTTP interface, usable for many devices)
@@ -100,6 +101,7 @@ To configure the output device, follow the instructions in these sections:
 
 To configure the input device, follow the instructions in these sections:
 
+* **[AMIS reader](doc/input/AmisReader.md)**
 * **[Emlog](doc/input/Emlog.md)**
 * **[Fronius](doc/input/Fronius.md)**
 * **[Generic HTTP](doc/input/GenericHttp.md)**
