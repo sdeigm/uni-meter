@@ -1,6 +1,20 @@
 # Change Log
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.1.14] - 2025-07-24
+
+### Fixed
+
+- [#208](https://github.com/sdeigm/uni-meter/issues/208) Incorrect response to RPC request Shelly.GetStatus
+- [#190](https://github.com/sdeigm/uni-meter/issues/190) Avahi daemon in docker container is no longer restricted to certain interfaces
+
+### Added
+
+- [#210](https://github.com/sdeigm/uni-meter/issues/210) Additional debug log for raw tibber data
+- [#199](https://github.com/sdeigm/uni-meter/pull/199) New input device Kostal Smart Energy Meter
+- [#198](https://github.com/sdeigm/uni-meter/issues/198) Output device independent status endpoint 
+- [#194](https://github.com/sdeigm/uni-meter/issues/194) Voltage & Frequency .. etc. as Input Variables 
+
 ## [1.1.13] - 2025-07-09
 
 ### Fixed
