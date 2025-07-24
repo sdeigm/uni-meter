@@ -2,6 +2,7 @@ package com.deigmueller.uni_meter.input.device.tibber.pulse;
 
 import com.deigmueller.uni_meter.input.device.common.http.HttpInputDevice;
 import com.deigmueller.uni_meter.output.OutputDevice;
+import com.digitalpetri.modbus.internal.util.Hex;
 import com.typesafe.config.Config;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
@@ -147,6 +148,9 @@ public class Pulse extends HttpInputDevice {
 
         try {
             byte[] rawData = strictEntity.getData().toArray();
+            if (logger.isDebugEnabled()) {
+                logger.debug("Received raw data: {}", Hex.format(rawData));
+            }
             DataInputStream dataStream = new DataInputStream(new ByteArrayInputStream(rawData));
             
             Transport smlTransport = new Transport();
