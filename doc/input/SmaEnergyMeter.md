@@ -1,6 +1,6 @@
 # Using SMA energy meter as the input source
 
-To use a SMA energy meter or a Sunny Home Manager as an input source, set up the `/etc/uni-meter.conf` file as follows
+To use a SMA energy meter or a Sunny Home Manager as an input source, set up the `uni-meter.conf` file as follows
 
 ```hocon
 uni-meter {

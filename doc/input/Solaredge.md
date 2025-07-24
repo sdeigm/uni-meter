@@ -1,6 +1,6 @@
 # Using a Solaredge electrical meter input source
 
-To use a Solaredge electrical meter as an input source, set up the `/etc/uni-meter.conf` file as
+To use a Solaredge electrical meter as an input source, set up the `uni-meter.conf` file as
 follows:
 
 * The address is the IP of your solaredge inverter, which is connected to the

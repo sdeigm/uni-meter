@@ -1,7 +1,7 @@
 # Using an Emlog smart meter as the input source
 
 An Emlog smart meter can be accessed using the generic-http input source. To access the Emlog smart meter, use the
-following configuration in the `/etc/uni-meter.conf` file:
+following configuration in the `uni-meter.conf` file:
 
 ```hocon
 uni-meter {

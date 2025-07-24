@@ -51,7 +51,7 @@ contains the actual value.
 Additionally, each channel has a `scale` property which can be used to scale the data. The default scale is 1.0 and can
 be omitted.
 
-So a `/etc/uni-meter.conf` file for a MQTT input source could look like this:
+So a `uni-meter.conf` file for a MQTT input source could look like this:
 
 ```hocon    
 uni-meter {

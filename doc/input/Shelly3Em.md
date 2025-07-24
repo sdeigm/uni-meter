@@ -1,6 +1,6 @@
 # Using a Shelly 3EM as the input source
 
-To use a Shelly 3EM as an input source, set up the `/etc/uni-meter.conf` file as follows
+To use a Shelly 3EM as an input source, set up the `uni-meter.conf` file as follows
 
 ```hocon
 uni-meter {

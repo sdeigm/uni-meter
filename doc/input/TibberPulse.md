@@ -4,7 +4,7 @@ The Tibber Pulse local API can be used as an input source. To use this API, the 
 the Pulse bridge. How this can be done is described for instance here
 [marq24/ha-tibber-pulse-local](https://github.com/marq24/ha-tibber-pulse-local).
 
-If this API is enabled on your Tibber bridge, you should set up the `/etc/uni-meter.conf` file as follows
+If this API is enabled on your Tibber bridge, you should set up the `uni-meter.conf` file as follows
 
 ```hocon
 uni-meter {

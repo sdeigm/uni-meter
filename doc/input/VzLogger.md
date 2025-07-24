@@ -8,7 +8,7 @@ sections describe both methods to access VzLogger data
 
 ## Using the classic VzLogger input device
 
-To use the ols VzLogger specific input source set up the `/etc/uni-meter.conf` file as follows and replace the
+To use the ols VzLogger specific input source set up the `uni-meter.conf` file as follows and replace the
 `<vzlogger-host>` and `<vzlogger-port>` placeholders with the actual host and port of your VzLogger webserver.
 Additionally, provide the channel UUIDs of your system.
 

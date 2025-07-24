@@ -23,6 +23,7 @@ The real electrical meter data can be gathered from the following input devices:
 - Generic HTTP (configurable HTTP interface, usable for many devices)
 - Home Assistant sensors
 - ioBroker datapoints (via simple API adapter)
+- Kostal smart energy meter
 - MQTT
 - Shelly 3EM
 - Shelly Pro 3EM
@@ -107,6 +108,7 @@ To configure the input device, follow the instructions in these sections:
 * **[Generic HTTP](doc/input/GenericHttp.md)**
 * **[Home Assistant](doc/input/HomeAssistant.md)**
 * **[ioBroker](doc/input/IoBroker.md)**
+* **[Kostal smart energy meter](doc/input/Kostal.md)**
 * **[MQTT](doc/input/Mqtt.md)**
 * **[Shelly 3EM](doc/input/Shelly3Em.md)**
 * **[Shelly Pro 3EM](doc/input/ShellyPro3Em.md)**
