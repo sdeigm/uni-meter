@@ -350,6 +350,12 @@ public class Rpc {
     }
   }
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ModbusStatus(
+        @JsonProperty("enabled") Boolean enabled
+  ) {}
+
   public record SysStatus(
         @JsonProperty("uptime") long uptime,
         @JsonProperty("fw_version") String fw_version

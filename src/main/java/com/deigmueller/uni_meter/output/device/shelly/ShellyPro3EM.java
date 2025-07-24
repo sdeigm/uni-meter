@@ -764,7 +764,7 @@ public class ShellyPro3EM extends Shelly {
   }
 
   /**
-   * Handle the notification that a UDP datagram was received
+   * Handle the notification of a received UDP datagram
    * @param message Notification of a received UDP datagram
    */
   protected void onUdpServerDatagramReceived(UdpServer.DatagramReceived message) throws JsonProcessingException {
@@ -1335,7 +1335,9 @@ public class ShellyPro3EM extends Shelly {
           28.08,
           false,
           createTempStatus(),
-          createEMeterStatus(remoteAddress),
+          rpcEmGetStatus(getPowerFactorForRemoteAddress(remoteAddress)),
+          rpcEmDataGetStatus(),
+          createModbusStatus(),
           (powerPhase0.power() + powerPhase1.power() + powerPhase2.power()) * clientPowerFactor,
           true);
   }
@@ -1351,6 +1353,10 @@ public class ShellyPro3EM extends Shelly {
           Rpc.EMeterStatus.of(powerPhase0, clientPowerFactor, getEnergyPhase0()),
           Rpc.EMeterStatus.of(powerPhase1, clientPowerFactor, getEnergyPhase1()),
           Rpc.EMeterStatus.of(powerPhase2, clientPowerFactor, getEnergyPhase2()));
+  }
+  
+  private Rpc.ModbusStatus createModbusStatus() {
+    return new Rpc.ModbusStatus(false);
   }
   
   private Rpc.Response rpcUnknownMethod(Rpc.Request request) {
@@ -1654,7 +1660,9 @@ public class ShellyPro3EM extends Shelly {
 
   @Getter
   public static class Status extends Shelly.Status {
-    private final List<Rpc.EMeterStatus> emeters;
+    @JsonProperty("em:0") private final Rpc.EmGetStatusResponse em0;
+    @JsonProperty("emdata:0") private final Rpc.EmDataGetStatusResponse emdata0;
+    private final Rpc.ModbusStatus modbus;
     private final double total_power;
     private final boolean fs_mounted;
     
@@ -1675,12 +1683,16 @@ public class ShellyPro3EM extends Shelly {
                   double temperature,
                   boolean overtemperature,
                   @NotNull Rpc.TempStatus temp,
-                  @NotNull List<Rpc.EMeterStatus> emeters,
+                  @NotNull Rpc.EmGetStatusResponse em0,
+                  @NotNull Rpc.EmDataGetStatusResponse emdata0,
+                  @NotNull Rpc.ModbusStatus modbus,
                   double total_power,
                   boolean fs_mounted) {
       super(wifi_sta, cloud, mqtt, time, unixtime, serial, has_update, mac, ram_total, ram_free, ram_lwm, fs_size, 
             fs_free, uptime, temperature, overtemperature, temp);
-      this.emeters = emeters;
+      this.em0 = em0;
+      this.emdata0 = emdata0;
+      this.modbus = modbus;
       this.total_power = total_power;
       this.fs_mounted = fs_mounted;
     }
