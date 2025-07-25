@@ -132,7 +132,8 @@ behavior. That API might, for instance, be used via a cron job using curl or dir
 
 `uni-meter` use the Java logback logging system. In the default setup only info, warning and error messages are written
 to the logfile/standard output. For debugging purposes you can set the log level to `DEBUG` or even 
-`TRACE` within the logback configuration file. The location of that configuration file differs on your setup type.
+`TRACE` within the logback configuration file. The location of that configuration file differs depending on your setup 
+type.
 
 * For a physical server this is typically `/opt/uni-meter/config/logback.xml`
 * For a docker setup it is/can be provided as a parameter to your startup command
