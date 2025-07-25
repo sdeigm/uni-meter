@@ -1,4 +1,4 @@
-# Using an AMIS reader as the input source
+# Using an AMIS Reader as the input source
 
 An AMIS reader can be accessed using the generic-http input source. To access the reader, use the
 following `uni-meter.conf` file:
