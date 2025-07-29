@@ -140,6 +140,17 @@ public abstract class Modbus extends InputDevice {
           | ((buffer.get() & 0xFF) << 8)
           | ((buffer.get() & 0xFF));
   }
+
+  private int readSignedInt32(ModbusTcpClient client, int address)
+        throws ModbusExecutionException, ModbusResponseException, ModbusTimeoutException {
+    ReadHoldingRegistersResponse response = client.readHoldingRegisters(
+          1,
+          new ReadHoldingRegistersRequest(address, 2)
+    );
+
+    ByteBuffer byteBuffer = ByteBuffer.wrap(response.registers());
+    return byteBuffer.getInt();
+  }
   
   protected static void skip(ByteBuffer b, int bytes) {
     b.position(b.position() + bytes);
