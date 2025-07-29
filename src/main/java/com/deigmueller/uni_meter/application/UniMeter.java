@@ -3,6 +3,7 @@ package com.deigmueller.uni_meter.application;
 import com.deigmueller.uni_meter.input.InputDevice;
 import com.deigmueller.uni_meter.input.device.generic_http.GenericHttp;
 import com.deigmueller.uni_meter.input.device.home_assistant.HomeAssistant;
+import com.deigmueller.uni_meter.input.device.inexogy.Inexogy;
 import com.deigmueller.uni_meter.input.device.modbus.ksem.Ksem;
 import com.deigmueller.uni_meter.input.device.modbus.sdm120.Sdm120;
 import com.deigmueller.uni_meter.input.device.modbus.solaredge.Solaredge;
@@ -201,7 +202,17 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
               ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
               "input");           
       }
-          
+
+      case Inexogy.TYPE -> {
+        return getContext().spawn(
+              Behaviors.supervise(
+                    Inexogy.create(
+                          output,
+                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
+              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
+              "input");
+      }
+
       case com.deigmueller.uni_meter.input.device.shelly.pro3em.ShellyPro3EM.TYPE -> {
         return getContext().spawn(
               Behaviors.supervise(
