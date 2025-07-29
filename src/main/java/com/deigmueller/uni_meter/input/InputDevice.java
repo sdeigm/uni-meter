@@ -147,6 +147,19 @@ public abstract class InputDevice extends AbstractBehavior<InputDevice.Command> 
   protected int getNextMessageId() {
     return nextMessageId++;
   }
+
+  /**
+   * Calculate the current based on current power and voltage values
+   * @param power Current power value
+   * @param voltage Current voltage value
+   * @return Calculated current
+   */
+  protected double calcCurrent(double power, double voltage) {
+    if (voltage == 0.0) {
+      return 0.0;
+    }
+    return power / voltage;
+  }
   
   public interface Command {}
   

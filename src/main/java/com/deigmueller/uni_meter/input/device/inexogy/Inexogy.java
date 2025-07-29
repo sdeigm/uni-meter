@@ -13,6 +13,7 @@ import org.apache.pekko.actor.typed.javadsl.ActorContext;
 import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.time.Duration;
 import java.util.concurrent.Executor;
@@ -73,7 +74,44 @@ public class Inexogy extends HttpInputDevice {
     
     logger.debug("received last readings: {}", message.responseBody);
     
+    try {
+      MeterReading reading = getObjectMapper().readValue(message.responseBody, MeterReading.class);
+      
+      MeterValues values = reading.values();
+      
+      if (values.power1() != null || values.power2() != null || values.power3() != null) {
+        getOutputDevice().tell(new OutputDevice.NotifyPhasesPowerData(
+              getNextMessageId(),
+              getPhasePowerData(values.power1(), values.voltage1()),
+              getPhasePowerData(values.power2(), values.voltage2()),
+              getPhasePowerData(values.power3(), values.voltage3()),
+              getOutputDeviceAckAdapter()));
+      } else {
+        notifyPowerData(PhaseMode.TRI, "l1", values.power());
+      }
+      
+      notifyEnergyData(PhaseMode.TRI, "l1", values.energy() / 10000000000L, values.energyOut() / 10000000000L);
+    } catch (Exception e) {
+      logger.error("failed to parse last readings response: {}", e.getMessage());
+      return Behaviors.same();
+    } finally {
+      startNextPollingTimer();
+    }
+    
     return Behaviors.same();
+  }
+  
+  private @NotNull OutputDevice.PowerData getPhasePowerData(@Nullable Double power, @Nullable Double voltage) {
+    double p = power != null ? power / 1000.0 : 0.0;
+    double v = voltage != null ? voltage : getDefaultVoltage();
+    
+    return new OutputDevice.PowerData(
+          p,
+          p,
+          1.0,
+          calcCurrent(p, v),
+          v,
+          getDefaultFrequency());
   }
   
   private @NotNull Behavior<Command> onGetLastReadingsFailed(@NotNull Inexogy.GetLastReadingFailed message) {
