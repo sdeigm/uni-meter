@@ -6,6 +6,7 @@ import com.deigmueller.uni_meter.input.device.home_assistant.HomeAssistant;
 import com.deigmueller.uni_meter.input.device.modbus.ksem.Ksem;
 import com.deigmueller.uni_meter.input.device.modbus.sdm120.Sdm120;
 import com.deigmueller.uni_meter.input.device.modbus.solaredge.Solaredge;
+import com.deigmueller.uni_meter.input.device.modbus.sungrow.Sungrow;
 import com.deigmueller.uni_meter.input.device.mqtt.Mqtt;
 import com.deigmueller.uni_meter.input.device.shelly._3em.Shelly3EM;
 import com.deigmueller.uni_meter.input.device.shrdzm.ShrDzm;
@@ -296,6 +297,16 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
         return getContext().spawn(
               Behaviors.supervise(
                     GenericHttp.create(
+                          output,
+                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
+              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
+              "input");
+      }
+      
+      case Sungrow.TYPE -> {
+        return getContext().spawn(
+              Behaviors.supervise(
+                    Sungrow.create(
                           output,
                           getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
               ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),

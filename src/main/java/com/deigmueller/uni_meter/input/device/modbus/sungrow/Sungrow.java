@@ -1,27 +1,34 @@
 package com.deigmueller.uni_meter.input.device.modbus.sungrow;
 
 import com.deigmueller.uni_meter.input.device.modbus.Modbus;
-import com.deigmueller.uni_meter.input.device.modbus.ksem.Ksem;
 import com.deigmueller.uni_meter.output.OutputDevice;
+import com.digitalpetri.modbus.pdu.ReadInputRegistersRequest;
+import com.digitalpetri.modbus.pdu.ReadInputRegistersResponse;
 import com.typesafe.config.Config;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
-import org.apache.pekko.actor.typed.DispatcherSelector;
 import org.apache.pekko.actor.typed.javadsl.ActorContext;
 import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.concurrent.Executor;
+import java.nio.ByteBuffer;
 
 public class Sungrow extends Modbus {
     // Class members
     public static final String TYPE = "Sungrow";
 
     // Instance members
-    private final Executor executor = getContext().getSystem().dispatchers().lookup(DispatcherSelector.blocking());
-    private final int baseRegisterAddress = getConfig().getInt("base-register-address");
     private final double powerSign = getConfig().getBoolean("invert-power") ? 1.0 : -1.0;
+    private double voltageL1 = 0.0;
+    private double voltageL2 = 0.0;
+    private double voltageL3 = 0.0;
+    private double currentL1 = 0.0;
+    private double currentL2 = 0.0;
+    private double currentL3 = 0.0;
+    private double exportedEnergy = 0.0;
+    private double importedEnergy = 0.0;
+    
 
     public static Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> outputDevice,
                                            @NotNull Config config) {
@@ -39,7 +46,10 @@ public class Sungrow extends Modbus {
   @Override
   public @NotNull ReceiveBuilder<Command> newReceiveBuilder() {
     return super.newReceiveBuilder()
-          .onMessage(Ksem.ReadMeterDataSucceeded.class, this::onReadMetaDataSucceeded);
+          .onMessage(ReadVoltageSucceeded.class, this::onReadVoltageSucceeded)
+          .onMessage(ReadCurrentSucceeded.class, this::onReadCurrentSucceeded)
+          .onMessage(ReadExportedEnergySucceeded.class, this::onReadExportedEnergySucceeded)
+          .onMessage(ReadImportedEnergySucceeded.class, this::onReadImportedEnergySucceeded);
   }
 
   @Override
@@ -47,127 +57,204 @@ public class Sungrow extends Modbus {
     logger.trace("Sungrow.onConnectSucceeded()");
     super.onConnectSucceeded(message);
 
-    readMeterData();
+    readVoltage();
 
     return Behaviors.same();
   }
 
+  protected @NotNull Behavior<Command> onReadVoltageSucceeded(@NotNull ReadVoltageSucceeded message) {
+    logger.trace("Sungrow.onReadVoltageSucceeded()");
+
+    try {
+      ByteBuffer byteBuffer = ByteBuffer.wrap(message.response.registers());
+      
+      voltageL1 = readUInt16(byteBuffer) * 0.1;
+      voltageL2 = readUInt16(byteBuffer) * 0.1;
+      voltageL3 = readUInt16(byteBuffer) * 0.1;
+
+      readCurrent();
+    } catch (Exception exception) {
+      logger.error("failed to convert voltage", exception);
+      startNextPollingTimer();
+    }
+
+    return Behaviors.same();
+  }
+  
+  protected @NotNull Behavior<Command> onReadCurrentSucceeded(@NotNull ReadCurrentSucceeded message) {
+    logger.trace("Sungrow.onReadCurrentSucceeded()");
+
+    try {
+      ByteBuffer byteBuffer = ByteBuffer.wrap(message.response.registers());
+
+      currentL1 = byteBuffer.getShort() * 0.1; 
+      currentL2 = byteBuffer.getShort() * 0.1;
+      currentL3 = byteBuffer.getShort() * 0.1;
+      
+      readExportedEnergy();
+    } catch (Exception exception) {
+      logger.error("failed to convert current", exception);
+      startNextPollingTimer();
+    }
+    
+    return Behaviors.same();
+  }
+  
+  protected @NotNull Behavior<Command> onReadExportedEnergySucceeded(@NotNull ReadExportedEnergySucceeded message) {
+    logger.trace("Sungrow.onReadExportedEnergySucceeded()");
+
+    try {
+      ByteBuffer byteBuffer = ByteBuffer.wrap(message.response.registers());
+
+      exportedEnergy = readUInt32(byteBuffer) * 0.1;
+
+      readImportedEnergy();
+    } catch (Exception exception) {
+      logger.error("failed to convert exported energy", exception);
+      startNextPollingTimer();
+    }
+
+    return Behaviors.same();
+  }
+  
+  protected @NotNull Behavior<Command> onReadImportedEnergySucceeded(@NotNull ReadImportedEnergySucceeded message) {
+    logger.trace("Sungrow.onReadImportedEnergySucceeded()");
+
+    try {
+      ByteBuffer byteBuffer = ByteBuffer.wrap(message.response.registers());
+
+      importedEnergy = readUInt32(byteBuffer) * 0.1;
+      
+      notifyOutputDevice();
+
+    } catch (Exception exception) {
+      logger.error("failed to convert imported energy", exception);
+    }
+
+    startNextPollingTimer();
+
+    return Behaviors.same();
+  }
+  
+  private void notifyOutputDevice() {
+    logger.trace("Sungrow.notifyOutputDevice()");
+
+    // Notify the output device with the current values
+    getOutputDevice().tell(new OutputDevice.NotifyPhasesPowerData(
+          getNextMessageId(),
+          new OutputDevice.PowerData(
+                powerSign * currentL1 * voltageL1,
+                powerSign * currentL1 * voltageL1,
+                1.0,
+                currentL1,
+                voltageL1,
+                getDefaultFrequency()),
+          new OutputDevice.PowerData(
+                powerSign * currentL2 * voltageL2,
+                powerSign * currentL2 * voltageL2,
+                1.0,
+                currentL2,
+                voltageL2,
+                getDefaultFrequency()),
+          new OutputDevice.PowerData(
+                powerSign * currentL3 * voltageL3,
+                powerSign * currentL3 * voltageL3,
+                1.0,
+                currentL3,
+                voltageL3,
+                getDefaultFrequency()),
+          getOutputDeviceAckAdapter()));
+
+    getOutputDevice().tell(new OutputDevice.NotifyPhasesEnergyData(
+          getNextMessageId(),
+          new OutputDevice.EnergyData(importedEnergy, exportedEnergy),
+          new OutputDevice.EnergyData(importedEnergy, exportedEnergy),
+          new OutputDevice.EnergyData(importedEnergy, exportedEnergy),
+          getOutputDeviceAckAdapter()));
+  }
+  
   @Override
   protected @NotNull Behavior<Command> onStartNextPollingCycle(@NotNull StartNextPollingCycle message) {
     logger.trace("Sungrow.onStartNextPollingCycle()");
 
-    readMeterData();
+    readVoltage();
 
     return Behaviors.same();
   }
+  
+  private void readVoltage() {
+    logger.trace("Sungrow.readVoltage()");
 
-  protected @NotNull Behavior<Command> onReadMetaDataSucceeded(@NotNull ReadMeterDataSucceeded message) {
-    logger.trace("Ksem.onReadMetaDataSucceeded()");
-
-    try {
-
-      long activePowerL1 = activePowerPlusL1 - activePowerMinusL1;
-      long apparentPowerL1 = apparentPowerPlusL1 - apparentPowerMinusL1;
-
-      long activePowerL2 = activePowerPlusL2 - activePowerMinusL2;
-      long apparentPowerL2 = apparentPowerPlusL2 - apparentPowerMinusL2;
-
-      long activePowerL3 = activePowerPlusL3 - activePowerMinusL3;
-      long apparentPowerL3 = apparentPowerPlusL3 - apparentPowerMinusL3;
-
-      getOutputDevice().tell(new OutputDevice.NotifyPhasesPowerData(
-            getNextMessageId(),
-            new OutputDevice.PowerData(
-                  MathUtils.round(activePowerL1 / 10.0, 2),
-                  MathUtils.round(apparentPowerL1 / 10.0, 2),
-                  MathUtils.round(powerFactorL1 / 1000.0, 2),
-                  MathUtils.round(currentL1 / 1000.0, 2),
-                  MathUtils.round(voltageL1 / 1000.0, 2),
-                  MathUtils.round(supplyFrequency / 1000., 2)),
-            new OutputDevice.PowerData(
-                  MathUtils.round(activePowerL2 / 10.0, 2),
-                  MathUtils.round(apparentPowerL2 / 10.0, 2),
-                  MathUtils.round(powerFactorL2 / 1000.0, 2),
-                  MathUtils.round(currentL2 / 1000.0, 2),
-                  MathUtils.round(voltageL2 / 1000.0, 2),
-                  MathUtils.round(supplyFrequency / 1000.0, 2)),
-            new OutputDevice.PowerData(
-                  MathUtils.round(activePowerL3 / 10.0, 2),
-                  MathUtils.round(apparentPowerL3 / 10.0, 2),
-                  MathUtils.round(powerFactorL3 / 1000.0, 2),
-                  MathUtils.round(currentL3 / 1000.0, 2),
-                  MathUtils.round(voltageL3 / 1000.0, 2),
-                  MathUtils.round(supplyFrequency / 1000.0, 2)),
-            getOutputDeviceAckAdapter()));
-
-      getOutputDevice().tell(new OutputDevice.NotifyPhasesEnergyData(
-            getNextMessageId(),
-            new OutputDevice.EnergyData(
-                  MathUtils.round(activeEnergyPlusL1.longValue() / 10000.0, 2),
-                  MathUtils.round(activeEnergyMinusL1.longValue() / 10000.0, 2)),
-            new OutputDevice.EnergyData(
-                  MathUtils.round(activeEnergyPlusL2.longValue() / 10000.0, 2),
-                  MathUtils.round(activeEnergyMinusL2.longValue() / 10000.0, 2)),
-            new OutputDevice.EnergyData(
-                  MathUtils.round(activeEnergyPlusL3.longValue() / 10000.0, 2),
-                  MathUtils.round(activeEnergyMinusL3.longValue() / 10000.0, 2)),
-            getOutputDeviceAckAdapter()));
-
-      startNextPollingTimer();
-    } catch (Exception exception) {
-      logger.error("failed to process meter data", exception);
-      startNextPollingTimer();
-    }
-
-    return Behaviors.same();
+    // Read voltage 
+    getClient()
+          .readInputRegistersAsync(getUnitId(), new ReadInputRegistersRequest(5018, 3))
+          .whenComplete((response, throwable) -> {
+      if (throwable != null) {
+        getContext().getSelf().tell(new ReadInputRegistersFailed(0x0000, 0x0002, throwable));
+      } else {
+        getContext().getSelf().tell(new ReadVoltageSucceeded(response));
+      }
+    });
   }
 
-  private void readMeterData() {
-    logger.trace("Sungrow.readMeterData()");
+  private void readCurrent() {
+    logger.trace("Sungrow.readCurrent()");
 
-    try {
-      supplyFrequency = readUnsignedInt32(getClient(), 0x001A);
-
-      activePowerPlusL1 = readUnsignedInt32(getClient(), 0x0028);
-      activePowerMinusL1 = readUnsignedInt32(getClient(), 0x002A);
-      apparentPowerPlusL1 = readUnsignedInt32(getClient(), 0x0038);
-      apparentPowerMinusL1 = readUnsignedInt32(getClient(), 0x003A);
-      currentL1 = readUnsignedInt32(getClient(), 0x003C);
-      voltageL1 = readUnsignedInt32(getClient(), 0x003E);
-      powerFactorL1 = readUnsignedInt32(getClient(), 0x0040);
-
-      activePowerPlusL2 = readUnsignedInt32(getClient(), 0x0050);
-      activePowerMinusL2 = readUnsignedInt32(getClient(), 0x0052);
-      apparentPowerPlusL2 = readUnsignedInt32(getClient(), 0x0060);
-      apparentPowerMinusL2 = readUnsignedInt32(getClient(), 0x0062);
-      currentL2 = readUnsignedInt32(getClient(), 0x0064);
-      voltageL2 = readUnsignedInt32(getClient(), 0x0066);
-      powerFactorL2 = readUnsignedInt32(getClient(), 0x0068);
-
-      activePowerPlusL3 = readUnsignedInt32(getClient(), 0x0078);
-      activePowerMinusL3 = readUnsignedInt32(getClient(), 0x007A);
-      apparentPowerPlusL3 = readUnsignedInt32(getClient(), 0x0088);
-      apparentPowerMinusL3 = readUnsignedInt32(getClient(), 0x008A);
-      currentL3 = readUnsignedInt32(getClient(), 0x008C);
-      voltageL3 = readUnsignedInt32(getClient(), 0x008E);
-      powerFactorL3 = readUnsignedInt32(getClient(), 0x0090);
-
-      activeEnergyPlusL1 = readUnsignedInt64(getClient(), 0x0250);
-      activeEnergyMinusL1 = readUnsignedInt64(getClient(), 0x0254);
-
-      activeEnergyPlusL2 = readUnsignedInt64(getClient(), 0x02A0);
-      activeEnergyMinusL2 = readUnsignedInt64(getClient(), 0x02A4);
-
-      activeEnergyPlusL3 = readUnsignedInt64(getClient(), 0x02F0);
-      activeEnergyMinusL3 = readUnsignedInt64(getClient(), 0x02F4);
-
-      getContext().getSelf().tell(new ReadMeterDataSucceeded());
-    } catch (ModbusExecutionException | ModbusResponseException | ModbusTimeoutException e) {
-      getContext().getSelf().tell(new ReadHoldingRegistersFailed(0, 100, e));
-    }
-
-
-    public record ReadMeterDataSucceeded(
-          ReadHoldingRegistersResponse response
-    ) implements Command {}
+    // Read voltage 
+    getClient()
+          .readInputRegistersAsync(getUnitId(), new ReadInputRegistersRequest(13030, 3))
+          .whenComplete((response, throwable) -> {
+            if (throwable != null) {
+              getContext().getSelf().tell(new ReadInputRegistersFailed(0x0000, 0x0002, throwable));
+            } else {
+              getContext().getSelf().tell(new ReadCurrentSucceeded(response));
+            }
+          });
   }
+  
+  private void readExportedEnergy() {
+    logger.trace("Sungrow.readExportedEnergy()");
+
+    // Read exported energy
+    getClient()
+          .readInputRegistersAsync(getUnitId(), new ReadInputRegistersRequest(13045 , 2))
+          .whenComplete((response, throwable) -> {
+            if (throwable != null) {
+              getContext().getSelf().tell(new ReadInputRegistersFailed(0x0000, 0x0002, throwable));
+            } else {
+              getContext().getSelf().tell(new ReadExportedEnergySucceeded(response));
+            }
+          });
+  }
+
+  private void readImportedEnergy() {
+    logger.trace("Sungrow.readImportedEnergy()");
+
+    // Read exported energy
+    getClient()
+          .readInputRegistersAsync(getUnitId(), new ReadInputRegistersRequest(13036, 2))
+          .whenComplete((response, throwable) -> {
+            if (throwable != null) {
+              getContext().getSelf().tell(new ReadInputRegistersFailed(0x0000, 0x0002, throwable));
+            } else {
+              getContext().getSelf().tell(new ReadImportedEnergySucceeded(response));
+            }
+          });
+  }
+
+  public record ReadVoltageSucceeded(
+        @NotNull ReadInputRegistersResponse response
+  ) implements Command {}
+
+  public record ReadCurrentSucceeded(
+        @NotNull ReadInputRegistersResponse response
+  ) implements Command {}
+
+  public record ReadExportedEnergySucceeded(
+        @NotNull ReadInputRegistersResponse response
+  ) implements Command {}
+
+  public record ReadImportedEnergySucceeded(
+        @NotNull ReadInputRegistersResponse response
+  ) implements Command {}
+}
