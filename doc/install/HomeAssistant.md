@@ -15,8 +15,9 @@ window. This will bring up a list of all available add-ons that now includes the
 ## Configuration
 
 The `uni-meter` is configured using a `uni-meter.conf` file which should be placed in the ``/addon_configs/663b81ce_uni_meter`` 
-directory of your Home Assistant instance. To access that directory, it might be necessary to install additional add-ons
-which provide access to your Home Assistant instance via Samba or Sftp.
+directory of your Home Assistant instance. The installation process is not able to create that file automatically. You 
+have to create it **manually**. To do so, it might be necessary to install additional add-ons which provide access to your 
+Home Assistant instance via Samba or Sftp.
 
 For troubleshooting problems, it might be necessary to adjust the logging of the `uni-meter`. Therefore, it is possible
 to additionally put an optional `logback.xml` into that directory that can be used to adjust the logging settings. If
