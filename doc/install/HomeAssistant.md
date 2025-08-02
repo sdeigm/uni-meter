@@ -26,9 +26,9 @@ existent, the file is automatically evaluated.
 ## mDNS support
 
 If your storage - like the Hoymiles MS-A2 - is discovering the virtual Shelly using mDNS, additional steps are necessary.
-This step is not needed for storages like the Marstek Venus.
+This step is not needed for a storage like the Marstek Venus.
 
-To use mDNS it is necessary to additionally install the pyscript integration. Afterward, copy the provided 
+To use mDNS, it is necessary to additionally install the [pyscript integration](https://github.com/custom-components/pyscript). Afterward, copy the provided 
 [uni-meter-mdns.py](https://github.com/sdeigm/uni-meter/blob/main/ha_addon/uni-meter-mdns.py) into the `/config/pyscript` 
 directory of your instance.
 
@@ -41,10 +41,10 @@ If that is done, the `uni-meter` automatically detects the provided services and
 ## Starting
 
 When all configuration steps have been done, you can start the `uni-meter` add-on. To check if it is working correctly,
-you can use your web-browser and open the URL
+you can use your web browser and open the URL
 
 ```
-http://<home-assistant-ip>/rpc/EM.GetStatus?id=0
+http://<home-assistant-ip>:<uni-meter-port>
 ```
 
 That should bring up the current electrical meter readings in your browser window.
