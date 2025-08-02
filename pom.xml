@@ -6,7 +6,7 @@
 
     <groupId>com.deigmueller</groupId>
     <artifactId>uni-meter</artifactId>
-    <version>1.2.0-SUNGROW</version>
+    <version>1.2.0-SUNGROW2</version>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

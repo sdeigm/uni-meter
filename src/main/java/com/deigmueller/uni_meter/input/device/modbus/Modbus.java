@@ -146,7 +146,7 @@ public abstract class Modbus extends InputDevice {
           | ((buffer.get() & 0xFF));
   }
 
-  private int readSignedInt32(ByteBuffer buffer) {
+  protected static int readSignedInt32(ByteBuffer buffer) {
     return buffer.getInt();
   }
   

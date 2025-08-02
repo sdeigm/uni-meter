@@ -15,39 +15,39 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.ByteBuffer;
 
 public class Sungrow extends Modbus {
-    // Class members
-    public static final String TYPE = "Sungrow";
+  // Class members
+  public static final String TYPE = "Sungrow";
 
-    // Instance members
-    private final double powerSign = getConfig().getBoolean("invert-power") ? 1.0 : -1.0;
-    private double voltageL1 = 0.0;
-    private double voltageL2 = 0.0;
-    private double voltageL3 = 0.0;
-    private double currentL1 = 0.0;
-    private double currentL2 = 0.0;
-    private double currentL3 = 0.0;
-    private double exportedEnergy = 0.0;
-    private double importedEnergy = 0.0;
+  // Instance members
+  private final double powerSign = getConfig().getBoolean("invert-power") ? 1.0 : -1.0;
+  private double powerL1 = 0.0;
+  private double powerL2 = 0.0;
+  private double powerL3 = 0.0;
+  private double voltageL1 = 0.0;
+  private double voltageL2 = 0.0;
+  private double voltageL3 = 0.0;
+  private double exportedEnergy = 0.0;
+  private double importedEnergy = 0.0;
     
 
-    public static Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> outputDevice,
-                                           @NotNull Config config) {
-        return Behaviors.setup(context -> new Sungrow(context, outputDevice, config));
-    }
+  public static Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> outputDevice,
+                                         @NotNull Config config) {
+    return Behaviors.setup(context -> new Sungrow(context, outputDevice, config));
+  }
 
-    protected Sungrow(@NotNull ActorContext<Command> context,
-                      @NotNull ActorRef<OutputDevice.Command> outputDevice,
-                      @NotNull Config config) {
-        super(context,
-                outputDevice,
-                config.withFallback(context.getSystem().settings().config().getConfig("uni-meter.input-devices.modbus")));
-    }
+  protected Sungrow(@NotNull ActorContext<Command> context,
+                    @NotNull ActorRef<OutputDevice.Command> outputDevice,
+                    @NotNull Config config) {
+    super(context,
+          outputDevice,
+          config.withFallback(context.getSystem().settings().config().getConfig("uni-meter.input-devices.modbus")));
+  }
 
   @Override
   public @NotNull ReceiveBuilder<Command> newReceiveBuilder() {
     return super.newReceiveBuilder()
+          .onMessage(ReadPowerSucceeded.class, this::onReadPowerSucceeded)
           .onMessage(ReadVoltageSucceeded.class, this::onReadVoltageSucceeded)
-          .onMessage(ReadCurrentSucceeded.class, this::onReadCurrentSucceeded)
           .onMessage(ReadExportedEnergySucceeded.class, this::onReadExportedEnergySucceeded)
           .onMessage(ReadImportedEnergySucceeded.class, this::onReadImportedEnergySucceeded);
   }
@@ -57,22 +57,22 @@ public class Sungrow extends Modbus {
     logger.trace("Sungrow.onConnectSucceeded()");
     super.onConnectSucceeded(message);
 
-    readVoltage();
+    readPower();
 
     return Behaviors.same();
   }
 
-  protected @NotNull Behavior<Command> onReadVoltageSucceeded(@NotNull ReadVoltageSucceeded message) {
-    logger.trace("Sungrow.onReadVoltageSucceeded()");
+  protected @NotNull Behavior<Command> onReadPowerSucceeded(@NotNull Sungrow.ReadPowerSucceeded message) {
+    logger.trace("Sungrow.onReadPowerSucceeded()");
 
     try {
       ByteBuffer byteBuffer = ByteBuffer.wrap(message.response.registers());
       
-      voltageL1 = readUInt16(byteBuffer) * 0.1;
-      voltageL2 = readUInt16(byteBuffer) * 0.1;
-      voltageL3 = readUInt16(byteBuffer) * 0.1;
+      powerL1 = readSignedInt32(byteBuffer);
+      powerL2 = readSignedInt32(byteBuffer);
+      powerL3 = readSignedInt32(byteBuffer);
 
-      readCurrent();
+      readVoltage();
     } catch (Exception exception) {
       logger.error("failed to convert voltage", exception);
       startNextPollingTimer();
@@ -81,15 +81,15 @@ public class Sungrow extends Modbus {
     return Behaviors.same();
   }
   
-  protected @NotNull Behavior<Command> onReadCurrentSucceeded(@NotNull ReadCurrentSucceeded message) {
-    logger.trace("Sungrow.onReadCurrentSucceeded()");
+  protected @NotNull Behavior<Command> onReadVoltageSucceeded(@NotNull Sungrow.ReadVoltageSucceeded message) {
+    logger.trace("Sungrow.onReadVoltageSucceeded()");
 
     try {
       ByteBuffer byteBuffer = ByteBuffer.wrap(message.response.registers());
 
-      currentL1 = byteBuffer.getShort() * 0.1; 
-      currentL2 = byteBuffer.getShort() * 0.1;
-      currentL3 = byteBuffer.getShort() * 0.1;
+      voltageL1 = byteBuffer.getShort() * 0.1; 
+      voltageL2 = byteBuffer.getShort() * 0.1;
+      voltageL3 = byteBuffer.getShort() * 0.1;
       
       readExportedEnergy();
     } catch (Exception exception) {
@@ -143,24 +143,24 @@ public class Sungrow extends Modbus {
     getOutputDevice().tell(new OutputDevice.NotifyPhasesPowerData(
           getNextMessageId(),
           new OutputDevice.PowerData(
-                powerSign * currentL1 * voltageL1,
-                powerSign * currentL1 * voltageL1,
+                powerL1,
+                powerL1,
                 1.0,
-                currentL1,
+                voltageL1 != 0.0 ? powerL1 / voltageL1 : 0.0,
                 voltageL1,
                 getDefaultFrequency()),
           new OutputDevice.PowerData(
-                powerSign * currentL2 * voltageL2,
-                powerSign * currentL2 * voltageL2,
+                powerL2,
+                powerL2,
                 1.0,
-                currentL2,
+                voltageL2 != 0.0 ? powerL2 / voltageL2 : 0.0,
                 voltageL2,
                 getDefaultFrequency()),
           new OutputDevice.PowerData(
-                powerSign * currentL3 * voltageL3,
-                powerSign * currentL3 * voltageL3,
+                powerL3,
+                powerL3,
                 1.0,
-                currentL3,
+                voltageL3 != 0.0 ? powerL3 / voltageL3 : 0.0,
                 voltageL3,
                 getDefaultFrequency()),
           getOutputDeviceAckAdapter()));
@@ -177,37 +177,37 @@ public class Sungrow extends Modbus {
   protected @NotNull Behavior<Command> onStartNextPollingCycle(@NotNull StartNextPollingCycle message) {
     logger.trace("Sungrow.onStartNextPollingCycle()");
 
-    readVoltage();
+    readPower();
 
     return Behaviors.same();
   }
   
+  private void readPower() {
+    logger.trace("Sungrow.readPower()");
+
+    // Read voltage 
+    getClient()
+          .readInputRegistersAsync(getUnitId(), new ReadInputRegistersRequest(5602, 6))
+          .whenComplete((response, throwable) -> {
+      if (throwable != null) {
+        getContext().getSelf().tell(new ReadInputRegistersFailed(5602, 6, throwable));
+      } else {
+        getContext().getSelf().tell(new ReadPowerSucceeded(response));
+      }
+    });
+  }
+
   private void readVoltage() {
     logger.trace("Sungrow.readVoltage()");
 
     // Read voltage 
     getClient()
-          .readInputRegistersAsync(getUnitId(), new ReadInputRegistersRequest(5018, 3))
-          .whenComplete((response, throwable) -> {
-      if (throwable != null) {
-        getContext().getSelf().tell(new ReadInputRegistersFailed(0x0000, 0x0002, throwable));
-      } else {
-        getContext().getSelf().tell(new ReadVoltageSucceeded(response));
-      }
-    });
-  }
-
-  private void readCurrent() {
-    logger.trace("Sungrow.readCurrent()");
-
-    // Read voltage 
-    getClient()
-          .readInputRegistersAsync(getUnitId(), new ReadInputRegistersRequest(13030, 3))
+          .readInputRegistersAsync(getUnitId(), new ReadInputRegistersRequest(5740 , 3))
           .whenComplete((response, throwable) -> {
             if (throwable != null) {
-              getContext().getSelf().tell(new ReadInputRegistersFailed(0x0000, 0x0002, throwable));
+              getContext().getSelf().tell(new ReadInputRegistersFailed(5740, 3, throwable));
             } else {
-              getContext().getSelf().tell(new ReadCurrentSucceeded(response));
+              getContext().getSelf().tell(new ReadVoltageSucceeded(response));
             }
           });
   }
@@ -242,11 +242,11 @@ public class Sungrow extends Modbus {
           });
   }
 
-  public record ReadVoltageSucceeded(
+  public record ReadPowerSucceeded(
         @NotNull ReadInputRegistersResponse response
   ) implements Command {}
 
-  public record ReadCurrentSucceeded(
+  public record ReadVoltageSucceeded(
         @NotNull ReadInputRegistersResponse response
   ) implements Command {}
 
