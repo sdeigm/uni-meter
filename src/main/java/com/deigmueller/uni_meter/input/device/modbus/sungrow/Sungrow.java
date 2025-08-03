@@ -179,10 +179,8 @@ public class Sungrow extends Modbus {
                 getDefaultFrequency()),
           getOutputDeviceAckAdapter()));
 
-    getOutputDevice().tell(new OutputDevice.NotifyPhasesEnergyData(
+    getOutputDevice().tell(new OutputDevice.NotifyTotalEnergyData(
           getNextMessageId(),
-          new OutputDevice.EnergyData(importedEnergy, exportedEnergy),
-          new OutputDevice.EnergyData(importedEnergy, exportedEnergy),
           new OutputDevice.EnergyData(importedEnergy, exportedEnergy),
           getOutputDeviceAckAdapter()));
   }
