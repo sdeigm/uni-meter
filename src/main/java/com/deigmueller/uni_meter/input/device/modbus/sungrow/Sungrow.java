@@ -61,12 +61,18 @@ public class Sungrow extends Modbus {
 
     return Behaviors.same();
   }
-
+  
   protected @NotNull Behavior<Command> onReadPowerSucceeded(@NotNull Sungrow.ReadPowerSucceeded message) {
     logger.trace("Sungrow.onReadPowerSucceeded()");
 
     try {
-      ByteBuffer byteBuffer = ByteBuffer.wrap(message.response.registers());
+      byte[] rawData = message.response.registers();
+      
+      swapWords(rawData, 0);
+      swapWords(rawData, 4);
+      swapWords(rawData, 8);
+      
+      ByteBuffer byteBuffer = ByteBuffer.wrap(rawData);
       
       powerL1 = readSignedInt32(byteBuffer);
       powerL2 = readSignedInt32(byteBuffer);
@@ -74,7 +80,7 @@ public class Sungrow extends Modbus {
 
       readVoltage();
     } catch (Exception exception) {
-      logger.error("failed to convert voltage", exception);
+      logger.error("failed to convert power", exception);
       startNextPollingTimer();
     }
 
@@ -93,7 +99,7 @@ public class Sungrow extends Modbus {
       
       readExportedEnergy();
     } catch (Exception exception) {
-      logger.error("failed to convert current", exception);
+      logger.error("failed to convert voltage", exception);
       startNextPollingTimer();
     }
     
@@ -104,7 +110,11 @@ public class Sungrow extends Modbus {
     logger.trace("Sungrow.onReadExportedEnergySucceeded()");
 
     try {
-      ByteBuffer byteBuffer = ByteBuffer.wrap(message.response.registers());
+      byte[] rawData = message.response.registers();
+      
+      swapWords(rawData, 0);
+      
+      ByteBuffer byteBuffer = ByteBuffer.wrap(rawData);
 
       exportedEnergy = readUInt32(byteBuffer) * 0.1;
 
@@ -121,7 +131,11 @@ public class Sungrow extends Modbus {
     logger.trace("Sungrow.onReadImportedEnergySucceeded()");
 
     try {
-      ByteBuffer byteBuffer = ByteBuffer.wrap(message.response.registers());
+      byte[] rawData = message.response.registers();
+
+      swapWords(rawData, 0);
+
+      ByteBuffer byteBuffer = ByteBuffer.wrap(rawData);
 
       importedEnergy = readUInt32(byteBuffer) * 0.1;
       
@@ -240,6 +254,16 @@ public class Sungrow extends Modbus {
               getContext().getSelf().tell(new ReadImportedEnergySucceeded(response));
             }
           });
+  }
+
+  protected static void swapWords(byte@NotNull[] data, int offset) {
+    byte temp = data[offset];
+    data[offset] = data[offset + 2];
+    data[offset + 2] = temp;
+
+    temp = data[offset + 1];
+    data[offset + 1] = data[offset + 3];
+    data[offset + 3] = temp;
   }
 
   public record ReadPowerSucceeded(
