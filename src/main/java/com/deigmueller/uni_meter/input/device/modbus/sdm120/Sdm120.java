@@ -219,7 +219,7 @@ public class Sdm120 extends Modbus {
     logger.trace("Sdm120.readCurrent()");
     
     // Read current
-    getClient().readInputRegistersAsync(0, new ReadInputRegistersRequest(0x0006, 0x0002)).whenComplete((response, throwable) -> {
+    getClient().readInputRegistersAsync(getUnitId(), new ReadInputRegistersRequest(0x0006, 0x0002)).whenComplete((response, throwable) -> {
       if (throwable != null) {
         getContext().getSelf().tell(new ReadInputRegistersFailed(0x0006, 0x0002, throwable));
       } else {
@@ -244,7 +244,7 @@ public class Sdm120 extends Modbus {
   private void readApparentPower() {
     logger.trace("Sdm120.readApparentPower()");
     
-    // Read apparent power
+    // Read the apparent power
     getClient().readInputRegistersAsync(getUnitId(), new ReadInputRegistersRequest(0x0012, 0x0002)).whenComplete((response, throwable) -> {
       if (throwable != null) {
         getContext().getSelf().tell(new ReadInputRegistersFailed(0x0012, 0x0002, throwable));
@@ -257,7 +257,7 @@ public class Sdm120 extends Modbus {
   private void readPowerFactor() {
     logger.trace("Sdm120.readPowerFactor()");
     
-    // Read power factor
+    // Read the power factor
     getClient().readInputRegistersAsync(getUnitId(), new ReadInputRegistersRequest(0x0036, 0x0002)).whenComplete((response, throwable) -> {
       if (throwable != null) {
         getContext().getSelf().tell(new ReadInputRegistersFailed(0x0036, 0x0002, throwable));
