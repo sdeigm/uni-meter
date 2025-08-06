@@ -239,16 +239,6 @@ public class Ksem extends Modbus {
     return Integer.toUnsignedLong(byteBuffer.getInt());
   }
 	
-  private int readSignedInt32(ModbusTcpClient client, int address)
-        throws ModbusExecutionException, ModbusResponseException, ModbusTimeoutException {
-    ReadHoldingRegistersResponse response = client.readHoldingRegisters(
-          1,
-          new ReadHoldingRegistersRequest(address, 2)
-    );
-		
-    ByteBuffer byteBuffer = ByteBuffer.wrap(response.registers());
-    return byteBuffer.getInt();
-  }
 	
   private BigInteger readUnsignedInt64(ModbusTcpClient client, int address)
         throws ModbusExecutionException, ModbusResponseException, ModbusTimeoutException {

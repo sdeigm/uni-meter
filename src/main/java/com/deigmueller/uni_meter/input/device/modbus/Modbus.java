@@ -133,12 +133,21 @@ public abstract class Modbus extends InputDevice {
     
     return Float.intBitsToFloat(asInt);
   }
-  
+
+  protected static long readUInt16(ByteBuffer buffer) {
+    return ((buffer.get() & 0xFF) << 8)
+          | ((buffer.get() & 0xFF));
+  }
+
   protected static long readUInt32(ByteBuffer buffer) {
     return (buffer.get() & 0xFFL << 24)
           | ((buffer.get() & 0xFF) << 16)
           | ((buffer.get() & 0xFF) << 8)
           | ((buffer.get() & 0xFF));
+  }
+
+  protected static int readSignedInt32(ByteBuffer buffer) {
+    return buffer.getInt();
   }
   
   protected static void skip(ByteBuffer b, int bytes) {
