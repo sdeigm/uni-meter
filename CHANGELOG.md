@@ -1,6 +1,16 @@
 # Change Log
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.1.15] - 2025-08-07
+
+### Fixed
+
+- [#220](https://github.com/sdeigm/uni-meter/issues/220) Growatt NOAH needs disabled cloud settings to work in local mode
+
+### Added
+
+- [#212](https://github.com/sdeigm/uni-meter/issues/212) Sungrow Smart Meter support
+
 ## [1.1.14] - 2025-07-24
 
 ### Fixed
