@@ -31,6 +31,7 @@ The real electrical meter data can be gathered from the following input devices:
 - SMA energy meter / Sunny Home Manager (UDP protocol)
 - SMD120 modbus energy meter (via Protos PE11) (SMD630 could be added, I have no test device)
 - Solaredge
+- Sungrow Smart Energy Meter (DTSU666)
 - Tasmota IR read head (via HTTP)
 - Tibber Pulse (local API) 
 - VzLogger webserver
@@ -116,6 +117,7 @@ To configure the input device, follow the instructions in these sections:
 * **[SMA Energy Meter](doc/input/SmaEnergyMeter.md)**
 * **[SMD 120](doc/input/Smd120.md)**
 * **[Solaredge](doc/input/Solaredge.md)**
+* **[Sungrow Smart Energy Meter](doc/input/Sungrow.md)**
 * **[Tasmota](doc/input/Tasmota.md)**
 * **[Tibber Pulse](doc/input/TibberPulse.md)**
 * **[VzLogger](doc/input/VzLogger.md)**
