@@ -157,39 +157,39 @@ public class Solaredge extends Modbus {
       getOutputDevice().tell(new OutputDevice.NotifyPhasesPowerData(
             getNextMessageId(),
             new OutputDevice.PowerData(
-                  MathUtils.round(realPowerA * realPowerScale, 2),
-                  MathUtils.round(apparentPowerA * apparentPowerScale, 2),
-                  MathUtils.round(Math.abs(powerFactorA * powerFactorScale / 100.0), 2),
-                  MathUtils.round(currentA * currentScale, 2),
-                  MathUtils.round(voltageLtN_A * voltageScale, 2),
-                  MathUtils.round(frequency * frequencyScale, 2)), 
+                  realPowerA * realPowerScale,
+                  apparentPowerA * apparentPowerScale,
+                  Math.abs(powerFactorA * powerFactorScale / 100.0),
+                  currentA * currentScale,
+                  voltageLtN_A * voltageScale,
+                  frequency * frequencyScale), 
             new OutputDevice.PowerData(
-                  MathUtils.round(realPowerB * realPowerScale, 2),
-                  MathUtils.round(apparentPowerB * apparentPowerScale, 2),
-                  MathUtils.round(Math.abs(powerFactorB * powerFactorScale / 100.0), 2),
-                  MathUtils.round(currentB * currentScale, 2),
-                  MathUtils.round(voltageLtN_B * voltageScale, 2),
-                  MathUtils.round(frequency * frequencyScale, 2)),
+                  realPowerB * realPowerScale,
+                  apparentPowerB * apparentPowerScale,
+                  Math.abs(powerFactorB * powerFactorScale / 100.0),
+                  currentB * currentScale,
+                  voltageLtN_B * voltageScale,
+                  frequency * frequencyScale),
             new OutputDevice.PowerData(
-                  MathUtils.round(realPowerC * realPowerScale, 2),
-                  MathUtils.round(apparentPowerC * apparentPowerScale, 2),
-                  MathUtils.round(Math.abs(powerFactorC * powerFactorScale / 100.0), 2),
-                  MathUtils.round(currentC * currentScale, 2),
-                  MathUtils.round(voltageLtN_C * voltageScale, 2),
-                  MathUtils.round(frequency * frequencyScale, 2)),
+                  realPowerC * realPowerScale,
+                  apparentPowerC * apparentPowerScale,
+                  Math.abs(powerFactorC * powerFactorScale / 100.0),
+                  currentC * currentScale,
+                  voltageLtN_C * voltageScale,
+                  frequency * frequencyScale),
             getOutputDeviceAckAdapter()));
       
       getOutputDevice().tell(new OutputDevice.NotifyPhasesEnergyData(
             getNextMessageId(),
             new OutputDevice.EnergyData(
-                  MathUtils.round(realEnergyExportedA * realEnergyScale / 1000.0, 2),
-                  MathUtils.round(realEnergyImportedA * realEnergyScale / 1000.0, 2)),
+                  realEnergyExportedA * realEnergyScale / 1000.0,
+                  realEnergyImportedA * realEnergyScale / 1000.0),
             new OutputDevice.EnergyData(
-                  MathUtils.round(realEnergyExportedB * realEnergyScale / 1000.0, 2),
-                  MathUtils.round(realEnergyImportedB * realEnergyScale / 1000.0, 2)),
+                  realEnergyExportedB * realEnergyScale / 1000.0,
+                  realEnergyImportedB * realEnergyScale / 1000.0),
             new OutputDevice.EnergyData(
-                  MathUtils.round(realEnergyExportedC * realEnergyScale / 1000.0, 2),
-                  MathUtils.round(realEnergyImportedC * realEnergyScale / 1000.0, 2)),
+                  realEnergyExportedC * realEnergyScale / 1000.0,
+                  realEnergyImportedC * realEnergyScale / 1000.0),
             getOutputDeviceAckAdapter()));
             
       startNextPollingTimer();

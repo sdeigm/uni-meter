@@ -828,7 +828,7 @@ public class Rpc {
   }
 
   private static class DoubleSerializer extends JsonSerializer<Double> {
-    private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#.##", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
+    private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#0.00", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
 
     @Override
     public void serialize(Double value, JsonGenerator jsonGenerator, SerializerProvider provider) throws IOException {

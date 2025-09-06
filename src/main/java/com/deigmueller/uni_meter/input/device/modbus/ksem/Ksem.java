@@ -1,6 +1,5 @@
 package com.deigmueller.uni_meter.input.device.modbus.ksem;
 
-import com.deigmueller.uni_meter.common.utils.MathUtils;
 import com.deigmueller.uni_meter.input.device.modbus.Modbus;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import com.digitalpetri.modbus.client.ModbusTcpClient;
@@ -137,39 +136,39 @@ public class Ksem extends Modbus {
       getOutputDevice().tell(new OutputDevice.NotifyPhasesPowerData(
             getNextMessageId(),
             new OutputDevice.PowerData(
-                  MathUtils.round(activePowerL1 / 10.0, 2),
-                  MathUtils.round(apparentPowerL1 / 10.0, 2),
-                  MathUtils.round(powerFactorL1 / 1000.0, 2),
-                  MathUtils.round(currentL1 / 1000.0, 2),
-                  MathUtils.round(voltageL1 / 1000.0, 2),
-                  MathUtils.round(supplyFrequency / 1000., 2)), 
+                  activePowerL1 / 10.0,
+                  apparentPowerL1 / 10.0,
+                  powerFactorL1 / 1000.0,
+                  currentL1 / 1000.0,
+                  voltageL1 / 1000.0,
+                  supplyFrequency / 1000.0), 
             new OutputDevice.PowerData(
-                  MathUtils.round(activePowerL2 / 10.0, 2),
-                  MathUtils.round(apparentPowerL2 / 10.0, 2),
-                  MathUtils.round(powerFactorL2 / 1000.0, 2),
-                  MathUtils.round(currentL2 / 1000.0, 2),
-                  MathUtils.round(voltageL2 / 1000.0, 2),
-                  MathUtils.round(supplyFrequency / 1000.0, 2)), 
+                  activePowerL2 / 10.0,
+                  apparentPowerL2 / 10.0,
+                  powerFactorL2 / 1000.0,
+                  currentL2 / 1000.0,
+                  voltageL2 / 1000.0,
+                  supplyFrequency / 1000.0), 
             new OutputDevice.PowerData(
-                  MathUtils.round(activePowerL3 / 10.0, 2),
-                  MathUtils.round(apparentPowerL3 / 10.0, 2),
-                  MathUtils.round(powerFactorL3 / 1000.0, 2),
-                  MathUtils.round(currentL3 / 1000.0, 2),
-                  MathUtils.round(voltageL3 / 1000.0, 2),
-                  MathUtils.round(supplyFrequency / 1000.0, 2)), 
+                  activePowerL3 / 10.0,
+                  apparentPowerL3 / 10.0,
+                  powerFactorL3 / 1000.0,
+                  currentL3 / 1000.0,
+                  voltageL3 / 1000.0,
+                  supplyFrequency / 1000.0), 
             getOutputDeviceAckAdapter()));
       
       getOutputDevice().tell(new OutputDevice.NotifyPhasesEnergyData(
             getNextMessageId(),
             new OutputDevice.EnergyData(
-                  MathUtils.round(activeEnergyPlusL1.longValue() / 10000.0, 2),
-                  MathUtils.round(activeEnergyMinusL1.longValue() / 10000.0, 2)),
+                  activeEnergyPlusL1.longValue() / 10000.0,
+                  activeEnergyMinusL1.longValue() / 10000.0),
             new OutputDevice.EnergyData(
-                  MathUtils.round(activeEnergyPlusL2.longValue() / 10000.0, 2),
-                  MathUtils.round(activeEnergyMinusL2.longValue() / 10000.0, 2)),
+                  activeEnergyPlusL2.longValue() / 10000.0,
+                  activeEnergyMinusL2.longValue() / 10000.0),
             new OutputDevice.EnergyData(
-                  MathUtils.round(activeEnergyPlusL3.longValue() / 10000.0, 2),
-                  MathUtils.round(activeEnergyMinusL3.longValue() / 10000.0, 2)),
+                  activeEnergyPlusL3.longValue() / 10000.0,
+                  activeEnergyMinusL3.longValue() / 10000.0),
             getOutputDeviceAckAdapter()));
 
       startNextPollingTimer();

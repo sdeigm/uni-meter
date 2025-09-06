@@ -7,7 +7,6 @@ import com.deigmueller.uni_meter.application.WebsocketOutput;
 import com.deigmueller.uni_meter.common.shelly.Rpc;
 import com.deigmueller.uni_meter.common.shelly.RpcError;
 import com.deigmueller.uni_meter.common.shelly.RpcException;
-import com.deigmueller.uni_meter.common.utils.MathUtils;
 import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.deigmueller.uni_meter.output.TemporaryNotAvailableException;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -862,7 +861,7 @@ public class ShellyPro3EM extends Shelly {
                 null,
                 "NotifyStatus",
                 new Rpc.EmGetStatusNotification(
-                      MathUtils.round(Instant.now().toEpochMilli() / 1000.0, 2),
+                      Instant.now().toEpochMilli() / 1000.0,
                       rpcEmGetStatus(1.0)
                 )
           );
@@ -1089,38 +1088,32 @@ public class ShellyPro3EM extends Shelly {
     
     return new Rpc.EmGetStatusResponse(
           0,
-          MathUtils.round(powerPhase0.current() * factor, 2),
-          MathUtils.round(powerPhase0.voltage(), 2),
-          MathUtils.round(powerPhase0.power() * factor, 2),
-          MathUtils.round(powerPhase0.apparentPower() * factor, 2),
+          powerPhase0.current() * factor,
+          powerPhase0.voltage(),
+          powerPhase0.power() * factor,
+          powerPhase0.apparentPower() * factor,
           powerPhase0.powerFactor(),
           powerPhase0.frequency(),
           null,
-          MathUtils.round(powerPhase1.current() * factor, 2),
-          MathUtils.round(powerPhase1.voltage(), 2),
-          MathUtils.round(powerPhase1.power() * factor, 2),
-          MathUtils.round(powerPhase1.apparentPower() * factor, 2),
+          powerPhase1.current() * factor,
+          powerPhase1.voltage(),
+          powerPhase1.power() * factor,
+          powerPhase1.apparentPower() * factor,
           powerPhase1.powerFactor(),
           powerPhase1.frequency(),
           null,
-          MathUtils.round(powerPhase2.current() * factor, 2),
-          MathUtils.round(powerPhase2.voltage(), 2),
-          MathUtils.round(powerPhase2.power() * factor, 2),
-          MathUtils.round(powerPhase2.apparentPower() * factor, 2),
+          powerPhase2.current() * factor,
+          powerPhase2.voltage(),
+          powerPhase2.power() * factor,
+          powerPhase2.apparentPower() * factor,
           powerPhase2.powerFactor(),
           powerPhase2.frequency(),
           null,
           null,
           null,
-          MathUtils.round(
-                (powerPhase0.current() + powerPhase1.current() + powerPhase2.current()) * factor, 
-                2),
-          MathUtils.round(
-                totalPower, 
-                2),
-          MathUtils.round(
-                (powerPhase0.apparentPower() + powerPhase1.apparentPower() + powerPhase2.apparentPower()) * factor, 
-                2),
+          (powerPhase0.current() + powerPhase1.current() + powerPhase2.current()) * factor,
+          totalPower,
+          (powerPhase0.apparentPower() + powerPhase1.apparentPower() + powerPhase2.apparentPower()) * factor,
           null,
           null
     );
@@ -1165,8 +1158,8 @@ public class ShellyPro3EM extends Shelly {
           getEnergyPhase1().totalProduction(),
           getEnergyPhase2().totalConsumption(),
           getEnergyPhase2().totalProduction(),
-          MathUtils.round(getEnergyPhase0().totalConsumption() + getEnergyPhase1().totalConsumption() + getEnergyPhase2().totalConsumption(), 2),
-          MathUtils.round(getEnergyPhase0().totalProduction() + getEnergyPhase1().totalProduction() + getEnergyPhase2().totalProduction(), 2),
+          getEnergyPhase0().totalConsumption() + getEnergyPhase1().totalConsumption() + getEnergyPhase2().totalConsumption(),
+          getEnergyPhase0().totalProduction() + getEnergyPhase1().totalProduction() + getEnergyPhase2().totalProduction(),
           null);
   }
   
