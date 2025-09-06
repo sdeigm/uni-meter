@@ -1,7 +1,6 @@
 package com.deigmueller.uni_meter.output.device.eco_tracker;
 
 import com.deigmueller.uni_meter.application.UniMeter;
-import com.deigmueller.uni_meter.common.utils.MathUtils;
 import com.deigmueller.uni_meter.common.utils.NetUtils;
 import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.deigmueller.uni_meter.output.ClientContextsInitializer;
@@ -133,10 +132,10 @@ public class EcoTracker  extends OutputDevice {
           new V1GetJsonResponse(
                 (long) power,
                 (long) powerAverage, 
-                MathUtils.round(energyIn * 1000.0, 2),
+                energyIn * 1000.0,
                 null,
                 null,
-                MathUtils.round(energyOut * 1000.0, 2)));
+                energyOut * 1000.0));
     
     return Behaviors.same();
   }
