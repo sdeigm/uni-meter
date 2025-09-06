@@ -249,9 +249,9 @@ public class EcoTracker  extends OutputDevice {
   public record V1GetJsonResponse(
         @JsonProperty("power") long power,
         @JsonProperty("powerAvg") long powerAvg,
-        @JsonProperty("energyCounterIn") double energyCounterIn,
+        @JsonProperty("energyCounterIn") Double energyCounterIn,
         @JsonProperty("energyCounterInT1") Double energyCounterInT1,
         @JsonProperty("energyCounterInT2") Double energyCounterInT2,
-        @JsonProperty("energyCounterOut") double energyCounterOut
+        @JsonProperty("energyCounterOut") Double energyCounterOut
   ) {}
 }
