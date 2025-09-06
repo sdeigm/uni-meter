@@ -1,6 +1,12 @@
 # Change Log
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.1.16] - 2025-09-06
+
+### Fixed
+
+- [#237](https://github.com/sdeigm/uni-meter/issues/237) Double values in RPC responses shall always use 2 decimal digits (fixes a problem with the Marstek B2500 storage)
+
 ## [1.1.15] - 2025-08-07
 
 ### Fixed
