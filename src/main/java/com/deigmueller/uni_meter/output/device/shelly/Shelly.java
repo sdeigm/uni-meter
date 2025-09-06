@@ -346,7 +346,7 @@ public abstract class Shelly extends OutputDevice {
     private final long fs_size;
     private final long fs_free;
     private final long uptime;
-    private final double temperature;
+    private final Double temperature;
     private final boolean overtemperature;
     private final Rpc.TempStatus tmp;
   }
