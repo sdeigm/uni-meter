@@ -139,12 +139,12 @@ public abstract class Modbus extends InputDevice {
     }
   }
   
-private void reinitializeClient() {
-  if (client != null) {
-    try {
-      client.disconnect();
-    } catch (Exception exception) {
-      logger.debug("failed to disconnect from the Modbus device", exception);
+  private void reinitializeClient() {
+    if (client != null) {
+      try {
+        client.disconnect();
+      } catch (Exception exception) {
+        logger.debug("failed to disconnect from the Modbus device", exception);
       }
       
       client = null;
