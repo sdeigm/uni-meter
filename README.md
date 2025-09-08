@@ -40,6 +40,7 @@ Storages known to be supported are
 
 * Growatt NOAH 2000
 * Hoymiles MS-A2
+* Marstek B2500
 * Marstek Venus
 
 The tool is built in Java and needs at least a Java 17 Runtime. If you want to use an ESP32 or a similar system which 
