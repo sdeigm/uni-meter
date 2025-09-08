@@ -1,6 +1,12 @@
 # Change Log
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.1.17] - 2025-09-08
+
+### Fixed
+
+- [#239](https://github.com/sdeigm/uni-meter/issues/239) Fixes the problem, that the connection to Modbus input devices is not reestablished correctly after network problems
+
 ## [1.1.16] - 2025-09-06
 
 ### Fixed
