@@ -26,6 +26,7 @@ public abstract class Modbus extends InputDevice {
   private final int port = getConfig().getInt("port");
   private final int unitId = getConfig().getInt("unit-id");
   private final Duration pollingInterval = getConfig().getDuration("polling-interval");
+  private final Duration reconnectInterval = getConfig().getDuration("reconnect-interval");
   private ModbusTcpClient client;
   
   protected Modbus(@NotNull ActorContext<Command> context,
@@ -44,7 +45,8 @@ public abstract class Modbus extends InputDevice {
           .onMessage(NotifyConnectSucceeded.class, this::onConnectSucceeded)
           .onMessage(ReadInputRegistersFailed.class, this::onReadInputRegistersFailed)
           .onMessage(ReadHoldingRegistersFailed.class, this::onReadHoldingRegistersFailed)
-          .onMessage(StartNextPollingCycle.class, this::onStartNextPollingCycle);
+          .onMessage(StartNextPollingCycle.class, this::onStartNextPollingCycle)
+          .onMessage(ReconnectToModbusDevice.class, this::onReconnectToModbusDevice);
   }
   
   protected @NotNull Behavior<Command> onPostStop(@NotNull PostStop message) {
@@ -65,12 +67,16 @@ public abstract class Modbus extends InputDevice {
     logger.trace("Modbus.onConnectFailed()");
     
     logger.error("failed to connect to the Modbus device", message.throwable());
-    
-    throw new RuntimeException("failed to connect to the Modbus device", message.throwable());
+
+    reinitializeClient();
+
+    return Behaviors.same();
   }
 
   protected @NotNull Behavior<Command> onConnectSucceeded(@NotNull NotifyConnectSucceeded message) {
     logger.trace("Modbus.onConnectSucceeded()");
+    
+    logger.info("connection to the Modbus device at {}:{} established", address, port);
     
     client = message.client();
     
@@ -82,8 +88,8 @@ public abstract class Modbus extends InputDevice {
     
     logger.error("failed to read input registers at address {}, quantity {}", message.address(), message.quantity(), 
           message.throwable());
-
-    startNextPollingTimer();
+    
+    reinitializeClient();
     
     return Behaviors.same();
   }
@@ -94,28 +100,60 @@ public abstract class Modbus extends InputDevice {
     logger.error("failed to read holding registers at address {}, quantity {}", message.address(), message.quantity(),
           message.throwable());
 
-    startNextPollingTimer();
+    reinitializeClient();
 
+    return Behaviors.same();
+  }
+  
+  protected @NotNull Behavior<Command> onReconnectToModbusDevice(@NotNull ReconnectToModbusDevice message) {
+    logger.trace("Modbus.onReconnectToModbusDevice()");
+    
+    logger.info("reconnecting to the Modbus device");
+    
+    startConnection();
+    
     return Behaviors.same();
   }
 
   abstract protected @NotNull Behavior<Command> onStartNextPollingCycle(@NotNull StartNextPollingCycle message); 
   
   private void startConnection() {
-      try {
-        NettyTcpClientTransport transport = NettyTcpClientTransport.create(cfg -> {
-          cfg.hostname = address;
-          cfg.port = port;
-        });
+    ModbusTcpClient client = null;
+    try {
+      NettyTcpClientTransport transport = NettyTcpClientTransport.create(cfg -> {
+        cfg.hostname = address;
+        cfg.port = port;
+      });
 
-        ModbusTcpClient client = ModbusTcpClient.create(transport);
+      client = ModbusTcpClient.create(transport);
 
-        client.connect();
+      client.connect();
 
-        getContext().getSelf().tell(new NotifyConnectSucceeded(client));
-      } catch (Exception e) {
-        getContext().getSelf().tell(new NotifyConnectFailed(e));
+      getContext().getSelf().tell(new NotifyConnectSucceeded(client));
+    } catch (Exception e) {
+      if (client != null) {
+        try { client.disconnect(); } catch (Exception ignore) {}
       }
+      
+      getContext().getSelf().tell(new NotifyConnectFailed(e));
+    }
+  }
+  
+private void reinitializeClient() {
+  if (client != null) {
+    try {
+      client.disconnect();
+    } catch (Exception exception) {
+      logger.debug("failed to disconnect from the Modbus device", exception);
+      }
+      
+      client = null;
+    }
+    
+    getContext().getSystem().scheduler().scheduleOnce(
+          getReconnectInterval(),
+          () -> getContext().getSelf().tell(ReconnectToModbusDevice.INSTANCE),
+          getContext().getExecutionContext());
   }
 
   protected void startNextPollingTimer() {
@@ -175,6 +213,10 @@ public abstract class Modbus extends InputDevice {
   ) implements Command {}
 
   protected enum StartNextPollingCycle implements Command {
+    INSTANCE
+  }
+  
+  protected enum ReconnectToModbusDevice implements Command {
     INSTANCE
   }
 }

@@ -36,8 +36,8 @@ public class Solaredge extends Modbus {
                       @NotNull ActorRef<OutputDevice.Command> outputDevice, 
                       @NotNull Config config) {
     super(context, 
-            outputDevice, 
-            config.withFallback(context.getSystem().settings().config().getConfig("uni-meter.input-devices.modbus")));
+          outputDevice, 
+          config.withFallback(context.getSystem().settings().config().getConfig("uni-meter.input-devices.modbus")));
   }
 
   @Override
