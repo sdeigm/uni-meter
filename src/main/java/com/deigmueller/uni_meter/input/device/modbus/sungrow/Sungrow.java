@@ -19,7 +19,7 @@ public class Sungrow extends Modbus {
   public static final String TYPE = "Sungrow";
 
   // Instance members
-  private final double powerSign = getConfig().getBoolean("invert-power") ? 1.0 : -1.0;
+  private final double powerSign = getConfig().getBoolean("invert-power") ? -1.0 : 1.0;
   private double powerL1 = 0.0;
   private double powerL2 = 0.0;
   private double powerL3 = 0.0;
@@ -74,9 +74,9 @@ public class Sungrow extends Modbus {
       
       ByteBuffer byteBuffer = ByteBuffer.wrap(rawData);
       
-      powerL1 = readSignedInt32(byteBuffer);
-      powerL2 = readSignedInt32(byteBuffer);
-      powerL3 = readSignedInt32(byteBuffer);
+      powerL1 = powerSign * readSignedInt32(byteBuffer);
+      powerL2 = powerSign * readSignedInt32(byteBuffer);
+      powerL3 = powerSign * readSignedInt32(byteBuffer);
 
       readVoltage();
     } catch (Exception exception) {

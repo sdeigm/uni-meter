@@ -3,6 +3,7 @@ package com.deigmueller.uni_meter.application;
 import com.deigmueller.uni_meter.input.InputDevice;
 import com.deigmueller.uni_meter.input.device.generic_http.GenericHttp;
 import com.deigmueller.uni_meter.input.device.home_assistant.HomeAssistant;
+import com.deigmueller.uni_meter.input.device.modbus.huawei.HuaweiInverter;
 import com.deigmueller.uni_meter.input.device.modbus.ksem.Ksem;
 import com.deigmueller.uni_meter.input.device.modbus.sdm120.Sdm120;
 import com.deigmueller.uni_meter.input.device.modbus.solaredge.Solaredge;
@@ -307,6 +308,16 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
         return getContext().spawn(
               Behaviors.supervise(
                     Sungrow.create(
+                          output,
+                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
+              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
+              "input");
+      }
+      
+      case HuaweiInverter.TYPE -> {
+        return getContext().spawn(
+              Behaviors.supervise(
+                    HuaweiInverter.create(
                           output,
                           getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
               ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
