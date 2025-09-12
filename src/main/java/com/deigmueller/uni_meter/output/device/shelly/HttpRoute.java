@@ -29,6 +29,7 @@ import scala.concurrent.duration.FiniteDuration;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 class HttpRoute extends AllDirectives {
@@ -118,8 +119,8 @@ class HttpRoute extends AllDirectives {
                                         onShellyGetStatus(remoteAddress)
                                   ),
                                   path("Shelly.Reboot", () ->
-                                        parameterOptional(StringUnmarshallers.INTEGER, "delay_ms", delay_ms -> 
-                                              onShellyReboot(remoteAddress, delay_ms.orElse(1000)))
+                                        parameterOptional(StringUnmarshallers.INTEGER, "delay_ms", delayMs -> 
+                                              onShellyReboot(remoteAddress, delayMs.orElse(1000)))
                                   ),
                                   path("Sys.GetConfig" , () ->
                                         onSysGetConfig(remoteAddress)
@@ -383,14 +384,10 @@ class HttpRoute extends AllDirectives {
                 system.scheduler()
           ).thenApply(response -> {
             if (response.failure() != null) {
-              if (response.failure() instanceof RuntimeException runtimeException) {
-                throw runtimeException;
-              } else {
-                throw new RuntimeException(response.failure());
-              }
+              return CompletableFuture.failedFuture(response.failure());
+            } else {
+              return response.status();
             }
-            
-            return response.status();
           }),
           Jackson.marshaller(objectMapper));
   }
@@ -460,7 +457,7 @@ class HttpRoute extends AllDirectives {
           WebsocketOutput.createSource(
                 connectionLogger,
                 materializer, 
-                (sourceActor) -> shelly.tell(
+                sourceActor -> shelly.tell(
                       new Shelly.WebsocketOutputOpened(connectionId, remoteAddress.getAddress().orElse(DEFAULT_ADDRESS), sourceActor)));
 
     Sink<Message, NotUsed> sink = 
