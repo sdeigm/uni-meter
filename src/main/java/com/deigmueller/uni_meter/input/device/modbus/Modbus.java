@@ -76,7 +76,7 @@ public abstract class Modbus extends InputDevice {
   protected @NotNull Behavior<Command> onConnectSucceeded(@NotNull NotifyConnectSucceeded message) {
     logger.trace("Modbus.onConnectSucceeded()");
     
-    logger.info("connection to the Modbus device at {}:{} established", address, port);
+    logger.info("connection to the modbus device at {}:{} (unit-id {}) established", address, port, unitId);
     
     client = message.client();
     
@@ -123,9 +123,13 @@ public abstract class Modbus extends InputDevice {
       NettyTcpClientTransport transport = NettyTcpClientTransport.create(cfg -> {
         cfg.hostname = address;
         cfg.port = port;
+        cfg.connectTimeout = getConfig().getDuration("connect-timeout");
       });
 
-      client = ModbusTcpClient.create(transport);
+      client = ModbusTcpClient.create(
+            transport,
+            cfg ->
+                  cfg.requestTimeout = getConfig().getDuration("request-timeout"));
 
       client.connect();
 
