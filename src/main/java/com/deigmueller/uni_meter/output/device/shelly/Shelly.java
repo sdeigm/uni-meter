@@ -70,7 +70,7 @@ public abstract class Shelly extends OutputDevice {
     return super.newReceiveBuilder()
           .onMessage(ShellyGet.class, this::onShellyGet)
           .onMessage(SettingsGet.class, this::onSettingsGet)
-          .onMessage(StatusGet.class, this::onStatusGet);
+          .onMessage(GetStatus.class, this::onGetStatus);
   }
 
   /**
@@ -108,30 +108,35 @@ public abstract class Shelly extends OutputDevice {
    * @param request Request for the Shelly device status
    * @return Same behavior
    */
-  protected Behavior<Command> onStatusGet(@NotNull StatusGet request) {
-    logger.trace("Shelly.onStatusGet()");
+  protected Behavior<Command> onGetStatus(@NotNull Shelly.GetStatus request) {
+    logger.trace("Shelly.onGetStatus()");
 
-    request.replyTo().tell(
-          new Status(
-                createWiFiStatus(),
-                createCloudStatus(),
-                createMqttStatus(),
-                getTime(),
-                Instant.now().getEpochSecond(),
-                1,
-                false,
-                getMac(request.remoteAddress()),
-                50648,
-                38376,
-                32968,
-                233681,
-                174194,
-                getUptime(),
-                28.08,
-                false,
-                createTempStatus()));
+    try {
+      request.replyTo().tell(
+            GetStatusOrFailureResponse.createSuccess(
+                  new Status(
+                        createWiFiStatus(),
+                        createCloudStatus(),
+                        createMqttStatus(),
+                        getTime(),
+                        Instant.now().getEpochSecond(),
+                        1,
+                        false,
+                        getMac(request.remoteAddress()),
+                        50648,
+                        38376,
+                        32968,
+                        233681,
+                        174194,
+                        getUptime(),
+                        28.08,
+                        false,
+                        createTempStatus())));
+    } catch (Exception e) {
+      request.replyTo().tell(GetStatusOrFailureResponse.createFailure(e));
+    }
 
-    return Behaviors.same();
+      return Behaviors.same();
   }
   
   private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
@@ -324,10 +329,22 @@ public abstract class Shelly extends OutputDevice {
         String username
   ) {}
 
-  public record StatusGet(
+  public record GetStatus(
         @NotNull InetAddress remoteAddress,
-        @NotNull ActorRef<Status> replyTo
+        @NotNull ActorRef<GetStatusOrFailureResponse> replyTo
   ) implements Command {}
+  
+  public record GetStatusOrFailureResponse(
+        @Nullable Exception failure,
+        @Nullable Status status
+  ) implements Command {
+    public static GetStatusOrFailureResponse createSuccess(@NotNull Status status) {
+      return new GetStatusOrFailureResponse(null, status);
+    }
+    public static GetStatusOrFailureResponse createFailure(@NotNull Exception failure) {
+      return new GetStatusOrFailureResponse(failure, null);
+    }
+  }
 
   @Getter
   @AllArgsConstructor

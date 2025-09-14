@@ -1,6 +1,7 @@
 package com.deigmueller.uni_meter.application;
 
 import com.deigmueller.uni_meter.common.shelly.RpcException;
+import com.deigmueller.uni_meter.output.TemporaryNotAvailableException;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.*;
 import org.apache.pekko.http.javadsl.Http;
@@ -209,6 +210,10 @@ public class HttpServer extends AbstractBehavior<HttpServer.Command> {
             })
             .match(RpcException.class, e -> {
               logger.debug("rpc exception: {}", e.getMessage());
+              return complete(StatusCodes.SERVICE_UNAVAILABLE, e.getMessage());
+            })
+            .match(TemporaryNotAvailableException.class, e -> {
+              logger.debug("temporary not available: {}", e.getMessage());
               return complete(StatusCodes.SERVICE_UNAVAILABLE, e.getMessage());
             })
             .matchAny(e -> {

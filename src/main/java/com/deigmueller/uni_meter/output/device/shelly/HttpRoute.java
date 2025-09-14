@@ -195,12 +195,23 @@ class HttpRoute extends AllDirectives {
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
-                (ActorRef<Shelly.Status> replyTo) -> new Shelly.StatusGet(
+                (ActorRef<Shelly.GetStatusOrFailureResponse> replyTo) -> new Shelly.GetStatus(
                       remoteAddress.getAddress().orElse(DEFAULT_ADDRESS), 
                       replyTo),
                 timeout, 
-                system.scheduler()), 
-          Jackson.marshaller(objectMapper));
+                system.scheduler()
+          ).thenApply(response -> {
+            if (response.failure() != null) {
+              if (response.failure() instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+              } else {
+                throw new RuntimeException(response.failure());
+              }
+            }
+            return response.status();
+          }),
+          Jackson.marshaller(objectMapper)
+    );
   }
 
   private Route onRpcRequest(@NotNull RemoteAddress remoteAddress,
@@ -287,12 +298,21 @@ class HttpRoute extends AllDirectives {
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
-                (ActorRef<Shelly.Status> replyTo) -> new ShellyPro3EM.ShellyGetStatus(
+                (ActorRef<ShellyPro3EM.ShellyGetStatusOrFailureResponse> replyTo) -> new ShellyPro3EM.ShellyGetStatus(
                       remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
                       replyTo),
                 timeout,
                 system.scheduler()
-          ),
+          ).thenApply(response -> {
+            if (response.failure() != null) {
+              if (response.failure() instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+              } else {
+                throw new RuntimeException(response.failure());
+              }
+            }
+            return response.status();
+          }),
           Jackson.marshaller(objectMapper));
   }
 
