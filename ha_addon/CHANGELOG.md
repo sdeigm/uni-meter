@@ -1,6 +1,12 @@
 # Change Log
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.1.18] - 2025-09-14
+
+### Fixed
+
+- [#244](https://github.com/sdeigm/uni-meter/issues/244) Fixes the problem that expected exceptions in HTTP requests were not handled correctly
+
 ## [1.1.17] - 2025-09-08
 
 ### Fixed

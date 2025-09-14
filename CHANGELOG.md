@@ -1,6 +1,12 @@
 # Change Log
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.1.18] - 2025-09-14
+
+### Fixed
+
+- [#244](https://github.com/sdeigm/uni-meter/issues/244) Fixes the problem that expected exceptions in HTTP requests were not handled correctly
+
 ## [1.1.17] - 2025-09-08
 
 ### Fixed
@@ -34,8 +40,8 @@ All notable changes to the `uni-meter` will be documented in this file.
 
 - [#210](https://github.com/sdeigm/uni-meter/issues/210) Additional debug log for raw tibber data
 - [#199](https://github.com/sdeigm/uni-meter/pull/199) New input device Kostal Smart Energy Meter
-- [#198](https://github.com/sdeigm/uni-meter/issues/198) Output device independent status endpoint 
-- [#194](https://github.com/sdeigm/uni-meter/issues/194) Voltage & Frequency .. etc. as Input Variables 
+- [#198](https://github.com/sdeigm/uni-meter/issues/198) Output device independent status endpoint
+- [#194](https://github.com/sdeigm/uni-meter/issues/194) Voltage & Frequency .. etc. as Input Variables
 
 ## [1.1.13] - 2025-07-09
 
@@ -46,7 +52,7 @@ All notable changes to the `uni-meter` will be documented in this file.
 ### Added
 
 - [#188](https://github.com/sdeigm/uni-meter/issues/188) Enhanced mDNS registration to support the Growatt Noah 2000 storage
-  
+
 ## [1.1.12] - 2025-07-08
 
 ### Fixed
@@ -56,7 +62,7 @@ All notable changes to the `uni-meter` will be documented in this file.
 ### Added
 
 - [#178](https://github.com/sdeigm/uni-meter/issues/178) Container image now supports environment variables `UNI_CONFIG` and `UNI_LOGGING`
-to specify custom locations for the `uni-meter.conf` and `logback.xml` configuration files.
+  to specify custom locations for the `uni-meter.conf` and `logback.xml` configuration files.
 
 ## [1.1.11] - 2025-05-29
 
@@ -73,7 +79,7 @@ to specify custom locations for the `uni-meter.conf` and `logback.xml` configura
 ### Fixed
 
 - [#143](https://github.com/sdeigm/uni-meter/issues/143) Fixes the problem that a trailing `/` in the `url` configuration of an HTTP input device
-leads to problems with the HTTP request
+  leads to problems with the HTTP request
 - [#145](https://github.com/sdeigm/uni-meter/issues/145) Fixes the problem that the HTTP response status code was not evaluated
 - [#151](https://github.com/sdeigm/uni-meter/issues/151) Fixes the problem that SolarEdge input values had the wrong sign
 
