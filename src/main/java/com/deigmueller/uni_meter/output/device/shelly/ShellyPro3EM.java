@@ -180,10 +180,14 @@ public class ShellyPro3EM extends Shelly {
    * @return Same behavior
    */
   @Override
-  protected @NotNull Behavior<Command> onStatusGet(@NotNull StatusGet request) {
-    logger.trace("ShellyPro3EM.onStatusGet()");
+  protected @NotNull Behavior<Command> onGetStatus(@NotNull Shelly.GetStatus request) {
+    logger.trace("ShellyPro3EM.onGetStatus()");
     
-    request.replyTo().tell(createStatus(request.remoteAddress()));
+    try {
+      request.replyTo().tell(GetStatusOrFailureResponse.createSuccess(createStatus(request.remoteAddress())));
+    } catch (Exception e) {
+      request.replyTo().tell(GetStatusOrFailureResponse.createFailure(e));
+    }
     
     return Behaviors.same();
   }
@@ -345,7 +349,11 @@ public class ShellyPro3EM extends Shelly {
   protected @NotNull Behavior<Command> onShellyGetStatus(@NotNull ShellyGetStatus request) {
     logger.trace("ShellyPro3EM.onShellyGetStatus()");
     
-    request.replyTo().tell(createStatus(request.remoteAddress()));
+    try {
+      request.replyTo().tell(ShellyGetStatusOrFailureResponse.createSuccess(createStatus(request.remoteAddress())));
+    } catch (Exception e) {
+      request.replyTo().tell(ShellyGetStatusOrFailureResponse.createFailure(e));
+    }
     
     return Behaviors.same();
   }
@@ -1554,8 +1562,20 @@ public class ShellyPro3EM extends Shelly {
 
   public record ShellyGetStatus(
         @JsonProperty("remoteAddress") InetAddress remoteAddress,
-        @JsonProperty("replyTo") ActorRef<Shelly.Status> replyTo
+        @JsonProperty("replyTo") ActorRef<ShellyGetStatusOrFailureResponse> replyTo
   ) implements Command {}
+  
+  public record ShellyGetStatusOrFailureResponse(
+        @JsonProperty("failure") Exception failure,
+        @JsonProperty("status") Shelly.Status status
+  ) {
+    static ShellyGetStatusOrFailureResponse createSuccess(Shelly.Status status) {
+      return new ShellyGetStatusOrFailureResponse(null, status);
+    }
+    static ShellyGetStatusOrFailureResponse createFailure(Exception failure) {
+      return new ShellyGetStatusOrFailureResponse(failure, null);
+    }
+  }
 
   public record ShellyReboot(
         @JsonProperty("remoteAddress") InetAddress remoteAddress,
