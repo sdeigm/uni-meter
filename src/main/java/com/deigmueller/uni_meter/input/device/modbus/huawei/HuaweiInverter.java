@@ -1,7 +1,3 @@
-/*
- * Copyright (C) 2018-2023 layline.io GmbH <http://www.layline.io>
- */
-
 package com.deigmueller.uni_meter.input.device.modbus.huawei;
 
 import com.deigmueller.uni_meter.common.utils.MathUtils;
@@ -18,6 +14,7 @@ import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
+import java.time.Duration;
 
 public class HuaweiInverter extends Modbus {
   // Class members
@@ -26,6 +23,7 @@ public class HuaweiInverter extends Modbus {
   // Instance members
   private final int baseRegisterAddress = getConfig().getInt("base-register-address");
   private final double powerSign = getConfig().getBoolean("invert-power") ? -1.0 : 1.0;
+  private final Duration connectDelay = getConfig().getDuration("connect-delay");
 
   public static Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> outputDevice,
                                          @NotNull Config config) {
@@ -43,6 +41,7 @@ public class HuaweiInverter extends Modbus {
   @Override
   public @NotNull ReceiveBuilder<Command> newReceiveBuilder() {
     return super.newReceiveBuilder()
+          .onMessage(ConnectDelayElapsed.class, this::onConnectDelayElapsed)
           .onMessage(ReadMeterDataSucceeded.class, this::onReadMetaDataSucceeded);
   }
 
@@ -51,7 +50,10 @@ public class HuaweiInverter extends Modbus {
     logger.trace("Huawei.onConnectSucceeded()");
     super.onConnectSucceeded(message);
 
-    readMeterData();
+    getContext().getSystem().scheduler().scheduleOnce(
+          connectDelay,
+          () -> getContext().getSelf().tell(ConnectDelayElapsed.INSTANCE),
+          getContext().getExecutionContext());
 
     return Behaviors.same();
   }
@@ -59,6 +61,14 @@ public class HuaweiInverter extends Modbus {
   @Override
   protected @NotNull Behavior<Command> onStartNextPollingCycle(@NotNull StartNextPollingCycle message) {
     logger.trace("Huawei.onStartNextPollingCycle()");
+
+    readMeterData();
+
+    return Behaviors.same();
+  }
+  
+  private @NotNull Behavior<Command> onConnectDelayElapsed(@NotNull ConnectDelayElapsed message) {
+    logger.trace("Huawei.onConnectDelayElapsed()");
 
     readMeterData();
 
@@ -85,21 +95,21 @@ public class HuaweiInverter extends Modbus {
         double reactivePower = powerSign * byteBuffer.getInt();
         double powerFactor = byteBuffer.getShort() / 1000.0;
         double gridFrequency = byteBuffer.getShort() / 100.0;
-        
+
         double energyExported = byteBuffer.getInt() / 100.0;
         double energyImported = byteBuffer.getInt() / 100.0;
-        
+
         double accumulatedReactivePower = byteBuffer.getInt() / 100.0;
-        
+
         short meterType = byteBuffer.getShort();
         double abVoltage = byteBuffer.getInt() / 10.0;
         double bcVoltage = byteBuffer.getInt() / 10.0;
         double caVoltage = byteBuffer.getInt() / 10.0;
-        
+
         double activePowerA =  powerSign * byteBuffer.getInt();
         double activePowerB =  powerSign * byteBuffer.getInt();
         double activePowerC =  powerSign * byteBuffer.getInt();
-        
+
         short meterModelDetectionResult = byteBuffer.getShort();
 
         if (logger.isDebugEnabled()) {
@@ -186,6 +196,10 @@ public class HuaweiInverter extends Modbus {
               getContext().getSelf().tell(new ReadMeterDataSucceeded(response));
             }
           });
+  }
+  
+  public enum ConnectDelayElapsed implements Command {
+    INSTANCE
   }
 
   public record ReadMeterDataSucceeded(
