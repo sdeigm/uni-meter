@@ -81,7 +81,7 @@ public class HuaweiInverter extends Modbus {
     try {
       ByteBuffer byteBuffer = ByteBuffer.wrap(message.response.registers());
       
-      if (byteBuffer.get() == 0) {
+      if (byteBuffer.getShort() == 0) {
         logger.debug("the connected smart meter is offline");
       } else {
         double voltageA = byteBuffer.getInt() / 10.0;
