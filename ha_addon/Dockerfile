@@ -1,5 +1,5 @@
 ARG BUILD_FROM
-ARG UNI_METER_VERSION="1.1.18"
+ARG UNI_METER_VERSION="1.1.19"
 FROM ${BUILD_FROM:-ghcr.io/hassio-addons/base:17.0.1}
 
 # Build stage
