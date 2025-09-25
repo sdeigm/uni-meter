@@ -22,7 +22,7 @@ public class HuaweiInverter extends Modbus {
 
   // Instance members
   private final int baseRegisterAddress = getConfig().getInt("base-register-address");
-  private final double powerSign = getConfig().getBoolean("invert-power") ? -1.0 : 1.0;
+  private final double powerSign = getConfig().getBoolean("invert-power") ? 1.0 : -1.0;
   private final Duration connectDelay = getConfig().getDuration("connect-delay");
 
   public static Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> outputDevice,
