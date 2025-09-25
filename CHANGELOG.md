@@ -1,6 +1,12 @@
 # Change Log
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.1.19] - 2025-09-25
+
+### Added
+
+- [#230](https://github.com/sdeigm/uni-meter/issues/230) Support for HUAWEI Inverter with Smart Power Sensor DTSU666-H
+
 ## [1.1.18] - 2025-09-14
 
 ### Fixed
