@@ -13,11 +13,18 @@ import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
 import org.apache.pekko.http.javadsl.model.HttpEntity;
 import org.apache.pekko.http.javadsl.model.HttpRequest;
+import org.apache.pekko.http.javadsl.model.HttpResponse;
+import org.apache.pekko.http.javadsl.model.StatusCodes;
+import org.apache.pekko.http.javadsl.model.headers.HttpChallenge;
+import org.apache.pekko.http.javadsl.model.headers.HttpCredentials;
+import org.apache.pekko.http.javadsl.model.headers.WWWAuthenticate;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Shelly 3EM input device.
@@ -28,6 +35,9 @@ public class Shelly3EM extends HttpInputDevice {
 
   // Instance members
   private final Duration statusPollingInterval = getConfig().getDuration("polling-interval");
+  private final String password = getConfig().getString("password");
+  private final String username = getConfig().getString("username");
+  private HttpCredentials credentials;
 
   /**
    * Static factory method to create a new Shelly3EM actor.
@@ -73,14 +83,49 @@ public class Shelly3EM extends HttpInputDevice {
    */
   protected Behavior<Command> onStatusRequestFailed(@NotNull StatusRequestFailed message) {
     logger.trace("Shelly3EM.onStatusRequestFailed()");
-
-    logger.error("failed to execute /status polling: {}", message.throwable().getMessage());
+    
+    if (credentials == null && message.httpResponse() != null && message.httpResponse().status() == StatusCodes.UNAUTHORIZED) {
+      logger.debug("request was unauthorized");
+      if (handleUnauthorizedFailure(message.httpResponse)) {
+        logger.error("authentication method is not supported");
+      }
+    } else {
+      logger.error("failed to execute /status polling: {}", message.throwable().getMessage());
+    }
 
     startNextPollingTimer();
 
     return Behaviors.same();
   }
-
+  
+  private boolean handleUnauthorizedFailure(@NotNull HttpResponse httpResponse) {
+    logger.trace("Shelly3EM.handleUnauthorizedFailure()");
+    
+    WWWAuthenticate wwwAuthenticate = httpResponse.getHeader(WWWAuthenticate.class).orElse(null);
+    if (wwwAuthenticate == null) {
+      logger.error("response to unauthorized request did not contain WWW-Authenticate header");
+    } else {
+      for (HttpChallenge challenge : wwwAuthenticate.getChallenges()) {
+        if ("basic".equalsIgnoreCase(challenge.scheme())) {
+          return initBasicAuthentication(); 
+        } else if ("digest".equalsIgnoreCase(challenge.scheme())) {
+          return initDigestAuthentication(challenge.realm(), challenge.getParams());
+        }
+      }
+    }
+    
+    return false;
+  }
+  
+  private boolean initBasicAuthentication() {
+    credentials = HttpCredentials.createBasicHttpCredentials(username, password);
+    return false;
+  }
+  
+  private boolean initDigestAuthentication(String realm, Map<String, String> params) {
+    return false;
+  }
+  
   /**
    * Handle a StatusRequestSuccess message.
    * @param message Message to handle
@@ -170,10 +215,14 @@ public class Shelly3EM extends HttpInputDevice {
     
     final String requestUrl = getUrl() + "/status";
 
-    getHttp().singleRequest(HttpRequest.create(requestUrl))
-          .whenComplete((response, throwable) -> {
+    HttpRequest httpRequest = HttpRequest.create(requestUrl);
+    if (credentials != null) {
+      httpRequest = httpRequest.addCredentials(credentials);
+    }
+
+    getHttp().singleRequest(httpRequest).whenComplete((response, throwable) -> {
             if (throwable != null) {
-              getContext().getSelf().tell(new StatusRequestFailed(throwable));
+              getContext().getSelf().tell(new StatusRequestFailed(throwable, response));
             } else {
               try {
                 response.entity()
@@ -181,19 +230,21 @@ public class Shelly3EM extends HttpInputDevice {
                       .whenComplete((strictEntity, toStrictFailure) -> {
                         if (toStrictFailure != null) {
                           response.discardEntityBytes(getMaterializer());
-                          getContext().getSelf().tell(new StatusRequestFailed(toStrictFailure));
+                          getContext().getSelf().tell(new StatusRequestFailed(toStrictFailure, response));
                         } else {
                           if (response.status().isSuccess()) {
                             getContext().getSelf().tell(new StatusRequestSuccess(strictEntity));
                           } else {
-                            getContext().getSelf().tell(new StatusRequestFailed(new IOException(
-                                  "http request to " + requestUrl + " failed with status " + response.status())));
+                            getContext().getSelf().tell(new StatusRequestFailed(
+                                  new IOException(
+                                        "http request to " + requestUrl + " failed with status " + response.status()),
+                                  response));
                           }
                         }
                       });
               } catch (Exception e) {
                 // Failed to get a strict entity
-                getContext().getSelf().tell(new StatusRequestFailed(e));
+                getContext().getSelf().tell(new StatusRequestFailed(e, null));
               }
             }
           });
@@ -209,7 +260,8 @@ public class Shelly3EM extends HttpInputDevice {
   }
   
   protected record StatusRequestFailed(
-        @NotNull Throwable throwable
+        @NotNull Throwable throwable,
+        @Nullable HttpResponse httpResponse
   ) implements Command {}
 
   protected record StatusRequestSuccess(
