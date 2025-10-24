@@ -107,36 +107,3 @@ uni-meter {
   #...
 }
 ```
-
-## Configuring client specific behaviour
-
-Unimeter can pretend to be different devices for each connecting client. For each client, specified via
-address, the MAC adress and the power factor can be configured.
-By this, the power from the input device can be unequal distributed over multiple batteries.
-
-```hocon
-uni-meter {
-  #...
-  output-devices {
-    shelly-pro3em {
-      #...
-      client-contexts = [{
-        # See correct data from local machine
-        address = "127.0.0.1"
-        mac = "abcdef0123456"
-        power-factor = 1.0      
-      },{
-        # Small batterie
-        address = "192.168.178.30"
-        mac = "bcdef01234567"
-        power-factor = 0.3     
-      },{
-        # Big batterie
-        address = "192.168.178.70"
-        mac = "cdef012345678"
-        power-factor = 0.7     
-      }]
-    }
-  }
-}
-```
