@@ -48,3 +48,39 @@ uni-meter {
   }
 }
 ```
+
+## Configuring a default power scaling
+
+If you have two batteries which are not coupled in any manner, a method to have them both acting shared is to let them
+see only the half of the power difference that realy exists.
+
+```hocon
+uni-meter {
+  #...
+  output-devices {
+    #...
+    shelly-pro3em {
+      #...
+      default-client-power-factor = 0.5
+    }
+  }
+}
+```
+
+## Configuring a default voltage and/or frequeny
+
+TODO: Describe use case here
+
+```hocon
+uni-meter {
+  #...
+  output-devices {
+    #...
+    shelly-pro3em {
+      #...
+      default-voltage = 230.0
+      default-frequency = 5.0
+    }
+  }
+}
+```
