@@ -37,6 +37,7 @@ public class EcoTracker  extends OutputDevice {
   private final String bindInterface = getConfig().getString("interface");
   private final int bindPort = getConfig().getInt("port");
   private final Duration averageInterval = getConfig().getDuration("average-interval");
+  private final boolean suppressPhaseOutput =  getConfig().getBoolean("suppress-phase-output");
   private final String defaultMac = getDefaultMacAddress(getConfig());
   private final String defaultHostname = getDefaultHostName(getConfig(), defaultMac);
   private final Deque<PowerHistory> powerHistory = new ArrayDeque<>();
@@ -132,6 +133,9 @@ public class EcoTracker  extends OutputDevice {
           new V1GetJsonResponse(
                 (long) power,
                 (long) powerAverage, 
+                suppressPhaseOutput ? null : powerPhase0.power(),
+                suppressPhaseOutput ? null : powerPhase1.power(),
+                suppressPhaseOutput ? null : powerPhase2.power(),
                 energyIn * 1000.0,
                 null,
                 null,
@@ -249,6 +253,9 @@ public class EcoTracker  extends OutputDevice {
   public record V1GetJsonResponse(
         @JsonProperty("power") long power,
         @JsonProperty("powerAvg") long powerAvg,
+        @JsonProperty("powerPhase1") Double powerPhase1,
+        @JsonProperty("powerPhase2") Double powerPhase2,
+        @JsonProperty("powerPhase3") Double powerPhase3,
         @JsonProperty("energyCounterIn") Double energyCounterIn,
         @JsonProperty("energyCounterInT1") Double energyCounterInT1,
         @JsonProperty("energyCounterInT2") Double energyCounterInT2,
