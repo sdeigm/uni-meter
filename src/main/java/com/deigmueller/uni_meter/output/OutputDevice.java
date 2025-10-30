@@ -4,6 +4,7 @@ import com.deigmueller.uni_meter.application.UniMeter;
 import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
@@ -24,8 +25,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Represents an output device responsible for handling power and energy data,
@@ -114,6 +114,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
           .onMessage(SwitchOff.class, this::onSwitchOff)
           .onMessage(NoCharge.class, this::onNoCharge)
           .onMessage(NoDischarge.class, this::onNoDischarge)
+          .onMessage(SetParameters.class, this::onSetParameters)
           .onMessage(NotifyPhasePowerData.class, this::onNotifyPhasePowerData)
           .onMessage(NotifyPhasesPowerData.class, this::onNotifyPhasesPowerData)
           .onMessage(NotifyTotalPowerData.class, this::onNotifyTotalPowerData)
@@ -233,6 +234,33 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     return Behaviors.same();
   }
 
+  /**
+   * Handle the request to set some parameter
+   * @param message Request message
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onSetParameters(@NotNull SetParameters message) {
+    List<ParameterValue> parameterValues;
+    try {
+      parameterValues = checkParameters(new TreeMap<>(message.parameter));
+    } catch (Exception e) {
+      message.replyTo().tell(new SetParametersResponse(e, null));
+      return Behaviors.same();
+    }
+    
+    Map<String,Object> result;
+    try {
+      result = applyParameters(parameterValues);
+    } catch (Exception e) {
+      message.replyTo().tell(new SetParametersResponse(e, null));
+      return Behaviors.same();
+    }
+    
+    message.replyTo().tell(new SetParametersResponse(null, result));
+    
+    return Behaviors.same();
+  }
+  
   /**
    * Handle the notification of power data
    * @param message Notification of power data
@@ -508,7 +536,103 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
       return defaultClientPowerFactor;
     }
   }
-  
+
+  /**
+   * Check the specified parameters for validity
+   * @param parameters Parameter to check
+   * @return List of checked parameters
+   */
+  protected List<ParameterValue> checkParameters(@NotNull Map<String,String> parameters) {
+    List<ParameterValue> parameterValues = new ArrayList<>();
+
+    for (Map.Entry<String, String> entry : parameters.entrySet()) {
+      parameterValues.add(checkParameter(entry.getKey(), entry.getValue()));
+    }
+
+    return parameterValues;
+  }
+
+  /**
+   * Check a single parameter for validity
+   * @param key Name of the parameter
+   * @param value Value of the parameter
+   * @return Checked parameter value
+   */
+  protected ParameterValue checkParameter(@NotNull String key, @NotNull String value) {
+    return switch (key) {
+      case "power-offset-l1",
+           "power-offset-l2",
+           "power-offset-l3",
+           "power-offset-total" -> checkDoubleParameter(key, value);
+      default -> throw new BadRequestException("unknown parameter '" + key + "'");
+    };
+  }
+
+  /**
+   * Check a double parameter
+   * @param key Name of the parameter
+   * @param value Value of the parameter
+   * @return Checked double parameter
+   */
+  protected ParameterValue checkDoubleParameter(@NotNull String key, @NotNull String value) {
+    try {
+      return new ParameterValue(key, Double.parseDouble(value));
+    } catch (Exception e) {
+      throw new BadRequestException("no valid double value for parameter '" + key + "'");
+    }
+  }
+
+  /**
+   * Check a duration parameter
+   * @param key Name of the parameter
+   * @param value Value of the parameter
+   * @return Checked duration parameter
+   */
+  protected ParameterValue checkDurationParameter(@NotNull String key, @NotNull String value) {
+    try {
+      Map<String,Object> map = new HashMap<>();
+      map.put(key, value);
+      Config config = ConfigFactory.parseMap(map);
+      return new ParameterValue(key, config.getDuration(key));
+    } catch (Exception e) {
+      throw new BadRequestException("no valid duration value for parameter '" + key + "'");
+    }
+  }
+
+  /**
+   * Apply the list of checked parameters
+   * @param parameterValues List of parameter values to apply
+   * @return Map of applied parameters
+   */
+  protected Map<String,Object> applyParameters(@NotNull List<ParameterValue> parameterValues) {
+    Map<String,Object> result = new HashMap<>();
+
+    parameterValues.forEach(parameterValue -> {
+      applyParameter(parameterValue);
+      result.put(parameterValue.parameter(), parameterValue.value());
+    });
+
+    return result;
+  }
+
+  /**
+   * Apply the specified parameter
+   * @param parameterValue Parameter value to apply
+   */
+  protected void applyParameter(@NotNull ParameterValue parameterValue) {
+    switch (parameterValue.parameter()) {
+      case "power-offset-l1" -> offsetPhase0 = (double) parameterValue.value();
+      case "power-offset-l2" -> offsetPhase1 = (double) parameterValue.value();
+      case "power-offset-l3" -> offsetPhase2 = (double) parameterValue.value();
+      case "power-offset-total" -> {
+        offsetPhase0 = (double) parameterValue.value() / 3.0;
+        offsetPhase1 = (double) parameterValue.value() / 3.0;
+        offsetPhase2 = (double) parameterValue.value() / 3.0;
+      }
+      default -> throw new BadRequestException("unknown parameter '" + parameterValue.parameter() + "'");
+    }
+  }
+
   protected boolean isSwitchedOff() {
     return Instant.now().isBefore(offUntil);
   }
@@ -589,6 +713,16 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   public record NoDischargeResponse(
         @NotNull Instant offUntil
   ) {}
+  
+  public record SetParameters(
+        @NotNull Map<String,String> parameter,
+        @NotNull ActorRef<SetParametersResponse> replyTo
+  ) implements Command {}
+  
+  public record SetParametersResponse(
+        @Nullable Throwable failure,
+        @Nullable Map<String, Object> parameter      
+  ) {}
 
   public record NotifyPhasePowerData(
         int messageId,
@@ -659,6 +793,11 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   
   public record Ack(
         int messageId
+  ) {}
+
+  protected record ParameterValue(
+        @NotNull String parameter,
+        @NotNull Object value
   ) {}
   
 }

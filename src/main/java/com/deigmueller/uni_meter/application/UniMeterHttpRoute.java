@@ -1,5 +1,6 @@
 package com.deigmueller.uni_meter.application;
 
+import com.deigmueller.uni_meter.common.shelly.Rpc;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.ActorSystem;
@@ -12,6 +13,7 @@ import org.apache.pekko.http.javadsl.unmarshalling.StringUnmarshallers;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.Duration;
+import java.util.Map;
 
 public class UniMeterHttpRoute extends AllDirectives {
   private final ActorSystem<?> actorSystem;
@@ -40,6 +42,9 @@ public class UniMeterHttpRoute extends AllDirectives {
                                   onNoDischarge(seconds.orElse(Integer.MAX_VALUE))
                             )
                       )
+                ),
+                path("set_parameters", () -> 
+                      get(() -> parameterMap(this::onSetParameters))
                 ),
                 path("switch_on", () -> 
                       get(this::onSwitchOn)
@@ -104,10 +109,32 @@ public class UniMeterHttpRoute extends AllDirectives {
     return completeWithFutureStatus(
           AskPattern.ask(
                 outputDevice,
-                (ActorRef<OutputDevice.SwitchOffResponse> replyTo) -> new OutputDevice.SwitchOff(Math.max(1, seconds), replyTo), 
+                (ActorRef<OutputDevice.SwitchOffResponse> replyTo) -> 
+                      new OutputDevice.SwitchOff(Math.max(1, seconds), replyTo), 
                 Duration.ofSeconds(15),
                 actorSystem.scheduler()
           ).thenApply(response -> StatusCodes.OK)
+    );
+  }
+  
+  private Route onSetParameters(@NotNull Map<String, String> parameters) {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                outputDevice,
+                (ActorRef<OutputDevice.SetParametersResponse> replyTo) -> 
+                      new OutputDevice.SetParameters(parameters, replyTo),
+                Duration.ofSeconds(15),
+                actorSystem.scheduler()
+          ).thenApply(response -> {
+            if (response.failure() instanceof RuntimeException runtimeException) {
+              throw runtimeException;
+            }
+            if (response.failure() instanceof Exception) {
+              throw new RuntimeException(response.failure());
+            }
+            return response.parameter();
+          }),
+          Jackson.marshaller(Rpc.getObjectMapper())
     );
   }
 }

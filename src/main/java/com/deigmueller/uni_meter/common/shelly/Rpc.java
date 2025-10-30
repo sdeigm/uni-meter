@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 
@@ -35,6 +36,7 @@ public class Rpc {
     simpleModule.addSerializer(Double.class, new DoubleSerializer());
     simpleModule.addSerializer(RpcNull.class, new RpcNullSerializer());
     simpleModule.addSerializer(RpcStringOrNull.class, new RpcStringOrNullSerializer());
+    simpleModule.addSerializer(Duration.class, new DurationSerializer());
     objectMapper.registerModule(simpleModule);
     return objectMapper.findAndRegisterModules();
   }
@@ -854,6 +856,17 @@ public class Rpc {
         jsonGenerator.writeString(value.value());
       } else {
         jsonGenerator.writeNull();
+      }
+    }
+  }
+
+  private static class DurationSerializer extends JsonSerializer<Duration> {
+    @Override
+    public void serialize(Duration value, JsonGenerator jsonGenerator, SerializerProvider provider) throws IOException {
+      if (null == value) {
+        jsonGenerator.writeNull();
+      } else {
+        jsonGenerator.writeString(value.toString());
       }
     }
   }

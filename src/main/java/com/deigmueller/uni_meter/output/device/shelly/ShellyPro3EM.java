@@ -70,7 +70,7 @@ public class ShellyPro3EM extends Shelly {
   private final int udpPort = getConfig().getInt("udp-port");
   private final String udpInterface = getConfig().getString("udp-interface");
   private final Duration udpRestartBackoff = getConfig().getDuration("udp-restart-backoff");
-  private final Duration minSamplePeriod = getConfig().getDuration("min-sample-period");
+  private Duration minSamplePeriod = getConfig().getDuration("min-sample-period");
 
   private ActorRef<Datagram> udpOutput = null;
   
@@ -1534,6 +1534,33 @@ public class ShellyPro3EM extends Shelly {
 
     return udpClientContext;
   }
+
+  /**
+   * Check a single parameter for validity
+   * @param key Name of the parameter
+   * @param value Value of the parameter
+   * @return Checked parameter value
+   */
+  @Override
+  protected ParameterValue checkParameter(@NotNull String key, @NotNull String value) {
+    if (key.equals("min-sample-period")) {
+      return checkDurationParameter(key, value);
+    }
+    return super.checkParameter(key, value);
+  }
+
+  /**
+   * Apply the specified parameter
+   * @param parameterValue Parameter value to apply
+   */
+  protected void applyParameter(@NotNull ParameterValue parameterValue) {
+    if (parameterValue.parameter().equals("min-sample-period")) {
+      minSamplePeriod = (Duration) parameterValue.value();
+    } else {
+      super.applyParameter(parameterValue);
+    }
+  }
+  
   
   public record ScriptList(
         @JsonProperty("remoteAddress") InetAddress remoteAddress,
