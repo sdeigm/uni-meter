@@ -43,6 +43,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   private final ActorRef<MDnsRegistrator.Command> mdnsRegistrator;
   private final Config config;
   private final Duration forgetInterval;
+  private final Duration usageConstraintInitDuration;
   private final double defaultVoltage;
   private final double defaultFrequency;
   private final double defaultClientPowerFactor;
@@ -50,9 +51,10 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   
   private Instant offUntil = Instant.MIN;
   private Instant usageConstraintUntil = Instant.MIN;
+  private Instant usageConstraintInitUntil = Instant.MIN;
   private UsageConstraint usageConstraint = UsageConstraint.NONE;
   private double lastUsageConstraintPower = 0;
-  
+
   private Instant lastPowerPhase0Update = Instant.now();
   private double offsetPhase0 = 0;
   private PowerData powerPhase0 = new PowerData(0, 0, 0, 0, 230.0, 50.0);
@@ -83,6 +85,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     this.defaultVoltage = config.getDouble("default-voltage");
     this.defaultFrequency = config.getDouble("default-frequency");
     this.defaultClientPowerFactor = config.getDouble("default-client-power-factor");
+    this.usageConstraintInitDuration = config.getDuration("usage-constraint-init-duration");
     
     initPowerOffsets(config);
 
@@ -162,6 +165,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
 
     offUntil = Instant.MIN;
     usageConstraintUntil = Instant.MIN;
+    usageConstraintInitUntil = Instant.MIN;
     usageConstraint = UsageConstraint.NONE;
     
     logger.info("device is switched on and back to normal operation");
@@ -200,6 +204,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
 
     offUntil = Instant.MIN;
     usageConstraintUntil = Instant.now().plusSeconds(Math.max(1, message.seconds()));
+    usageConstraintInitUntil = Instant.now().plus(usageConstraintInitDuration);
     usageConstraint = UsageConstraint.NO_CHARGE;
 
     logger.info("no charging until {}", dateTimeInfo(usageConstraintUntil));
@@ -218,6 +223,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     logger.trace("OutputDevice.onNoDischarge()");
 
     usageConstraintUntil = Instant.now().plusSeconds(Math.max(1, message.seconds()));
+    usageConstraintInitUntil = Instant.now().plus(usageConstraintInitDuration);
     usageConstraint = UsageConstraint.NO_DISCHARGE;
 
     logger.info("no discharging until {}", dateTimeInfo(usageConstraintUntil));
@@ -511,7 +517,11 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     if (! Instant.now().isBefore(usageConstraintUntil)) {
       return false;
     }
-    
+
+    if (Instant.now().isBefore(usageConstraintInitUntil)) {
+      return true;
+    }
+
     boolean result;
     
     result = switch (usageConstraint) {

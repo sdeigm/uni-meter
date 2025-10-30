@@ -5,6 +5,7 @@ import com.deigmueller.uni_meter.common.utils.NetUtils;
 import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.deigmueller.uni_meter.output.ClientContextsInitializer;
 import com.deigmueller.uni_meter.output.OutputDevice;
+import com.deigmueller.uni_meter.output.TemporaryNotAvailableException;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
@@ -19,6 +20,7 @@ import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
 import org.apache.pekko.http.javadsl.server.Route;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
@@ -89,7 +91,8 @@ public class EcoTracker  extends OutputDevice {
     PowerData powerPhase2 = getPowerPhase2();
 
     if (powerPhase0 == null && powerPhase1 == null && powerPhase2 == null) {
-      // Device is not ready => notify failure
+      message.replyTo().tell(
+            V1GetJsonResponse.of(new TemporaryNotAvailableException("device usage constraint until " + getOffUntil())));
       return Behaviors.same();
     }
     
@@ -107,11 +110,6 @@ public class EcoTracker  extends OutputDevice {
 
     double power = (powerPhase0.power() + powerPhase1.power() + powerPhase2.power()) * factor;
 
-    if (checkUsageConstraint(power)) {
-      // Usage constraint => notify failure
-      return Behaviors.same();
-    }
-    
     double powerAverage = 0.0;
     for (PowerHistory history : powerHistory) {
       powerAverage += history.power();
@@ -120,7 +118,14 @@ public class EcoTracker  extends OutputDevice {
       powerAverage /= powerHistory.size();
       powerAverage *= factor;
     }
-    
+
+    if (checkUsageConstraint(power)) {
+      // Usage constraint => notify failure
+      message.replyTo().tell(
+            V1GetJsonResponse.of(new TemporaryNotAvailableException("device usage constraint until " + getUsageConstraintInitUntil())));
+      return Behaviors.same();
+    }
+
     EnergyData energyPhase0 = getEnergyPhase0();
     EnergyData energyPhase1 = getEnergyPhase1();
     EnergyData energyPhase2 = getEnergyPhase2();
@@ -130,16 +135,17 @@ public class EcoTracker  extends OutputDevice {
     double energyOut = energyPhase0.totalProduction() + energyPhase1.totalProduction() + energyPhase2.totalProduction();
     
     message.replyTo().tell(
-          new V1GetJsonResponse(
-                (long) power,
-                (long) powerAverage, 
-                suppressPhaseOutput ? null : powerPhase0.power(),
-                suppressPhaseOutput ? null : powerPhase1.power(),
-                suppressPhaseOutput ? null : powerPhase2.power(),
-                energyIn * 1000.0,
-                null,
-                null,
-                energyOut * 1000.0));
+          V1GetJsonResponse.of(
+                new V1Json(
+                      (long) power,
+                      (long) powerAverage, 
+                      suppressPhaseOutput ? null : powerPhase0.power(),
+                      suppressPhaseOutput ? null : powerPhase1.power(),
+                      suppressPhaseOutput ? null : powerPhase2.power(),
+                      energyIn * 1000.0,
+                      null,
+                      null,
+                      energyOut * 1000.0)));
     
     return Behaviors.same();
   }
@@ -246,11 +252,23 @@ public class EcoTracker  extends OutputDevice {
         @NotNull InetAddress remoteAddress,
         @NotNull ActorRef<V1GetJsonResponse> replyTo
   ) implements Command {}
+  
+  public record V1GetJsonResponse(
+        @Nullable V1Json json,
+        @Nullable Throwable failure
+  ) {
+    public static V1GetJsonResponse of(@NotNull Throwable failure) {
+      return new V1GetJsonResponse(null, failure);
+    }
+    public static V1GetJsonResponse of(@NotNull V1Json json) {
+      return new V1GetJsonResponse(json, null);
+    }
+  }
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonPropertyOrder({"power", "powerAvg", "energyCounterIn", "energyCounterInT1", "energyCounterInT2",
         "energyCounterOut"})
-  public record V1GetJsonResponse(
+  public record V1Json(
         @JsonProperty("power") long power,
         @JsonProperty("powerAvg") long powerAvg,
         @JsonProperty("powerPhase1") Double powerPhase1,
