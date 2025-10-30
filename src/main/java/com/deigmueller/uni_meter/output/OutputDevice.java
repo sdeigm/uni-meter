@@ -631,6 +631,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
       }
       default -> throw new BadRequestException("unknown parameter '" + parameterValue.parameter() + "'");
     }
+    logger.info("changing {} to {}", parameterValue.parameter(), parameterValue.value());
   }
 
   protected boolean isSwitchedOff() {

@@ -1546,6 +1546,8 @@ public class ShellyPro3EM extends Shelly {
    * @param value New min-sample-period value
    */
   private void changeMinSamplePeriod(@NotNull Duration value) {
+    logger.info("changing min-sample-period to {}", value);
+    
     minSamplePeriod = value;
     if (websocketKillSwitch != null) {
       websocketKillSwitch.shutdown();
