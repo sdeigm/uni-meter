@@ -466,16 +466,7 @@ public class ShellyPro3EM extends Shelly {
 
     logger.debug("outgoing websocket connection {} to {} created", message.connectionId(), message.remoteAddress());
     
-    if (websocketThrottlingQueue == null) {
-      Pair<SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest>, UniqueKillSwitch> queueSwitchPair =
-            Source.<WebsocketProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
-                  .viaMat(KillSwitches.single(), Keep.both())
-                  .throttle(1, minSamplePeriod)
-                  .to(Sink.actorRef(Adapter.toClassic(getContext().getSelf()), ThrottlingQueueClosed.INSTANCE))
-                  .run(getMaterializer());
-      websocketThrottlingQueue = queueSwitchPair.first();
-      websocketKillSwitch = queueSwitchPair.second();
-    }
+    createWebsocketThrottlingQueue();
 
     websocketConnections.put(
           message.connectionId(),
@@ -1498,19 +1489,8 @@ public class ShellyPro3EM extends Shelly {
       return udpClientContext;
     }
     
-    if (udpThrottlingQueue == null) {
-      Pair<SourceQueueWithComplete<UdpClientProcessPendingEmGetStatusRequest>, UniqueKillSwitch> queueSwitchPair =
-            Source.<UdpClientProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
-                  .viaMat(KillSwitches.single(), Keep.both())
-                  .throttle(1, minSamplePeriod)
-                  .to(Sink.actorRef(Adapter.toClassic(getContext().getSelf()), ThrottlingQueueClosed.INSTANCE))
-                  .run(getMaterializer());
-      
-      udpThrottlingQueue = queueSwitchPair.first();
-      udpKillSwitch = queueSwitchPair.second();
-    }
-
-
+    createUdpThrottlingQueue();
+    
     udpClientContext = UdpClientContext.of(remote);
 
     udpClients.put(remote, udpClientContext);
@@ -1555,12 +1535,61 @@ public class ShellyPro3EM extends Shelly {
    */
   protected void applyParameter(@NotNull ParameterValue parameterValue) {
     if (parameterValue.parameter().equals("min-sample-period")) {
-      minSamplePeriod = (Duration) parameterValue.value();
+      changeMinSamplePeriod((Duration) parameterValue.value());
     } else {
       super.applyParameter(parameterValue);
     }
   }
+
+  /**
+   * Change the min-sample-period value and restart throttling queues if necessary
+   * @param value New min-sample-period value
+   */
+  private void changeMinSamplePeriod(@NotNull Duration value) {
+    minSamplePeriod = value;
+    if (websocketKillSwitch != null) {
+      websocketKillSwitch.shutdown();
+      websocketKillSwitch = null;
+      websocketThrottlingQueue = null;
+
+      createWebsocketThrottlingQueue();
+    }
+    
+    if (udpKillSwitch != null) {
+      udpKillSwitch.shutdown();
+      udpKillSwitch = null;
+      udpThrottlingQueue = null;
+       
+      createUdpThrottlingQueue();
+    }
+  }
   
+  private void createWebsocketThrottlingQueue() {
+    if (websocketThrottlingQueue == null) {
+      Pair<SourceQueueWithComplete<WebsocketProcessPendingEmGetStatusRequest>, UniqueKillSwitch> queueSwitchPair =
+            Source.<WebsocketProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
+                  .viaMat(KillSwitches.single(), Keep.both())
+                  .throttle(1, minSamplePeriod)
+                  .to(Sink.actorRef(Adapter.toClassic(getContext().getSelf()), ThrottlingQueueClosed.INSTANCE))
+                  .run(getMaterializer());
+      websocketThrottlingQueue = queueSwitchPair.first();
+      websocketKillSwitch = queueSwitchPair.second();
+    }
+  }
+  
+  private void createUdpThrottlingQueue() {
+    if (udpThrottlingQueue == null) {
+      Pair<SourceQueueWithComplete<UdpClientProcessPendingEmGetStatusRequest>, UniqueKillSwitch> queueSwitchPair =
+            Source.<UdpClientProcessPendingEmGetStatusRequest>queue(1, OverflowStrategy.dropHead())
+                  .viaMat(KillSwitches.single(), Keep.both())
+                  .throttle(1, minSamplePeriod)
+                  .to(Sink.actorRef(Adapter.toClassic(getContext().getSelf()), ThrottlingQueueClosed.INSTANCE))
+                  .run(getMaterializer());
+
+      udpThrottlingQueue = queueSwitchPair.first();
+      udpKillSwitch = queueSwitchPair.second();
+    }
+  }
   
   public record ScriptList(
         @JsonProperty("remoteAddress") InetAddress remoteAddress,
