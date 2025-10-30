@@ -19,6 +19,7 @@ import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import com.deigmueller.uni_meter.output.device.eco_tracker.EcoTracker;
 import com.deigmueller.uni_meter.output.device.shelly.ShellyPro3EM;
+import com.typesafe.config.Config;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.SupervisorStrategy;
@@ -33,11 +34,14 @@ import org.jetbrains.annotations.NotNull;
 import java.time.Duration;
 
 public class UniMeter extends AbstractBehavior<UniMeter.Command> {
+  // Class members
+  private static final String COMMON_CONFIG = "uni-meter.output-devices.common";
+  
   // Instance members
   private final Logger logger = LoggerFactory.getLogger("uni-meter.controller");
   private final ActorRef<HttpServerController.Command> httpServerController;
 
-    public static Behavior<Command> create() {
+  public static Behavior<Command> create() {
     return Behaviors.setup(UniMeter::new);
   }
   
@@ -124,6 +128,15 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
     
     String outputDeviceType = getContext().getSystem().settings().config().getString(outputDeviceConfigPath + ".type");
     
+    final SupervisorStrategy failureStrategy = SupervisorStrategy.restartWithBackoff(
+          getContext().getSystem().settings().config().getDuration("uni-meter.output-supervision.min-backoff"),
+          getContext().getSystem().settings().config().getDuration("uni-meter.output-supervision.max-backoff"),
+          getContext().getSystem().settings().config().getDouble("uni-meter.output-supervision.jitter"));
+    
+    final Config config = getContext().getSystem().settings().config()
+          .getConfig(outputDeviceConfigPath)
+          .withFallback(getContext().getSystem().settings().config().getConfig(COMMON_CONFIG));
+    
     if (outputDeviceType.equals(ShellyPro3EM.TYPE)) {
       logger.info("creating ShellyPro3EM output device");
       return getContext().spawn(
@@ -131,12 +144,8 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
               ShellyPro3EM.create(
                     getContext().getSelf(), 
                     mDnsRegistrator,
-                    getContext().getSystem().settings().config().getConfig(outputDeviceConfigPath))
-            ).onFailure(SupervisorStrategy.restartWithBackoff(
-                  getContext().getSystem().settings().config().getDuration("uni-meter.output-supervision.min-backoff"),
-                  getContext().getSystem().settings().config().getDuration("uni-meter.output-supervision.max-backoff"),
-                  getContext().getSystem().settings().config().getDouble("uni-meter.output-supervision.jitter")
-            )), 
+                    config)
+            ).onFailure(failureStrategy), 
             "output");
     } else if (outputDeviceType.equals(EcoTracker.TYPE)) {
       logger.info("creating EcoTracker output device");
@@ -145,12 +154,8 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
                   EcoTracker.create(
                         getContext().getSelf(),
                         mDnsRegistrator,
-                        getContext().getSystem().settings().config().getConfig(outputDeviceConfigPath))
-            ).onFailure(SupervisorStrategy.restartWithBackoff(
-                  getContext().getSystem().settings().config().getDuration("uni-meter.output-supervision.min-backoff"),
-                  getContext().getSystem().settings().config().getDuration("uni-meter.output-supervision.max-backoff"),
-                  getContext().getSystem().settings().config().getDouble("uni-meter.output-supervision.jitter")
-            )),
+                        config)
+            ).onFailure(failureStrategy),
             "output");
     } else {
       logger.error("unknown output device type: {}", outputDeviceType);

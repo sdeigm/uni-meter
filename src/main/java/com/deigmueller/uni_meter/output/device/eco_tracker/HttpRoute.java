@@ -59,13 +59,24 @@ public class HttpRoute extends AllDirectives {
 
   private Route onV1JsonGet(@NotNull RemoteAddress remoteAddress) {
     return completeOKWithFuture(
-          AskPattern.ask(
-                ecoTracker,
-                (ActorRef<EcoTracker.V1GetJsonResponse> replyTo) -> new EcoTracker.V1GetJson(
-                      remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
-                      replyTo),
-                timeout,
-                system.scheduler()),
+          AskPattern
+                .ask(ecoTracker,
+                      (ActorRef<EcoTracker.V1GetJsonResponse> replyTo) -> new EcoTracker.V1GetJson(
+                            remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
+                            replyTo),
+                      timeout,
+                      system.scheduler())
+                .thenApply(response -> {
+                  if (response.failure() != null) {
+                    if (response.failure() instanceof RuntimeException runtimeException) {
+                      throw runtimeException;
+                    } else {
+                      throw new RuntimeException(response.failure());
+                    }
+                  }
+                  
+                  return response.json();
+                }),
           Jackson.marshaller(objectMapper));
   }
 }
