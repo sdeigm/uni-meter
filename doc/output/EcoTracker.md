@@ -41,6 +41,28 @@ uni-meter {
 Please be aware, that the `uni-meter` itself also provides some HTTP functionality on a port which can be configured
 separately. 
 
+## Configuring the MAC address and hostname
+
+It is normally not necessary anymore to configure the MAC address or the hostname. It will be
+automatically set based on the first detected hardware mac address on the host machine.
+
+If it may, for whatever reason, be necessary to modify the device id, it can be done using the following configuration
+parameters:
+
+```hocon
+uni-meter {
+  # ...
+  output-devices {
+    eco-tracker {
+      # ...
+      hostname = "ecotracker-b827eb364242"
+      mac = "B827EB364242"
+    }
+  }
+  #...
+}
+```
+
 ## Changing the average interval
 
 The EcoTracker provides two power readings in its JSON output: the current power readings and as a standard the average 
