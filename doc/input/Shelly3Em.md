@@ -11,6 +11,8 @@ uni-meter {
   input-devices {
     shelly-3em {
       url = "<shelly-3em-url>"
+      # username = ""
+      # password = ""
     }
   }
 }
