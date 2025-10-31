@@ -1,6 +1,15 @@
 # Change Log
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.1.20] - 2025-10-31
+
+### Added
+
+- [#252](https://github.com/sdeigm/uni-meter/issues/252) Added a configurable delay which disables the output device completely before enabling the no_charge/no_discharge mode 
+- [#256](https://github.com/sdeigm/uni-meter/issues/256) Username and password support for the Shelly 3EM input device
+- [#258](https://github.com/sdeigm/uni-meter/issues/258) Added the power values for the single phases to the EcoTracker output device
+- [#261](https://github.com/sdeigm/uni-meter/issues/261) REST API to dynamically modify the power offsets and the min sample period
+
 ## [1.1.19] - 2025-09-25
 
 ### Added
