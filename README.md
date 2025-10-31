@@ -132,6 +132,7 @@ behavior. That API might, for instance, be used via a cron job using curl or dir
 
 * **[REST API to switch on/off](doc/api/SwitchOnOff.md)**
 * **[REST API to prevent charging/discharging](doc/api/DontChargeDischarge.md)**
+* **[REST API to dynamically adjust runtime parameters](doc/api/SetParameters.md)**
 
 ## Troubleshooting
 
