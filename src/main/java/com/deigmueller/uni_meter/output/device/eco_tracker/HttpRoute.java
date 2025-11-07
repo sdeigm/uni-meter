@@ -58,6 +58,8 @@ public class HttpRoute extends AllDirectives {
   }
 
   private Route onV1JsonGet(@NotNull RemoteAddress remoteAddress) {
+    logger.trace("HttpRoute.onV1JsonGet({})", remoteAddress);
+    
     return completeOKWithFuture(
           AskPattern
                 .ask(ecoTracker,

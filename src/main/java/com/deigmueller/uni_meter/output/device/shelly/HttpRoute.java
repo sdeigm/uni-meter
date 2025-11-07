@@ -72,13 +72,13 @@ class HttpRoute extends AllDirectives {
                 ),
                 path("rpc", () ->
                       concat(
-                            post(() -> extractStrictEntity(finiteTimeout, strict -> {
-                              logger.trace("POST RpcRequest: {}", strict.getData().utf8String());
-                              return onRpcRequest(remoteAddress, Rpc.parseRequest(strict.getData().toArray()));
-                            })),
-                            extractWebSocketUpgrade(upgrade ->
-                                  createWebsocketFlow(remoteAddress, upgrade)
-                            )
+                            post(() -> extractStrictEntity(finiteTimeout, strict -> 
+                                  onRpcRequest(remoteAddress, Rpc.parseRequest(strict.getData().toArray()))
+                            )),
+                            extractWebSocketUpgrade(upgrade -> {
+                              logger.trace("WebSocket Upgrade");
+                              return createWebsocketFlow(remoteAddress, upgrade);
+                            })
                       )
                 ),
                 pathPrefix("rpc", () -> concat(
@@ -141,9 +141,10 @@ class HttpRoute extends AllDirectives {
                               return onRpcRequest(remoteAddress, Rpc.parseRequest(strictEntity.getData().toArray()));
                             })
                       )),
-                      extractWebSocketUpgrade(upgrade ->
-                            createWebsocketFlow(remoteAddress, upgrade)
-                      )
+                      extractWebSocketUpgrade(upgrade -> {
+                        logger.trace("WebSocket Upgrade /rpc");
+                        return createWebsocketFlow(remoteAddress, upgrade);
+                      })
                 )),
                 extractUnmatchedPath(unmatchedPath -> 
                   extractMethod(method -> {
@@ -156,6 +157,7 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onResetData() {
+    logger.trace("HttpRoute.onResetData()");
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
@@ -168,6 +170,7 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onShellyGet(@NotNull RemoteAddress remoteAddress) {
+    logger.trace("HttpRoute.onShellyGet({})", remoteAddress);
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
@@ -180,6 +183,7 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onSettingsGet(@NotNull RemoteAddress remoteAddress) {
+    logger.trace("HttpRoute.onSettingsGet({})", remoteAddress);
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
@@ -192,6 +196,7 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onStatusGet(@NotNull RemoteAddress remoteAddress) {
+    logger.trace("HttpRoute.onStatusGet({})", remoteAddress);
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
@@ -216,6 +221,7 @@ class HttpRoute extends AllDirectives {
 
   private Route onRpcRequest(@NotNull RemoteAddress remoteAddress,
                              @NotNull Rpc.Request request) {
+    logger.trace("HttpRoute.onRpcRequest({}, {})", remoteAddress, request);
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly, 
@@ -230,6 +236,7 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onScripList(@NotNull RemoteAddress remoteAddress) {
+    logger.trace("HttpRoute.onScripList({})", remoteAddress);
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
@@ -243,6 +250,7 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onScriptGetCode(@NotNull RemoteAddress remoteAddress) {
+    logger.trace("HttpRoute.onScriptGetCode({})", remoteAddress);
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
@@ -256,6 +264,7 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onShellyGetComponents(@NotNull RemoteAddress remoteAddress) {
+    logger.trace("HttpRoute.onShellyGetComponents({})", remoteAddress);
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
@@ -269,6 +278,7 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onShellyGetConfig(@NotNull RemoteAddress remoteAddress) {
+    logger.trace("HttpRoute.onShellyGetConfig({})", remoteAddress);
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
@@ -282,6 +292,7 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onShellyGetDeviceInfo(@NotNull RemoteAddress remoteAddress) {
+    logger.trace("HttpRoute.onShellyGetDeviceInfo({})", remoteAddress);
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
@@ -295,6 +306,7 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onShellyGetStatus(@NotNull RemoteAddress remoteAddress) {
+    logger.trace("HttpRoute.onShellyGetStatus({})", remoteAddress);
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
@@ -318,6 +330,7 @@ class HttpRoute extends AllDirectives {
 
   private Route onShellyReboot(@NotNull RemoteAddress remoteAddress,
                                int delayMs) {
+    logger.trace("HttpRoute.onShellyReboot({}, {})", remoteAddress, delayMs);
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
@@ -332,6 +345,7 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onSysGetConfig(@NotNull RemoteAddress remoteAddress) {
+    logger.trace("HttpRoute.onSysGetConfig({})", remoteAddress);
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
@@ -345,6 +359,7 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onCloudGetConfig() {
+    logger.trace("HttpRoute.onCloudGetConfig()");
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
@@ -356,6 +371,7 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onCloudSetConfig(@NotNull String config) {
+    logger.trace("HttpRoute.onCloudSetConfig({})", config);
     Rpc.CloudSetConfigParams setConfigParams;
     try {
       setConfigParams = Rpc.getObjectMapper().readValue(config, Rpc.CloudSetConfigParams.class);
@@ -374,6 +390,7 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onEmGetConfig(int id) {
+    logger.trace("HttpRoute.onEmGetConfig({})", id);
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
@@ -392,6 +409,7 @@ class HttpRoute extends AllDirectives {
 
   private Route onEmGetStatus(@NotNull RemoteAddress remoteAddress,
                               int id) {
+    logger.trace("HttpRoute.onEmGetStatus({}, {})", remoteAddress, id);
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly, 
@@ -414,6 +432,7 @@ class HttpRoute extends AllDirectives {
 
   private Route onEmDataGetStatus(@NotNull RemoteAddress remoteAddress,
                                   int id) {
+    logger.trace("HttpRoute.onEmDataGetStatus({}, {})", remoteAddress, id);
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
@@ -435,6 +454,7 @@ class HttpRoute extends AllDirectives {
   }
 
   private Route onWsGetConfig() {
+    logger.trace("HttpRoute.onWsGetConfig()");
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly, 
@@ -446,6 +466,7 @@ class HttpRoute extends AllDirectives {
   }
   
   private Route onWsSetConfig(@NotNull String config) {
+    logger.trace("HttpRoute.onWsSetConfig({})", config);
     Rpc.WsSetConfigParams setConfigParams;
     try {
       setConfigParams = Rpc.getObjectMapper().readValue(config, Rpc.WsSetConfigParams.class);
@@ -469,6 +490,8 @@ class HttpRoute extends AllDirectives {
    */
   private Route createWebsocketFlow(@NotNull RemoteAddress remoteAddress,
                                     @NotNull WebSocketUpgrade upgrade) {
+    logger.trace("HttpRoute.createWebsocketFlow({}, {})", remoteAddress, upgrade);
+    
     final String connectionId = UUID.randomUUID().toString();
     
     final Logger connectionLogger = LoggerFactory.getLogger("uni-meter.websocket." + connectionId);
