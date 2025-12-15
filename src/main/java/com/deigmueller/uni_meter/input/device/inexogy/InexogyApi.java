@@ -33,7 +33,7 @@ public class InexogyApi extends DefaultApi10a {
 
 	@Override
 	protected String getAuthorizationBaseUrl() {
-		return "https://api.discovergy.com/public/v1";
+		return "https://api.inexogy.com/public/v1";
 	}
 
 	@Override

@@ -171,7 +171,7 @@ public class Inexogy extends HttpInputDevice {
         try {
           getContext().getSelf().tell(
                 new ApiClientCreationSucceeded(
-                      new InexogyApiClient(getObjectMapper(), clientId, getUrl(), email, password)));
+                      new InexogyApiClient(logger, getObjectMapper(), clientId, getUrl(), email, password)));
         } catch (Exception e) {
           getContext().getSelf().tell(new ApiClientCreationFailed(e));
         }

@@ -7,6 +7,7 @@ import com.github.scribejava.core.oauth.OAuth10aService;
 import com.github.scribejava.core.utils.StreamUtils;
 import lombok.Getter;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -20,6 +21,7 @@ import java.util.concurrent.ExecutionException;
  */
 public class InexogyApiClient {
 	// Instance members
+  private final Logger logger;
 	private final ObjectMapper objectMapper;
 	private final String clientId;
 
@@ -28,15 +30,20 @@ public class InexogyApiClient {
 	private final OAuth10aService authenticationService;
 	private final OAuth1AccessToken accessToken;
 
-	public InexogyApiClient(@NotNull ObjectMapper objectMapper,
-													@NotNull String clientId,
-													@NotNull String url,
-													@NotNull String email,
-													@NotNull String password) throws InterruptedException, ExecutionException, IOException {
-		this(objectMapper, clientId, new InexogyApi(url, email, password));
+	public InexogyApiClient(@NotNull Logger logger,
+                          @NotNull ObjectMapper objectMapper,
+                          @NotNull String clientId,
+                          @NotNull String url,
+                          @NotNull String email,
+                          @NotNull String password) throws InterruptedException, ExecutionException, IOException {
+		this(logger, objectMapper, clientId, new InexogyApi(url, email, password));
 	}
 
-	public InexogyApiClient(ObjectMapper objectMapper, String clientId, InexogyApi api) throws InterruptedException, ExecutionException, IOException {
+	public InexogyApiClient(@NotNull Logger logger,
+                          @NotNull ObjectMapper objectMapper, 
+                          @NotNull String clientId, 
+                          @NotNull InexogyApi api) throws InterruptedException, ExecutionException, IOException {
+    this.logger = logger;
 		this.objectMapper = objectMapper;
 		this.api = api;
 		this.clientId = clientId;
@@ -75,10 +82,21 @@ public class InexogyApiClient {
 		connection.connect();
 		connection.getOutputStream().write(rawRequest);
 		connection.getOutputStream().flush();
+    
+    System.out.println(connection.getHeaderFields());
+    logger.info("");
+    
 		String content = StreamUtils.getStreamContents(connection.getInputStream());
 		connection.disconnect();
-		
-		return objectMapper.readValue(content, Map.class);
+    
+    
+		 
+    try {
+		  return objectMapper.readValue(content, Map.class);
+    } catch (Exception e) {
+      logger.error("failed to parse consumer token response: {}", content);
+      throw e;
+    }
 	}
 
 	private static String authorize(String authorizationURL) throws IOException {
