@@ -210,7 +210,7 @@ public class EcoTracker  extends OutputDevice {
       return config.getString("hostname");
     }
 
-    return "ecotracker-" + mac.toLowerCase();
+    return "ecotracker-" + mac.toUpperCase();
   }
   
   /**
@@ -221,23 +221,13 @@ public class EcoTracker  extends OutputDevice {
 
     getMdnsRegistrator().tell(
           new MDnsRegistrator.RegisterService(
-                "_http",
-                getDefaultHostname(),
-                getBindPort(),
-                Map.of(
-                      "name", getDefaultHostname(),
-                      "id", getDefaultHostname()
-                )
-          )
-    );
-    getMdnsRegistrator().tell(
-          new MDnsRegistrator.RegisterService(
                 "_everhome",
                 getDefaultHostname(),
                 getBindPort(),
                 Map.of(
-                      "name", getDefaultHostname(),
-                      "id", getDefaultHostname()
+                      "ip", NetUtils.detectPrimaryIpAddress(),
+                      "serial", getConfig().getString("serial-number"),
+                      "productid", getConfig().getString("product-id")
                 )
           )
     );
