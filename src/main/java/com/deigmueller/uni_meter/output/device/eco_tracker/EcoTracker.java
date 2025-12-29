@@ -142,10 +142,10 @@ public class EcoTracker  extends OutputDevice {
                       suppressPhaseOutput ? null : powerPhase0.power(),
                       suppressPhaseOutput ? null : powerPhase1.power(),
                       suppressPhaseOutput ? null : powerPhase2.power(),
-                      energyIn / 1000.0,
+                      energyIn,
                       null,
                       null,
-                      energyOut / 1000.0)));
+                      energyOut)));
     
     return Behaviors.same();
   }
