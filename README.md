@@ -39,7 +39,7 @@ The real electrical meter data can be gathered from the following input devices:
 
 Storages known to be supported are
 
-* Growatt NOAH 2000
+* Growatt NOAH 2000 & NEXA 2000
 * Hoymiles MS-A2
 * Marstek B2500
 * Marstek Venus
