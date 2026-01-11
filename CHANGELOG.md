@@ -26,7 +26,7 @@ All notable changes to the `uni-meter` will be documented in this file.
 
 ### Fixed
 
-- [#239](https://github.com/sdeigm/uni-meter/issues/239) Fixes the problem, that the connection to Modbus input devices is not reestablished correctly after network problems
+- [#239](https://github.com/sdeigm/uni-meter/issues/239) Fixes the problem that the connection to Modbus input devices is not reestablished correctly after network problems
 
 ## [1.1.16] - 2025-09-06
 
@@ -49,7 +49,7 @@ All notable changes to the `uni-meter` will be documented in this file.
 ### Fixed
 
 - [#208](https://github.com/sdeigm/uni-meter/issues/208) Incorrect response to RPC request Shelly.GetStatus
-- [#190](https://github.com/sdeigm/uni-meter/issues/190) Avahi daemon in docker container is no longer restricted to certain interfaces
+- [#190](https://github.com/sdeigm/uni-meter/issues/190) Avahi daemon in a docker container is no longer restricted to certain interfaces
 
 ### Added
 
