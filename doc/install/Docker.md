@@ -34,7 +34,7 @@ docker run -d \
 
 ## Device id
 
-The automatically generated device of the uni-meter is based on the MAC address of the docker container. In certain
+The automatically generated device id of the uni-meter is based on the MAC address of the docker container. In certain
 docker environments the MAC address changes on every restart. In that case some storages lose the connection to the 
 device and have to be re-paired manually. To avoid this, you can specify a device id in the `uni-meter.conf` file as
 described here for the [Shelly Pro 3EM](../output/ShellyPro3EM.md#configuring-the-shelly-device-id) and for the 
