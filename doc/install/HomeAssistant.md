@@ -48,3 +48,11 @@ http://<home-assistant-ip>:<uni-meter-port>
 ```
 
 That should bring up the current electrical meter readings in your browser window.
+
+## Device id
+
+The automatically generated device id of the uni-meter is based on the MAC address of the docker container. In Home
+Assistant, the MAC address changes on every restart. As a consequence, some storages lose the connection to the
+device on every restart and have to be re-paired manually. To avoid this, you can specify a device id in the 
+`uni-meter.conf` file as described here for the [Shelly Pro 3EM](../output/ShellyPro3EM.md#configuring-the-shelly-device-id) 
+and for the [EcoTracker](../output/EcoTracker.md#configuring-the-mac-address-and-hostname)
