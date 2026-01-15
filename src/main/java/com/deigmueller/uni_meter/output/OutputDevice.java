@@ -114,6 +114,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
           .onMessage(SwitchOff.class, this::onSwitchOff)
           .onMessage(NoCharge.class, this::onNoCharge)
           .onMessage(NoDischarge.class, this::onNoDischarge)
+          .onMessage(GetParameters.class, this::onGetParameters)
           .onMessage(SetParameters.class, this::onSetParameters)
           .onMessage(NotifyPhasePowerData.class, this::onNotifyPhasePowerData)
           .onMessage(NotifyPhasesPowerData.class, this::onNotifyPhasesPowerData)
@@ -231,6 +232,19 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
 
     message.replyTo().tell(new NoDischargeResponse(usageConstraintUntil));
 
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the request to get the adjustable parameters
+   * @param message Request message
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onGetParameters(@NotNull GetParameters message) {
+    logger.trace("OutputDevice.onGetParameters()");
+    
+    message.replyTo().tell(new GetParametersResponse(getParameters(new TreeMap<>())));
+    
     return Behaviors.same();
   }
 
@@ -498,6 +512,20 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
       return this.energyPhase2;
     }
   }
+
+  /**
+   * Get the device's adjustable parameters
+   * @param parameters Target buffer for the parameters
+   * @return Updated target buffer
+   */
+  protected Map<String,Object> getParameters(@NotNull Map<String,Object> parameters) {
+    parameters.put("power-offset-l1", offsetPhase0);
+    parameters.put("power-offset-l2", offsetPhase1);
+    parameters.put("power-offset-l3", offsetPhase2);
+    parameters.put("power-offset-total", offsetPhase0 + offsetPhase1 + offsetPhase2);
+    
+    return parameters;
+  }
   
   protected abstract Route createRoute();
   
@@ -714,7 +742,15 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   public record NoDischargeResponse(
         @NotNull Instant offUntil
   ) {}
-  
+
+  public record GetParameters(
+        @NotNull ActorRef<GetParametersResponse> replyTo
+  ) implements Command {}
+
+  public record GetParametersResponse(
+        @Nullable Map<String, Object> parameter
+  ) {}
+
   public record SetParameters(
         @NotNull Map<String,String> parameter,
         @NotNull ActorRef<SetParametersResponse> replyTo

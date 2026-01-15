@@ -29,6 +29,9 @@ public class UniMeterHttpRoute extends AllDirectives {
     return concat(
           path("", () -> get(this::onGetStatus)),
           pathPrefix("api", () -> concat(
+                path("get_parameters", () -> 
+                  get(this::onGetParameters)
+                ),
                 path("no_charge", () ->
                       get(() ->
                             parameterOptional(StringUnmarshallers.INTEGER, "seconds", seconds ->
@@ -134,6 +137,18 @@ public class UniMeterHttpRoute extends AllDirectives {
             }
             return response.parameter();
           }),
+          Jackson.marshaller(Rpc.getObjectMapper())
+    );
+  }
+
+  private Route onGetParameters() {
+    return completeOKWithFuture(
+          AskPattern.ask(
+                outputDevice, 
+                OutputDevice.GetParameters::new,
+                Duration.ofSeconds(15),
+                actorSystem.scheduler()
+          ).thenApply(OutputDevice.GetParametersResponse::parameter),
           Jackson.marshaller(Rpc.getObjectMapper())
     );
   }
