@@ -745,7 +745,7 @@ public class ShellyPro3EM extends Shelly {
 
     return Behaviors.same();
   }
-
+  
   /**
    * Handle the event that the UDP server stream is closed 
    */
@@ -945,6 +945,12 @@ public class ShellyPro3EM extends Shelly {
       case "ws.setconfig" -> rpcWsSetConfig((Rpc.WsSetConfig) request);
       default -> rpcUnknownMethod(request);
     };
+  }
+
+  @Override
+  protected Map<String, Object> getParameters(@NotNull Map<String, Object> parameters) {
+    parameters.put("min-sample-period", minSamplePeriod.toMillis() + "ms");
+    return super.getParameters(parameters);
   }
 
   /**
@@ -1495,7 +1501,7 @@ public class ShellyPro3EM extends Shelly {
 
     udpClients.put(remote, udpClientContext);
 
-    // Cleanup unused UDP client contexts
+    // Clean up unused UDP client contexts
     Set<InetSocketAddress> toToRemove = new HashSet<>();
     for (Map.Entry<InetSocketAddress, UdpClientContext> entry : udpClients.entrySet()) {
       if (Duration.between(entry.getValue().getLastEmGetStatusRequestTime(), Instant.now()).getSeconds() > 60) {
