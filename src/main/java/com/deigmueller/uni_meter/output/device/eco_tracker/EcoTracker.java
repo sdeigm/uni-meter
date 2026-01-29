@@ -10,6 +10,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigObject;
 import lombok.AccessLevel;
 import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
@@ -28,6 +29,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.Map;
 
 @Getter(AccessLevel.PROTECTED)
@@ -218,17 +220,19 @@ public class EcoTracker  extends OutputDevice {
    */
   protected void registerMDns() {
     logger.trace("EcoTracer.registerMDns()");
+    
+    Map<String, String> txtRecords = new HashMap<>();
+    txtRecords.put("ip", NetUtils.detectPrimaryIpAddress());
 
+    ConfigObject mdnsObject = getConfig().getObject("mdns");
+    mdnsObject.forEach((key, value) -> txtRecords.put(key, value.unwrapped().toString()));
+    
     getMdnsRegistrator().tell(
           new MDnsRegistrator.RegisterService(
                 "_everhome",
                 getDefaultHostname(),
                 getBindPort(),
-                Map.of(
-                      "ip", NetUtils.detectPrimaryIpAddress(),
-                      "serial", getConfig().getString("serial-number"),
-                      "productid", getConfig().getString("product-id")
-                )
+                txtRecords
           )
     );
   }

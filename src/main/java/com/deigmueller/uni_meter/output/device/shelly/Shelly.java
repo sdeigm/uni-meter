@@ -97,7 +97,7 @@ public abstract class Shelly extends OutputDevice {
                       getNumOutputs(),
                       getNumMeters()),
                 new Login(false, false, null),
-                getConfig().getString("fw"),
+                getConfig().getString("mdns.fw"),
                 true));
 
     return Behaviors.same();
@@ -176,7 +176,7 @@ public abstract class Shelly extends OutputDevice {
   protected Rpc.SysStatus createSysStatus() {
     return new Rpc.SysStatus(
           getUptime(),
-          getConfig().getString("fw"));
+          getConfig().getString("mdns.fw"));
   }
 
   protected Rpc.TempStatus createTempStatus() {
