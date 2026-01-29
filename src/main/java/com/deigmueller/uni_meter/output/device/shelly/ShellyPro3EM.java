@@ -13,6 +13,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigObject;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
@@ -1017,7 +1018,7 @@ public class ShellyPro3EM extends Shelly {
           1,
           "SPEM-003CEBEU",
           2,
-          getConfig().getString("fw"),
+          getConfig().getString("mdns.fw"),
           "1.4.4",
           "Pro3EM",
           false,
@@ -1175,7 +1176,7 @@ public class ShellyPro3EM extends Shelly {
           new Rpc.Device(
                 getHostname(remoteAddress),
                 getMac(remoteAddress),
-                getConfig().getString("fw"),
+                getConfig().getString("mdns.fw"),
                 false,
                 "",
                 false),
@@ -1435,17 +1436,20 @@ public class ShellyPro3EM extends Shelly {
   protected void registerMDns() {
     logger.trace("Shelly.registerMDns()");
     
+    Map<String, String> txtRecords = new HashMap<>();
+    txtRecords.put("id", getDefaultHostname());
+    txtRecords.put("mac", getDefaultMacAddress(getConfig()));
+    
+    ConfigObject mdnsObject = getConfig().getObject("mdns");
+    mdnsObject.forEach((key, value) -> txtRecords.put(key, value.unwrapped().toString()));
+    
+    
     getMdnsRegistrator().tell(
           new MDnsRegistrator.RegisterService(
                 "_http",
                 getDefaultHostname(),
                 getBindPort(),
-                Map.of(
-                    "gen", "2",
-                    "id", getDefaultHostname(),
-                    "arch", "esp8266",
-                    "fw_id", getConfig().getString("fw")
-                )
+                txtRecords
           )
     );
 
@@ -1454,12 +1458,7 @@ public class ShellyPro3EM extends Shelly {
                 "_shelly",
                 getDefaultHostname(),
                 getBindPort(),
-                Map.of(
-                      "gen", "2",
-                      "id", getDefaultHostname(),
-                      "arch", "esp8266",
-                      "fw_id", getConfig().getString("fw")
-                )
+                txtRecords
           )
     );
   }
