@@ -1,6 +1,21 @@
 # Change Log
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.2.0] - 2026-02-07
+
+### Fixed
+
+- [#288](https://github.com/sdeigm/uni-meter/issues/288) EcoTracker reports wrong energy values
+
+### Added
+
+- [#266](https://github.com/sdeigm/uni-meter/issues/266) REST API to get the adjustable runtime parameters
+- [#269](https://github.com/sdeigm/uni-meter/issues/269) Shelly Pro3EM: the firmware version is not configurable
+- [#271](https://github.com/sdeigm/uni-meter/issues/271) Improved logging for the used HTTP/RPC methods
+- [#303](https://github.com/sdeigm/uni-meter/issues/303) Make mDNS TXT record fields configurable
+- [#305](https://github.com/sdeigm/uni-meter/issues/305) Announce hostname via mDNS (Home Assistant)
+- [#306](https://github.com/sdeigm/uni-meter/issues/306) Announce hostname via mDNS (Avahi)
+
 ## [1.1.20] - 2025-10-31
 
 ### Added
