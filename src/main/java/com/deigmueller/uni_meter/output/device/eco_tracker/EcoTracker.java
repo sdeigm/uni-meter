@@ -233,7 +233,8 @@ public class EcoTracker  extends OutputDevice {
                 getDefaultHostname(),
                 getBindPort(),
                 txtRecords,
-                getDefaultHostname() + ".local"
+                getDefaultHostname() + ".local",
+                NetUtils.detectPrimaryIpAddress()
           )
     );
   }

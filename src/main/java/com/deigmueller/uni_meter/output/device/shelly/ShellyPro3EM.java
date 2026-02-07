@@ -7,6 +7,7 @@ import com.deigmueller.uni_meter.application.WebsocketOutput;
 import com.deigmueller.uni_meter.common.shelly.Rpc;
 import com.deigmueller.uni_meter.common.shelly.RpcError;
 import com.deigmueller.uni_meter.common.shelly.RpcException;
+import com.deigmueller.uni_meter.common.utils.NetUtils;
 import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.deigmueller.uni_meter.output.TemporaryNotAvailableException;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -1443,6 +1444,7 @@ public class ShellyPro3EM extends Shelly {
     ConfigObject mdnsObject = getConfig().getObject("mdns");
     mdnsObject.forEach((key, value) -> txtRecords.put(key, value.unwrapped().toString()));
     
+    String primaryIpAddress = NetUtils.detectPrimaryIpAddress();
     
     getMdnsRegistrator().tell(
           new MDnsRegistrator.RegisterService(
@@ -1450,7 +1452,8 @@ public class ShellyPro3EM extends Shelly {
                 getDefaultHostname(),
                 getBindPort(),
                 txtRecords,
-                getDefaultHostname() + ".local"
+                getDefaultHostname() + ".local",
+                primaryIpAddress
           )
     );
 
@@ -1460,7 +1463,8 @@ public class ShellyPro3EM extends Shelly {
                 getDefaultHostname(),
                 getBindPort(),
                 txtRecords,
-                getDefaultHostname() + ".local"
+                getDefaultHostname() + ".local",
+                primaryIpAddress
           )
     );
   }

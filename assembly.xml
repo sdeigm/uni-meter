@@ -32,9 +32,9 @@
             <fileMode>0755</fileMode>
         </file>
         <file>
-            <source>${project.build.outputDirectory}/bin/uni-meter-and-avahi.sh</source>
+            <source>${project.build.outputDirectory}/bin/uni-meter-and-daemons.sh</source>
             <outputDirectory>${file.separator}bin</outputDirectory>
-            <destName>uni-meter-and-avahi.sh</destName>
+            <destName>uni-meter-and-daemons.sh</destName>
             <lineEnding>unix</lineEnding>
             <fileMode>0755</fileMode>
         </file>

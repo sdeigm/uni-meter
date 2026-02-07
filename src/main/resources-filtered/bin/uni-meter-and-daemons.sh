@@ -1,5 +1,7 @@
 #!/bin/bash
 
+/usr/bin/dbus-daemon --system 
+
 /usr/sbin/avahi-daemon -D
 
 /usr/bin/java \

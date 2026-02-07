@@ -1,6 +1,5 @@
 package com.deigmueller.uni_meter.mdns;
 
-import com.deigmueller.uni_meter.common.utils.NetUtils;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JavaType;
@@ -42,7 +41,6 @@ public class MDnsHomeAssistant extends MDnsKind {
   private final Materializer materializer = Materializer.createMaterializer(getContext().getSystem());
   private final Set<RegisterService> pendingRegistrations = new HashSet<>();
   private final Set<RegisterService> registeredServices = new HashSet<>();
-  private final String publicIpAddress = NetUtils.detectPrimaryIpAddress();
   private boolean serviceDetectionErrorShown = false;
   private boolean serviceRegistrationErrorShown = false;
   private boolean registrationRunning = false;
@@ -380,7 +378,7 @@ public class MDnsHomeAssistant extends MDnsKind {
             new Payload(
                   registerService.type(),
                   registerService.name(),
-                  publicIpAddress,
+                  registerService.ipAddress(),
                   registerService.port(),
                   registerService.properties(),
                   registerService.server() + "."));
