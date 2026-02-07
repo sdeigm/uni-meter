@@ -232,7 +232,8 @@ public class EcoTracker  extends OutputDevice {
                 "_everhome",
                 getDefaultHostname(),
                 getBindPort(),
-                txtRecords
+                txtRecords,
+                getDefaultHostname() + ".local"
           )
     );
   }

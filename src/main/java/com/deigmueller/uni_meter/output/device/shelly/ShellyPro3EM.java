@@ -1449,7 +1449,8 @@ public class ShellyPro3EM extends Shelly {
                 "_http",
                 getDefaultHostname(),
                 getBindPort(),
-                txtRecords
+                txtRecords,
+                getDefaultHostname() + ".local"
           )
     );
 
@@ -1458,7 +1459,8 @@ public class ShellyPro3EM extends Shelly {
                 "_shelly",
                 getDefaultHostname(),
                 getBindPort(),
-                txtRecords
+                txtRecords,
+                getDefaultHostname() + ".local"
           )
     );
   }
