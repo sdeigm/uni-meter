@@ -1,11 +1,6 @@
 # Change Log
 All notable changes to the `uni-meter` will be documented in this file.
 
-## [1.2.1] - 2026-02-07
-
-### Fixed
-
-
 ## [1.2.0] - 2026-02-07
 
 ### Fixed
