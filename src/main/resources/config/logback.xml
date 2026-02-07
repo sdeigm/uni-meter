@@ -2,7 +2,7 @@
 <Configuration status="WARN">
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yy-MM-dd HH:mm:ss.SSS} %-5level %-24logger - %msg%n</pattern>
+            <pattern>%d{yy-MM-dd HH:mm:ss.SSS} %-5level %-30logger - %msg%n</pattern>
         </encoder>
     </appender>
 

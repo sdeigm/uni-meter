@@ -44,6 +44,7 @@ public abstract class MDnsKind extends AbstractBehavior<MDnsKind.Command> {
         @NotNull String name,
         int port,
         @NotNull Map<String,String> properties,
-        @NotNull String server
+        @NotNull String server,
+        @NotNull String ipAddress
   ) implements Command {}
 }

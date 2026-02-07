@@ -57,7 +57,8 @@ public class MDnsRegistrator extends AbstractBehavior<MDnsRegistrator.Command> {
                   message.name(),
                   message.port(),
                   message.properties(),
-                  message.server()
+                  message.server(),
+                  message.ipAddress()
             ));
     } catch (Exception e) {
       LOGGER.error("mdns registration failed: {}", e.getMessage());
@@ -87,6 +88,7 @@ public class MDnsRegistrator extends AbstractBehavior<MDnsRegistrator.Command> {
         @NotNull String name,
         int port,
         @NotNull Map<String,String> properties,
-        @NotNull String server
+        @NotNull String server,
+        @NotNull String ipAddress
   ) implements Command {}
 }
