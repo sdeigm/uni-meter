@@ -31,8 +31,8 @@ public class MDnsHomeAssistant extends MDnsKind {
   public static final String TYPE = "homeassistant";
   private final static Logger LOGGER = LoggerFactory.getLogger("uni-meter.mdns.ha");
   private static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final String UNI_METER_MDNS_REGISTER = "uni_meter_mdns_register_v2";
-  private static final String UNI_METER_MDNS_UNREGISTER = "uni_meter_mdns_unregister_v2";
+  private static final String UNI_METER_MDNS_REGISTER = "uni_meter_mdns_register";
+  private static final String UNI_METER_MDNS_UNREGISTER = "uni_meter_mdns_unregister";
   
   // Instance members
   private final Http http = Http.get(getContext().getSystem());
