@@ -5,13 +5,13 @@ All notable changes to the `uni-meter` will be documented in this file.
 
 ### Fixed
 
-- [#314](https://github.com/sdeigm/uni-meter/issues/314) Wrong mDNS registration function names for Home Assistant
 
 ## [1.2.0] - 2026-02-07
 
 ### Fixed
 
 - [#288](https://github.com/sdeigm/uni-meter/issues/288) EcoTracker reports wrong energy values
+- [#314](https://github.com/sdeigm/uni-meter/issues/314) Wrong mDNS registration function names for Home Assistant
 
 ### Added
 
@@ -21,6 +21,7 @@ All notable changes to the `uni-meter` will be documented in this file.
 - [#303](https://github.com/sdeigm/uni-meter/issues/303) Make mDNS TXT record fields configurable
 - [#305](https://github.com/sdeigm/uni-meter/issues/305) Announce hostname via mDNS (Home Assistant)
 - [#306](https://github.com/sdeigm/uni-meter/issues/306) Announce hostname via mDNS (Avahi)
+
 
 ## [1.1.20] - 2025-10-31
 
