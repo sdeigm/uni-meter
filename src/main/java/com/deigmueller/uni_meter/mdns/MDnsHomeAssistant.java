@@ -32,8 +32,8 @@ public class MDnsHomeAssistant extends MDnsKind {
   public static final String TYPE = "homeassistant";
   private final static Logger LOGGER = LoggerFactory.getLogger("uni-meter.mdns.ha");
   private static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final String UNI_METER_MDNS_REGISTER = "uni_meter_mdns_register";
-  private static final String UNI_METER_MDNS_UNREGISTER = "uni_meter_mdns_unregister";
+  private static final String UNI_METER_MDNS_REGISTER = "uni_meter_mdns_register_v2";
+  private static final String UNI_METER_MDNS_UNREGISTER = "uni_meter_mdns_unregister_v2";
   
   // Instance members
   private final Http http = Http.get(getContext().getSystem());
@@ -81,7 +81,7 @@ public class MDnsHomeAssistant extends MDnsKind {
   private Behavior<Command> onPostStop(PostStop postStop) {
     if (canUnregisterService()) {
       for (RegisterService service : registeredServices) {
-        unregister(service.type(), service.name(), publicIpAddress, service.port(), service.properties());
+        unregister(service);
       }
     }
     return Behaviors.same();
@@ -139,7 +139,7 @@ public class MDnsHomeAssistant extends MDnsKind {
   /**
    * Handles the failure to detect the available services.
    * @param message the message containing details of the service detection failure, including the associated throwable.
-   * @return the same behavior to continue processing subsequent messages.
+   * @return Same behavior
    */
   private Behavior<Command> onServiceDetectionFailed(ServiceDetectionFailed message) {
     LOGGER.trace("MDnsHomeAssistant.onServiceDetectionFailed");
@@ -155,7 +155,12 @@ public class MDnsHomeAssistant extends MDnsKind {
     
     return Behaviors.same();
   }
-  
+
+  /**
+   * Handle the request to start the next service detection
+   * @param message Next service detection
+   * @return Same behavior
+   */
   private Behavior<Command> onStartNextServiceDetection(StartNextServiceDetection message) {
     LOGGER.trace("MDnsHomeAssistant.onStartNextServiceDetection");
     startServiceDetection();
@@ -290,23 +295,9 @@ public class MDnsHomeAssistant extends MDnsKind {
   private void registerService(@NotNull RegisterService registerService) {
     String path = url + "/api/services/pyscript/uni_meter_mdns_register";
     
-    String data;
-    try {
-      data = MAPPER.writeValueAsString(
-            new Payload(
-                  registerService.type(), 
-                  registerService.name(), 
-                  publicIpAddress, 
-                  registerService.port(), 
-                  registerService.properties()));
-    } catch (JsonProcessingException e) {
-      LOGGER.error("json serialization failed: {}", e.getMessage());
-      throw new RuntimeException("json serialization failed: " + e.getMessage());
-    }
-    
     HttpRequest postRequest = HttpRequest.POST(path)
           .addCredentials(credentials)
-          .withEntity(HttpEntities.create(ContentTypes.APPLICATION_JSON, data));
+          .withEntity(HttpEntities.create(ContentTypes.APPLICATION_JSON, getPayload(registerService)));
     
     http.singleRequest(postRequest)
           .whenComplete((response, throwable) -> {
@@ -333,16 +324,12 @@ public class MDnsHomeAssistant extends MDnsKind {
           });
   }
 
-  public void unregister(@NotNull String type,
-                         @NotNull String name,
-                         @NotNull String ip,
-                         int port,
-                         @NotNull Map<String,String> properties) {
+  public void unregister(@NotNull RegisterService registerService) {
     String path = url + "/api/services/pyscript/" ;
 
     HttpRequest postRequest = HttpRequest.POST(path)
           .addCredentials(credentials)
-          .withEntity(HttpEntities.create(ContentTypes.APPLICATION_JSON, getPayload(type, name, ip, port, properties)));
+          .withEntity(HttpEntities.create(ContentTypes.APPLICATION_JSON, getPayload(registerService)));
 
     http.singleRequest(postRequest)
           .whenComplete((response, throwable) -> {
@@ -353,7 +340,7 @@ public class MDnsHomeAssistant extends MDnsKind {
                 LOGGER.info("call of home assistant service pyscript.uni_meter_mdns_unregister failed with status: {}",
                       response.status());
               } else {
-                LOGGER.info("successfully unregistered mdns service {}", name);
+                LOGGER.info("successfully unregistered mdns service {}", registerService.name());
               }
             }
           });
@@ -387,13 +374,16 @@ public class MDnsHomeAssistant extends MDnsKind {
     }
   }
   
-  private @NotNull String getPayload(String type,
-                                     String name,
-                                     String ip,
-                                     int port,
-                                     @NotNull Map<String,String> properties) {
+  private @NotNull String getPayload(@NotNull RegisterService registerService) {
     try {
-      return MAPPER.writeValueAsString(new Payload(type, name, ip, port, properties));
+      return MAPPER.writeValueAsString(
+            new Payload(
+                  registerService.type(),
+                  registerService.name(),
+                  publicIpAddress,
+                  registerService.port(),
+                  registerService.properties(),
+                  registerService.server() + "."));
     } catch (JsonProcessingException e) {
       return "";
     }
@@ -432,7 +422,8 @@ public class MDnsHomeAssistant extends MDnsKind {
         @JsonProperty("name") String name,
         @JsonProperty("ip") String ip,
         @JsonProperty("port") int port,
-        @JsonProperty("properties") Map<String,String> properties
+        @JsonProperty("properties") Map<String,String> properties,
+        @JsonProperty("server") String server
   ) {}
   
   private record Domain(
