@@ -1,6 +1,12 @@
 # Change Log
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.2.1] - 2026-02-07
+
+### Fixed
+
+- [#314](https://github.com/sdeigm/uni-meter/issues/314) Wrong mDNS registration function names for Home Assistant
+
 ## [1.2.0] - 2026-02-07
 
 ### Fixed
