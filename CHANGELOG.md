@@ -1,6 +1,12 @@
 # Change Log
 All notable changes to the `uni-meter` will be documented in this file.
 
+<h4 style="color:red">
+Important: if you are using the Home Assistant version: For the version 1.2.0 you have to update the 
+uni-meter-mdns.py script manually to the newest version. Otherwise, the mDNS registration will not work 
+correctly.
+</h4>
+
 ## [1.2.0] - 2026-02-07
 
 ### Fixed
