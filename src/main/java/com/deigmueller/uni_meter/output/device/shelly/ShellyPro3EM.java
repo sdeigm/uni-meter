@@ -1019,7 +1019,7 @@ public class ShellyPro3EM extends Shelly {
           1,
           "SPEM-003CEBEU",
           2,
-          getConfig().getString("mdns.fw"),
+          getConfig().getString("fw"),
           "1.4.4",
           "Pro3EM",
           false,
@@ -1177,7 +1177,7 @@ public class ShellyPro3EM extends Shelly {
           new Rpc.Device(
                 getHostname(remoteAddress),
                 getMac(remoteAddress),
-                getConfig().getString("mdns.fw"),
+                getConfig().getString("fw"),
                 false,
                 "",
                 false),
