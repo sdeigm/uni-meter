@@ -84,7 +84,7 @@ public class SmaEM extends OutputDevice {
   @Override
   protected @NotNull Behavior<Command> onPostStop(@NotNull PostStop message) {
     closeSocket();
-    return Behaviors.same();
+    return super.onPostStop(message);
   }
 
   private void trySendPacket() {
