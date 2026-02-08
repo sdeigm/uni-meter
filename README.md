@@ -12,8 +12,9 @@ converter between different electrical meters, inverters and storage systems.
 
 Currently, the following output devices are supported:
 
-* Shelly Pro 3EM
 * Everhome EcoTracker
+* Shelly Pro 3EM
+* SMA Energy Meter
 
 The real electrical meter data can be gathered from the following input devices:
 
@@ -100,6 +101,7 @@ To configure the output device, follow the instructions in these sections:
 * **[Common configuration for all devices](doc/output/Common.md)**
 * **[Eco-Tracker](doc/output/EcoTracker.md)**
 * **[Shelly Pro 3EM](doc/output/ShellyPro3EM.md)**
+* **[SMA Energy Meter](doc/output/SmaEM.md)**
 
 ## Input device configuration
 
