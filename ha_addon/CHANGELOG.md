@@ -2,10 +2,16 @@
 All notable changes to the `uni-meter` will be documented in this file.
 
 <h4 style="color:red">
-For the version 1.2.0 you have to update the 
+For the version 1.2.1 you have to update the 
 uni-meter-mdns.py script manually to the newest version. Otherwise, the mDNS registration will not work 
 correctly.
 </h4>
+
+## [1.2.1] - 2026-02-08
+
+### Fixed
+
+- [#317](https://github.com/sdeigm/uni-meter/issues/317) Problems with the build of the Home Assistant docker container for version 1.2.0
 
 ## [1.2.0] - 2026-02-07
 

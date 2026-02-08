@@ -7,6 +7,12 @@ uni-meter-mdns.py script manually to the newest version. Otherwise, the mDNS reg
 correctly.
 </h4>
 
+## [1.2.1] - 2026-02-08
+
+### Fixed
+
+- [#317](https://github.com/sdeigm/uni-meter/issues/317) Problems with the build of the Home Assistant docker container for version 1.2.0
+
 ## [1.2.0] - 2026-02-07
 
 ### Fixed
