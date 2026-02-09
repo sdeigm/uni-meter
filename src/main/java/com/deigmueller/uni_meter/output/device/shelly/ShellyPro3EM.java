@@ -1438,8 +1438,8 @@ public class ShellyPro3EM extends Shelly {
     logger.trace("Shelly.registerMDns()");
     
     Map<String, String> txtRecords = new HashMap<>();
-    txtRecords.put("id", getDefaultHostname());
-    txtRecords.put("mac", getDefaultMacAddress(getConfig()));
+    txtRecords.put("id", getDefaultHostname().toLowerCase());
+    txtRecords.put("mac", getDefaultMacAddressFormated(getConfig()).toUpperCase());
     
     ConfigObject mdnsObject = getConfig().getObject("mdns");
     mdnsObject.forEach((key, value) -> txtRecords.put(key, value.unwrapped().toString()));
@@ -1455,7 +1455,7 @@ public class ShellyPro3EM extends Shelly {
                 getDefaultHostname() + ".local",
                 primaryIpAddress
           )
-    );
+    );  
 
     getMdnsRegistrator().tell(
           new MDnsRegistrator.RegisterService(
