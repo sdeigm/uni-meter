@@ -45,7 +45,7 @@ public abstract class Shelly extends OutputDevice {
   private final String bindInterface = getConfig().getString("interface");
   private final int bindPort = getConfig().getInt("port");
   private final String defaultMac = getDefaultMacAddress(getConfig());
-  private final String defaultHostname = getDefaultHostName(getConfig(), defaultMac);
+  private final String defaultHostname = getDefaultHostName(getConfig(), defaultMac.toUpperCase());
 
   /**
    * Protected constructor
@@ -255,13 +255,23 @@ public abstract class Shelly extends OutputDevice {
     
     return "B827EB364242";
   }
-  
+
+  protected static String getDefaultMacAddressFormated(@NotNull Config config) {
+    String mac = getDefaultMacAddress(config).toUpperCase();
+    return mac.substring(0, 2) + ":"
+          + mac.substring(2, 4) + ":"
+          + mac.substring(4, 6) + ":"
+          + mac.substring(6, 8) + ":"
+          + mac.substring(8, 10) + ":"
+          + mac.substring(10, 12);
+  }
+
   protected static String getDefaultHostName(@NotNull Config config, @NotNull String mac) {
     if (! StringUtils.isAllBlank(config.getString("device.hostname"))) {
       return config.getString("device.hostname");
     }
     
-    return "shellypro3em-" + mac.toLowerCase();
+    return "ShellyPro3EM-" + mac.toUpperCase();
   }
   
   public record ShellyGet(

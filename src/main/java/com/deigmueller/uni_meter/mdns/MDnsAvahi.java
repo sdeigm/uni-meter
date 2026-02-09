@@ -73,12 +73,7 @@ public class MDnsAvahi extends MDnsKind {
       if (Files.isDirectory(directoryPath)) {
         if (Files.isWritable(directoryPath)) {
           try (FileWriter myWriter = new FileWriter(file)) {
-            myWriter.write(
-                  getAvahiService(
-                        registerService.type(), 
-                        registerService.name(), 
-                        registerService.port(), 
-                        registerService.properties()));
+            myWriter.write(getAvahiService(registerService));
             LOGGER.info("successfully registered mdns service {}/{}", registerService.name(), registerService.type());
           } catch (IOException ioException) {
             LOGGER.error("could not write avahi service file {}: {}", file, ioException.getMessage());
@@ -154,22 +149,20 @@ public class MDnsAvahi extends MDnsKind {
   }
   
   
-  private @NotNull String getAvahiService(@NotNull String type,
-                                          @NotNull String name,
-                                          int port,
-                                          @NotNull Map<String,String> properties) {
+  private @NotNull String getAvahiService(@NotNull RegisterService registerService) {
     LOGGER.trace("MDnsAvahi.getAvahiService()");
 
     StringBuilder sb = new StringBuilder();
     
     sb.append("<?xml version=\"1.0\" standalone='no'?>\n");
     sb.append("<service-group>\n");
-    sb.append("  <name replace-wildcards=\"no\">"); sb.append(name); sb.append("</name>\n");
+    sb.append("  <name replace-wildcards=\"no\">"); sb.append(registerService.name()); sb.append("</name>\n");
     sb.append("  <service protocol=\"ipv4\">\n");
-    sb.append("    <type>"); sb.append(type); sb.append("._tcp</type>\n");
-    sb.append("    <port>"); sb.append(port); sb.append("</port>\n");
+    sb.append("    <host-name>"); sb.append(registerService.server()); sb.append("</host-name>\n");
+    sb.append("    <type>"); sb.append(registerService.type()); sb.append("._tcp</type>\n");
+    sb.append("    <port>"); sb.append(registerService.port()); sb.append("</port>\n");
     
-    for (Map.Entry<String,String> entry : properties.entrySet()) {
+    for (Map.Entry<String,String> entry : registerService.properties().entrySet()) {
       sb.append("    <txt-record>"); sb.append(entry.getKey()); sb.append("="); sb.append(entry.getValue()); sb.append("</txt-record>\n");
     }
 
