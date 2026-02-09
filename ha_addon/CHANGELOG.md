@@ -2,10 +2,17 @@
 All notable changes to the `uni-meter` will be documented in this file.
 
 <h4 style="color:red">
-For the version 1.2.1 you have to update the 
+For the version 1.2.1 and newer you have to update the 
 uni-meter-mdns.py script manually to the newest version. Otherwise, the mDNS registration will not work 
 correctly.
 </h4>
+
+## [1.3.0] - 2026-02-09
+
+### Added
+
+- [#267](https://github.com/sdeigm/uni-meter/issues/267) Support for the Solakon One
+- [#318](https://github.com/sdeigm/uni-meter/pull/318) SMA Energy Meter as an output device (thanks to [littleyoda](https://github.com/littleyoda))
 
 ## [1.2.1] - 2026-02-08
 
