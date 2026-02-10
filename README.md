@@ -42,8 +42,8 @@ Storages known to be supported are
 
 * Growatt NOAH 2000 & NEXA 2000
 * Hoymiles MS-A2 & HiBattery 1920 AC
-* Marstek B2500
-* Marstek Venus
+* Marstek B2500 & Venus
+* Solarkon One
 
 The tool is built in Java and needs at least a Java 17 Runtime. If you want to use an ESP32 or a similar system which 
 does not support Java 17, there is another project called [Energy2Shelly](https://github.com/TheRealMoeder/Energy2Shelly_ESP) which is written in C++ and can be used 
