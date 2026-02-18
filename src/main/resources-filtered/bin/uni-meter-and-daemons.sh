@@ -1,6 +1,6 @@
 #!/bin/bash
 
-/usr/bin/dbus-daemon --system 
+/usr/bin/dbus-daemon --system --nopidfile
 
 /usr/sbin/avahi-daemon -D
 
