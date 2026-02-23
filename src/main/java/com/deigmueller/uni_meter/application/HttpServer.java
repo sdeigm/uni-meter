@@ -134,7 +134,9 @@ public class HttpServer extends AbstractBehavior<HttpServer.Command> {
 
       ServerSettings serverSettings = ServerSettings
             .create(Adapter.toClassic(getContext().getSystem()))
-            .withServerHeader(Optional.of(Server.apply("ShellyHTTP/1.0.0")));
+            .withServerHeader(Optional.empty())
+//            .withServerHeader(Optional.of(Server.apply("ShellyHTTP/1.0.0")))
+            ;
       
       ServerBuilder serverBuilder = http.newServerAt(bindInterface, bindPort)
             .withSettings(serverSettings);

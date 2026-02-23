@@ -6,7 +6,7 @@
 
     <groupId>com.deigmueller</groupId>
     <artifactId>uni-meter</artifactId>
-    <version>1.4.0-SNAPSHOT</version>
+    <version>1.4.0-JACKERY</version>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
@@ -17,9 +17,9 @@
         <dockerfile.skip>true</dockerfile.skip>
         <docker.push.latest.phase>none</docker.push.latest.phase>
 
-        <pekko.version>1.1.2</pekko.version>
-        <pekko.http.version>1.1.0</pekko.http.version>
-        <pekko.connectors.version>1.0.2</pekko.connectors.version>
+        <pekko.version>1.4.0</pekko.version>
+        <pekko.http.version>1.3.0</pekko.http.version>
+        <pekko.connectors.version>1.2.0</pekko.connectors.version>
         <scala.binary.version>2.13</scala.binary.version>
         <junit5.version>5.8.2</junit5.version>
     </properties>
@@ -88,17 +88,17 @@
         <dependency>
             <groupId>org.apache.pekko</groupId>
             <artifactId>pekko-http-core_${scala.binary.version}</artifactId>
-            <version>${pekko.http.version}</version>
+            <version>1.3.0+3-5689e030+20260223-0735-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.apache.pekko</groupId>
             <artifactId>pekko-http_${scala.binary.version}</artifactId>
-            <version>${pekko.http.version}</version>
+            <version>1.3.0+3-5689e030+20260223-0735-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.apache.pekko</groupId>
             <artifactId>pekko-http-jackson_${scala.binary.version}</artifactId>
-            <version>${pekko.http.version}</version>
+            <version>1.3.0+3-5689e030+20260223-0735-SNAPSHOT</version>
         </dependency>
         
         <!-- OTHERS -->
