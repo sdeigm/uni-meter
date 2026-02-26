@@ -23,6 +23,25 @@ public class NetUtils {
   }
 
   /**
+  * Detects the primary MAC address of the system by iterating through all network interfaces and returning the last valid MAC address found.
+  * Loopback and virtual interfaces are ignored.
+  * @return the primary MAC address as a string, or null if no valid MAC address is found
+  */
+ public static @Nullable String detectPrimaryMacAddress() {
+   try {
+     var foundAddresses = Streams.of(NetworkInterface.getNetworkInterfaces()) //
+     .filter(n -> !isLoopbackOrVirtual(n)) // filter out loopback and virtual interfaces
+     .map(NetUtils::hardwareAddressToString) // convert to string representation of the MAC address
+     .filter(Objects::nonNull) // filter out interfaces without a hardware address
+     .toList();
+     return foundAddresses.isEmpty() ? null : foundAddresses.get(foundAddresses.size() - 1);
+   } catch (SocketException e) {
+     // We dont't care
+     return null;
+   }
+ }
+
+  /**
    * Detects the IP address associated with the specified network interface.
    * @param interfaceName the name of the network interface (e.g., "eth0", "wlan0")
    * @return the IP address as a string, or null if the interface is not found, not up, or has no valid IPv4 address
@@ -89,23 +108,4 @@ public class NetUtils {
     }
   }
 
-   /**
-   * Detects the primary MAC address of the system by iterating through all network interfaces and returning the last valid MAC address found.
-   * Loopback and virtual interfaces are ignored.
-   * @return the primary MAC address as a string, or null if no valid MAC address is found
-   */
-
-  public static @Nullable String detectPrimaryMacAddress() {
-    try {
-      var foundAddresses = Streams.of(NetworkInterface.getNetworkInterfaces()) //
-      .filter(n -> !isLoopbackOrVirtual(n)) // filter out loopback and virtual interfaces
-      .map(NetUtils::hardwareAddressToString) // convert to string representation of the MAC address
-      .filter(Objects::nonNull) // filter out interfaces without a hardware address
-      .toList();
-      return foundAddresses.isEmpty() ? null : foundAddresses.get(foundAddresses.size() - 1);
-    } catch (SocketException e) {
-      // We dont't care
-      return null;
-    }
-  }
 }
