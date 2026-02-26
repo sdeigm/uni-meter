@@ -6,7 +6,6 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import org.apache.commons.lang3.stream.Streams;
@@ -34,18 +33,14 @@ public class NetUtils {
       if (networkInterface == null || !networkInterface.isUp()) {
         return null;
       }
-
-      Iterator<InetAddress> iterator = networkInterface.getInetAddresses().asIterator();
-      while (iterator.hasNext()) {
-        InetAddress address = iterator.next();
-        if (address instanceof Inet4Address && !address.isLoopbackAddress()) {
-          return address.getHostAddress();
-        }
-      }
+      return Streams.of(networkInterface.getInetAddresses()) //
+          .filter(Inet4Address.class::isInstance) //
+          .filter(a -> !a.isLoopbackAddress()) //
+          .map(InetAddress::getHostAddress) //
+          .findFirst().orElse(null);
     } catch (Exception e) {
-      // ignore
+      // We don't care
     }
-
     return null;
   }
 
