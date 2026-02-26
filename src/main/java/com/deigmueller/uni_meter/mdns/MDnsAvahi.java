@@ -1,5 +1,6 @@
 package com.deigmueller.uni_meter.mdns;
 
+import com.deigmueller.uni_meter.common.utils.NetUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pekko.actor.typed.Behavior;
@@ -8,7 +9,6 @@ import org.apache.pekko.actor.typed.javadsl.ActorContext;
 import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.concurrent.ExecutionContextExecutor;
@@ -18,9 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 public class MDnsAvahi extends MDnsKind {
@@ -34,6 +32,8 @@ public class MDnsAvahi extends MDnsKind {
   private final Set<NameAndIpAddress> registeredServers = new HashSet<>();
   private final Set<NameAndIpAddress> startedPublishers = new HashSet<>();
   private final boolean enableAvahiPublish;
+  private final String configuredIpAddress;
+  private final String configuredIpInterface;
   private String avahiPublishBinary;
   
   public static Behavior<Command> create(@NotNull Config config) {
@@ -45,6 +45,8 @@ public class MDnsAvahi extends MDnsKind {
     super(context, config);
     
     enableAvahiPublish = config.getBoolean("enable-avahi-publish");
+    configuredIpAddress = StringUtils.trimToEmpty(config.getString("ip-address"));
+    configuredIpInterface = StringUtils.trimToEmpty(config.getString("ip-interface"));
     avahiPublishBinary = config.getString("avahi-publish");
     if (enableAvahiPublish && StringUtils.isBlank(avahiPublishBinary)) {
       findAvahiPublishBinary();
@@ -179,11 +181,45 @@ public class MDnsAvahi extends MDnsKind {
   private void registerServer(@NotNull RegisterService registerService) {
     LOGGER.trace("MDnsAvahi.registerServer()");
 
-    if (registeredServers.add(new NameAndIpAddress(registerService.name(), registerService.ipAddress()))) {
-      if (enableAvahiPublish && !StringUtils.isAllBlank(avahiPublishBinary)) {
-        startAvahiPublish(registerService.server(), registerService.ipAddress());
-      }
+    String ipAddress = resolvePublishIpAddress(registerService);
+
+    if (registeredServers.add(new NameAndIpAddress(registerService.name(), ipAddress)) //
+        && enableAvahiPublish //
+        && !StringUtils.isAllBlank(avahiPublishBinary)) {
+      startAvahiPublish(registerService.server(), ipAddress);
     }
+
+  }
+
+  /**
+   * Resolve the IP address to publish for the specified server, based on the configuration and the server information
+   * @param registerService Server for which to resolve the publish IP address
+   * @return Resolved IP address to publish for the specified server
+   */
+  private @NotNull String resolvePublishIpAddress(@NotNull RegisterService registerService) {
+    if (StringUtils.isNotBlank(configuredIpAddress)) {
+      return configuredIpAddress;
+    }
+
+    if (StringUtils.isNotBlank(configuredIpInterface)) {
+      List<String> availableInterfaces = NetUtils.listNetworkInterfaceNames();
+      if (!availableInterfaces.contains(configuredIpInterface)) {
+        LOGGER.warn("configured mdns interface '{}' not found. available interfaces: {}",
+              configuredIpInterface,
+              String.join(", ", availableInterfaces));
+        return registerService.ipAddress();
+      }
+
+      String ipAddress = NetUtils.detectIpAddressFromInterface(configuredIpInterface);
+      if (StringUtils.isNotBlank(ipAddress)) {
+        return ipAddress;
+      }
+      LOGGER.warn("failed to resolve IPv4 address for mdns interface '{}', falling back to {}",
+            configuredIpInterface,
+            registerService.ipAddress());
+    }
+
+    return registerService.ipAddress();
   }
   
   private void startAvahiPublishing() {

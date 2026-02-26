@@ -4,6 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.net.DatagramSocket;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.Iterator;
@@ -19,6 +20,55 @@ public class NetUtils {
     } catch (Exception e) {
       return "127.0.0.1";
     }  
+  }
+
+  /**
+   * Detects the IP address associated with the specified network interface.
+   * @param interfaceName the name of the network interface (e.g., "eth0", "wlan0")
+   * @return the IP address as a string, or null if the interface is not found, not up, or has no valid IPv4 address
+   */
+  public static @Nullable String detectIpAddressFromInterface(@NotNull String interfaceName) {
+    try {
+      NetworkInterface networkInterface = NetworkInterface.getByName(interfaceName);
+      if (networkInterface == null || !networkInterface.isUp()) {
+        return null;
+      }
+
+      Iterator<InetAddress> iterator = networkInterface.getInetAddresses().asIterator();
+      while (iterator.hasNext()) {
+        InetAddress address = iterator.next();
+        if (address instanceof Inet4Address && !address.isLoopbackAddress()) {
+          return address.getHostAddress();
+        }
+      }
+    } catch (Exception e) {
+      // ignore
+    }
+
+    return null;
+  }
+
+  /**
+   * Lists the names of all network interfaces available on the system.
+   * @return a list of network interface names, sorted alphabetically
+   */
+  public static @NotNull List<String> listNetworkInterfaceNames() {
+    Set<String> names = new TreeSet<>();
+
+    try {
+      Iterator<NetworkInterface> iterator = NetworkInterface.getNetworkInterfaces().asIterator();
+      while (iterator.hasNext()) {
+        try {
+          names.add(iterator.next().getName());
+        } catch (Exception e) {
+          // ignore
+        }
+      }
+    } catch (Exception e) {
+      // ignore
+    }
+
+    return names.stream().toList();
   }
   
   public static @Nullable String detectPrimaryMacAddress() {
