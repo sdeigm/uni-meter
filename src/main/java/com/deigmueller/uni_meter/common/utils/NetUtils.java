@@ -89,7 +89,7 @@ public class NetUtils {
       return false;
     }
   }
-  
+
   /**
    * Converts the hardware address (MAC address) of a network interface to a string representation.
    * @param networkInterface the network interface whose hardware address is to be converted
