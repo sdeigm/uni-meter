@@ -1,7 +1,19 @@
 package com.deigmueller.uni_meter.mdns;
 
-import com.deigmueller.uni_meter.common.utils.NetUtils;
-import com.typesafe.config.Config;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Duration;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.DispatcherSelector;
@@ -9,17 +21,12 @@ import org.apache.pekko.actor.typed.javadsl.ActorContext;
 import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.deigmueller.uni_meter.common.utils.NetUtils;
+import com.typesafe.config.Config;
 import scala.concurrent.ExecutionContextExecutor;
-
-import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
 
 public class MDnsAvahi extends MDnsKind {
   // Class members
