@@ -1,16 +1,17 @@
 package com.deigmueller.uni_meter.common.utils;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.Objects;
+import org.apache.commons.lang3.stream.Streams;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class NetUtils {
   public static @NotNull String detectPrimaryIpAddress() {
@@ -53,52 +54,63 @@ public class NetUtils {
    * @return a list of network interface names, sorted alphabetically
    */
   public static @NotNull List<String> listNetworkInterfaceNames() {
-    Set<String> names = new TreeSet<>();
-
     try {
-      Iterator<NetworkInterface> iterator = NetworkInterface.getNetworkInterfaces().asIterator();
-      while (iterator.hasNext()) {
-        try {
-          names.add(iterator.next().getName());
-        } catch (Exception e) {
-          // ignore
-        }
-      }
-    } catch (Exception e) {
-      // ignore
+      return Streams.of(NetworkInterface.getNetworkInterfaces()).map(NetworkInterface::getName).sorted().toList();
+    } catch (SocketException e) {
+      // We don't care about the exception, we just want to return an empty list in this case
     }
+    return Collections.emptyList();
+  }
 
-    return names.stream().toList();
+  /**
+   * Checks if the given network interface is a loopback or virtual interface.
+   * @param networkInterface the network interface to check
+   * @return true if the interface is a loopback or virtual interface, false otherwise
+   */
+  private static boolean isLoopbackOrVirtual(NetworkInterface networkInterface) {
+    try {
+      return networkInterface.isLoopback() || networkInterface.isVirtual();
+    } catch (Exception e) {
+      // We don't care
+      return false;
+    }
   }
   
-  public static @Nullable String detectPrimaryMacAddress() {
-    Set<String> macAddresses = new TreeSet<>();
-    
+  /**
+   * Converts the hardware address (MAC address) of a network interface to a string representation.
+   * @param networkInterface the network interface whose hardware address is to be converted
+   * @return the string representation of the hardware address, or null if the hardware address cannot be retrieved
+   */
+  public static String hardwareAddressToString(NetworkInterface networkInterface ) {
     try {
-      Iterator<NetworkInterface> iterator = NetworkInterface.getNetworkInterfaces().asIterator();
-      while (iterator.hasNext()) {
-        try {
-          NetworkInterface networkInterface = iterator.next();
-          if (networkInterface.isUp() && !networkInterface.isLoopback() && !networkInterface.isVirtual()) {
-            byte[] macAddress = networkInterface.getHardwareAddress();
-            if (macAddress != null) {
-              StringBuilder macAddressString = new StringBuilder();
-              for (byte address : macAddress) {
-                macAddressString.append(String.format("%02X", address));
-              }
-              macAddresses.add(macAddressString.toString());
-            }
-          }
-        } catch (Exception e) {
-          // ignore
-        }
+      byte[] macAddress = networkInterface.getHardwareAddress();
+      StringBuilder macAddressString = new StringBuilder();
+      for (byte address : macAddress) {
+        macAddressString.append(String.format("%02X", address));
       }
-    } catch (Exception e) {
-      // ignore
+      return macAddressString.toString();
+    } catch(SocketException e) {
+      return null;
     }
-    
-    List<String> list = macAddresses.stream().toList();
-    
-    return list.isEmpty() ? null : list.get(list.size() - 1);
+  }
+
+   /**
+   * Detects the primary MAC address of the system by iterating through all network interfaces and returning the last valid MAC address found.
+   * Loopback and virtual interfaces are ignored.
+   * @return the primary MAC address as a string, or null if no valid MAC address is found
+   */
+
+  public static @Nullable String detectPrimaryMacAddress() {
+    try {
+      var foundAddresses = Streams.of(NetworkInterface.getNetworkInterfaces()) //
+      .filter(n -> !isLoopbackOrVirtual(n)) // filter out loopback and virtual interfaces
+      .map(NetUtils::hardwareAddressToString) // convert to string representation of the MAC address
+      .filter(Objects::nonNull) // filter out interfaces without a hardware address
+      .toList();
+      return foundAddresses.isEmpty() ? null : foundAddresses.get(foundAddresses.size() - 1);
+    } catch (SocketException e) {
+      // We dont't care
+      return null;
+    }
   }
 }
