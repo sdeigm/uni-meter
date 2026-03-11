@@ -4,7 +4,6 @@
 
 package com.deigmueller.uni_meter.input.device.tibber.pulse;
 
-import com.deigmueller.uni_meter.common.shelly.Rpc;
 import org.apache.pekko.actor.typed.ActorSystem;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.*;
@@ -16,14 +15,10 @@ import org.apache.pekko.http.javadsl.model.HttpEntity;
 import org.apache.pekko.http.javadsl.server.AllDirectives;
 import org.apache.pekko.http.javadsl.server.Route;
 import org.apache.pekko.http.javadsl.settings.ServerSettings;
-import org.apache.pekko.http.javadsl.unmarshalling.StringUnmarshallers;
-import org.apache.pekko.japi.pf.FI;
-import org.apache.pekko.util.ByteString;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.charset.StandardCharsets;
 
 public class PulseTextTestServer {
   public static Logger LOGGER = LoggerFactory.getLogger(PulseTextTestServer.class);
@@ -77,16 +72,16 @@ public class PulseTextTestServer {
           HttpEntities.create(
                 ContentTypes.APPLICATION_JSON,
                 """
-                1-0:0.0.0*255(1EBZ0101937879)
-                1-0:96.1.0*255(1EBZ0101937879)
-                1-0:1.8.0*255(003902.58359727*kWh)
-                1-0:2.8.0*255(001267.59172376*kWh)
-                1-0:16.7.0*255(000458.90*W)
-                1-0:36.7.0*255(000344.88*W)
-                1-0:56.7.0*255(000114.02*W)
-                1-0:76.7.0*255(000000.00*W)
-                1-0:96.5.0*255(001C0104)
-                0-0:96.8.0*255(055BD83E)
+                1-0:0.0.0*255(1EBZ0101937879)\r
+                1-0:96.1.0*255(1EBZ0101937879)\r
+                1-0:1.8.0*255(003902.58359727*kWh)\r
+                1-0:2.8.0*255(001267.59172376*kWh)\r
+                1-0:16.7.0*255(000458.90*W)\r
+                1-0:36.7.0*255(000344.88*W)\r
+                1-0:56.7.0*255(000114.02*W)\r
+                1-0:76.7.0*255(000000.00*W)\r
+                1-0:96.5.0*255(001C0104)\r
+                0-0:96.8.0*255(055BD83E)\r
                 """);
 
 

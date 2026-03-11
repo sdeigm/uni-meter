@@ -219,7 +219,7 @@ public class Pulse extends HttpInputDevice {
     private void parseTextMode(HttpEntity.Strict strictEntity) throws IOException {
         logger.trace("Pulse.parseTextMode()");
 
-        String[] lines = new String(strictEntity.getData().toArray(), StandardCharsets.US_ASCII).split("\n");
+        String[] lines = new String(strictEntity.getData().toArray(), StandardCharsets.US_ASCII).split("\r?\n");
        
 
         Double power = findPowerEntry(lines);
