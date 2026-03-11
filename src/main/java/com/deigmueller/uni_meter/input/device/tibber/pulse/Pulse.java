@@ -218,10 +218,12 @@ public class Pulse extends HttpInputDevice {
 
     private void parseTextMode(HttpEntity.Strict strictEntity) throws IOException {
         logger.trace("Pulse.parseTextMode()");
+        
+        String textData = new String(strictEntity.getData().toArray(), StandardCharsets.US_ASCII);
 
-        String[] lines = new String(strictEntity.getData().toArray(), StandardCharsets.US_ASCII).split("\r?\n");
-       
-
+        String[] lines = textData.split("\r?\n");
+        logger.debug("Received text data: {}", textData);
+        
         Double power = findPowerEntry(lines);
         if (power != null) {
             logger.debug("Power found (W): {}", power);
