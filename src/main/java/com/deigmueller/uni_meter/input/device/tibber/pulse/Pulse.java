@@ -16,6 +16,8 @@ import org.apache.pekko.http.scaladsl.model.headers.BasicHttpCredentials;
 import org.jetbrains.annotations.NotNull;
 import java.io.DataInputStream;
 import java.io.ByteArrayInputStream;
+
+import org.jetbrains.annotations.Nullable;
 import org.openmuc.jsml.transport.Transport;
 import org.openmuc.jsml.structures.SmlFile;
 import org.openmuc.jsml.structures.SmlMessage;
@@ -24,13 +26,19 @@ import org.openmuc.jsml.structures.responses.SmlGetListRes;
 import org.openmuc.jsml.structures.SmlListEntry;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.time.Duration;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Pulse extends HttpInputDevice {
     // Class members
     public static final String TYPE = "TibberPulse";
+    private static final Pattern POWER_PATTERN = Pattern.compile("^1-0:16\\.7\\.0\\*255\\(([\\d.]+)\\*W\\)$");
+    private static final Pattern ENERGY_IMPORT_PATTERN = Pattern.compile("^1-0:1\\.8\\.0\\*255\\(([\\d.]+)\\*kWh\\)$");
+    private static final Pattern ENERGY_EXPORT_PATTERN = Pattern.compile("^1-0:2\\.8\\.0\\*255\\(([\\d.]+)\\*kWh\\)$");
     
     // Instance members
     private final PhaseMode powerPhaseMode = getPhaseMode("power-phase-mode");
@@ -42,6 +50,7 @@ public class Pulse extends HttpInputDevice {
     private final String password = getConfig().getString("password");
     private final Duration pulseStatusPollingInterval = getConfig().getDuration("polling-interval");
     private final Duration jsmlTimeout = getConfig().getDuration("jsml-timeout");
+    private final boolean textMode = getConfig().getBoolean("text-mode");
     private final String requestUrl = getUrl() + "/data.json?node_id=" + nodeId;
     private final HttpCredentials credentials = BasicHttpCredentials.createBasicHttpCredentials(userId, password);
     
@@ -146,28 +155,10 @@ public class Pulse extends HttpInputDevice {
         HttpEntity.Strict strictEntity = message.entity();
 
         try {
-            byte[] rawData = strictEntity.getData().toArray();
-            DataInputStream dataStream = new DataInputStream(new ByteArrayInputStream(rawData));
-            
-            Transport smlTransport = new Transport();
-            smlTransport.setTimeout((int) jsmlTimeout.toMillis());
-            
-            SmlFile smlData = smlTransport.getSMLFile(dataStream);
-            List<SmlMessage> messages = smlData.getMessages();
-
-            SmlGetListRes listResponse = findListResponse(messages);
-            if(listResponse != null) {
-                double energyImport = findEnergyImportEntry(listResponse);
-                double energyExport = findEnergyExportEntry(listResponse);
-                double power        = findPowerEntry(listResponse);
-
-                logger.debug("Energy Import (Wh): {}", energyImport);
-                logger.debug("Energy Export (Wh): {}", energyExport);
-                logger.debug("Power (W): {}", power);
-
-                notifyPowerData(powerPhaseMode, powerPhase, power);
-
-                notifyEnergyData(energyPhaseMode, energyPhase, energyImport, energyExport);
+            if (textMode) {
+                parseTextMode(strictEntity);
+            } else {
+                parseBinaryMode(strictEntity);
             }
         } catch (IOException e) {
             logParseError(e);
@@ -192,6 +183,55 @@ public class Pulse extends HttpInputDevice {
 
         return Behaviors.same();
     }
+    
+    private void parseBinaryMode(HttpEntity.Strict strictEntity) throws IOException {
+        logger.trace("Pulse.parseBinaryMode()");
+
+        byte[] rawData = strictEntity.getData().toArray();
+        DataInputStream dataStream = new DataInputStream(new ByteArrayInputStream(rawData));
+
+        Transport smlTransport = new Transport();
+        smlTransport.setTimeout((int) jsmlTimeout.toMillis());
+
+        SmlFile smlData = smlTransport.getSMLFile(dataStream);
+        List<SmlMessage> messages = smlData.getMessages();
+
+        SmlGetListRes listResponse = findListResponse(messages);
+        if(listResponse != null) {
+            double energyImport = findEnergyImportEntry(listResponse);
+            double energyExport = findEnergyExportEntry(listResponse);
+            double power        = findPowerEntry(listResponse);
+
+            logger.debug("Energy Import (Wh): {}", energyImport);
+            logger.debug("Energy Export (Wh): {}", energyExport);
+            logger.debug("Power (W): {}", power);
+
+            notifyPowerData(powerPhaseMode, powerPhase, power);
+
+            notifyEnergyData(energyPhaseMode, energyPhase, energyImport, energyExport);
+        }
+    }
+
+    private void parseTextMode(HttpEntity.Strict strictEntity) throws IOException {
+        logger.trace("Pulse.parseTextMode()");
+
+        String[] lines = new String(strictEntity.getData().toArray(), StandardCharsets.US_ASCII).split("\n");
+       
+
+        Double power = findPowerEntry(lines);
+        if (power != null) {
+            logger.debug("Power found (W): {}", power);
+            notifyPowerData(powerPhaseMode, powerPhase, power);
+        }
+
+        Double energyImport = findEnergyImportEntry(lines);
+        Double energyExport = findEnergyExportEntry(lines);
+        if (energyImport != null && energyExport != null) {
+            logger.debug("Energy Import found (Wh): {}", energyImport);
+            logger.debug("Energy Export found (Wh): {}", energyExport);
+            notifyEnergyData(energyPhaseMode, energyPhase, energyImport, energyExport);
+        }
+    }
 
     private SmlGetListRes findListResponse(List<SmlMessage> messages) {
         for(SmlMessage message : messages) {
@@ -203,7 +243,17 @@ public class Pulse extends HttpInputDevice {
         return null;
     }
 
-    private double findEnergyImportEntry(SmlGetListRes response) {
+    static @Nullable Double findEnergyImportEntry(String[] lines) {
+        for (String line : lines) {
+            Matcher matcher = ENERGY_IMPORT_PATTERN.matcher(line);
+            if (matcher.matches()) {
+                return Double.parseDouble(matcher.group(1));
+            }
+        }
+        return null;
+    }
+
+    double findEnergyImportEntry(SmlGetListRes response) {
         for(SmlListEntry entry : response.getValList().getValListEntry()) {
             logger.debug("Found OBIS code {}", entry.getObjName().toHexString());
             if(entry.getObjName().toHexString().equals("01 00 01 08 00 FF")) {
@@ -214,8 +264,18 @@ public class Pulse extends HttpInputDevice {
         }
         return 0.0;
     }
+    
+    static @Nullable Double findEnergyExportEntry(String[] lines) {
+        for (String line : lines) {
+            Matcher matcher = ENERGY_EXPORT_PATTERN.matcher(line);
+            if (matcher.matches()) {
+                return Double.parseDouble(matcher.group(1));
+            }
+        }
+        return null;
+    }
 
-    private double findEnergyExportEntry(SmlGetListRes response) {
+    static double findEnergyExportEntry(SmlGetListRes response) {
         for(SmlListEntry entry : response.getValList().getValListEntry()) {
             if(entry.getObjName().toHexString().equals("01 00 02 08 00 FF")) {
                 int energyScaler = entry.getScaler().getIntVal();
@@ -226,7 +286,17 @@ public class Pulse extends HttpInputDevice {
         return 0.0;
     }
 
-    private double findPowerEntry(SmlGetListRes response) {
+    static @Nullable Double findPowerEntry(String[] lines) {
+        for (String line : lines) {
+            Matcher matcher = POWER_PATTERN.matcher(line);
+            if (matcher.matches()) {
+                return Double.parseDouble(matcher.group(1));
+            }
+        }
+        return null;
+    }
+
+    static double findPowerEntry(SmlGetListRes response) {
         for(SmlListEntry entry : response.getValList().getValListEntry()) {
             if(entry.getObjName().toHexString().equals("01 00 10 07 00 FF")) {
                 int powerScaler = entry.getScaler().getIntVal();
