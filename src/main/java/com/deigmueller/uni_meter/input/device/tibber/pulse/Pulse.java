@@ -37,9 +37,12 @@ import java.util.regex.Pattern;
 public class Pulse extends HttpInputDevice {
     // Class members
     public static final String TYPE = "TibberPulse";
-    private static final Pattern POWER_PATTERN = Pattern.compile("^1-0:16\\.7\\.0\\*255\\(([\\d.]+)\\*W\\)$");
-    private static final Pattern ENERGY_IMPORT_PATTERN = Pattern.compile("^1-0:1\\.8\\.0\\*255\\(([\\d.]+)\\*kWh\\)$");
-    private static final Pattern ENERGY_EXPORT_PATTERN = Pattern.compile("^1-0:2\\.8\\.0\\*255\\(([\\d.]+)\\*kWh\\)$");
+    static final Pattern POWER_PATTERN = Pattern.compile("^1-0:16\\.7\\.0\\*255\\((-?[\\d.]+)\\*W\\)$");
+    static final Pattern POWER_L1_PATTERN = Pattern.compile("^1-0:21\\.7\\.0\\*255\\((-?[\\d.]+)\\*W\\)$");
+    static final Pattern POWER_L2_PATTERN = Pattern.compile("^1-0:41\\.7\\.0\\*255\\((-?[\\d.]+)\\*W\\)$");
+    static final Pattern POWER_L3_PATTERN = Pattern.compile("^1-0:61\\.7\\.0\\*255\\((-?[\\d.]+)\\*W\\)$");
+    static final Pattern ENERGY_IMPORT_PATTERN = Pattern.compile("^1-0:1\\.8\\.0\\*255\\((-?[\\d.]+)\\*kWh\\)$");
+    static final Pattern ENERGY_EXPORT_PATTERN = Pattern.compile("^1-0:2\\.8\\.0\\*255\\((-?[\\d.]+)\\*kWh\\)$");
     
     // Instance members
     private final PhaseMode powerPhaseMode = getPhaseMode("power-phase-mode");
@@ -224,18 +227,34 @@ public class Pulse extends HttpInputDevice {
         String[] lines = textData.split("\r?\n");
         logger.debug("Received text data: {}", textData);
         
-        Double power = findPowerEntry(lines);
-        if (power != null) {
-            logger.debug("Power found (W): {}", power);
-            notifyPowerData(powerPhaseMode, powerPhase, power);
+        Double totalPower;
+        
+        Double powerL1 = findEntry(POWER_L1_PATTERN, lines);
+        Double powerL2 = findEntry(POWER_L2_PATTERN, lines);
+        Double powerL3 = findEntry(POWER_L3_PATTERN, lines);
+        if (powerL1 != null && powerL2 != null && powerL3 != null) {
+          logger.debug("Power L1 found (W): {}", powerL1);
+          logger.debug("Power L2 found (W): {}", powerL2);
+          logger.debug("Power L3 found (W): {}", powerL3);
+          notifyPowerData(powerL1, powerL2, powerL3);
+        } else {
+          totalPower = findEntry(POWER_PATTERN, lines);
+          if (totalPower != null) {
+            logger.debug("Power found (W): {}", totalPower);
+            notifyPowerData(powerPhaseMode, powerPhase, totalPower);
+          }
         }
-
-        Double energyImport = findEnergyImportEntry(lines);
-        Double energyExport = findEnergyExportEntry(lines);
-        if (energyImport != null && energyExport != null) {
-            logger.debug("Energy Import found (Wh): {}", energyImport);
-            logger.debug("Energy Export found (Wh): {}", energyExport);
-            notifyEnergyData(energyPhaseMode, energyPhase, energyImport, energyExport);
+        
+        Double energyImport = findEntry(ENERGY_IMPORT_PATTERN, lines);
+        Double energyExport = findEntry(ENERGY_EXPORT_PATTERN, lines);
+        if (energyImport != null || energyExport != null) {
+            logger.debug("Energy Import found (Wh): {}", energyImport != null ? energyImport : 0.0);
+            logger.debug("Energy Export found (Wh): {}", energyExport != null ? energyExport : 0.0);
+            notifyEnergyData(
+                  energyPhaseMode, 
+                  energyPhase, 
+                  energyImport != null ? energyImport : 0.0, 
+                  energyExport != null ? energyExport : 0.0);
         }
     }
 
@@ -244,16 +263,6 @@ public class Pulse extends HttpInputDevice {
             logger.debug("Found tag {}", message.getMessageBody().getTag());
             if(message.getMessageBody().getTag() == EMessageBody.GET_LIST_RESPONSE) {
                 return message.getMessageBody().getChoice();
-            }
-        }
-        return null;
-    }
-
-    static @Nullable Double findEnergyImportEntry(String[] lines) {
-        for (String line : lines) {
-            Matcher matcher = ENERGY_IMPORT_PATTERN.matcher(line);
-            if (matcher.matches()) {
-                return Double.parseDouble(matcher.group(1));
             }
         }
         return null;
@@ -271,9 +280,9 @@ public class Pulse extends HttpInputDevice {
         return 0.0;
     }
     
-    static @Nullable Double findEnergyExportEntry(String[] lines) {
+    static @Nullable Double findEntry(@NotNull Pattern pattern, @NotNull String[] lines) {
         for (String line : lines) {
-            Matcher matcher = ENERGY_EXPORT_PATTERN.matcher(line);
+            Matcher matcher = pattern.matcher(line);
             if (matcher.matches()) {
                 return Double.parseDouble(matcher.group(1));
             }
@@ -290,16 +299,6 @@ public class Pulse extends HttpInputDevice {
             }
         }
         return 0.0;
-    }
-
-    static @Nullable Double findPowerEntry(String[] lines) {
-        for (String line : lines) {
-            Matcher matcher = POWER_PATTERN.matcher(line);
-            if (matcher.matches()) {
-                return Double.parseDouble(matcher.group(1));
-            }
-        }
-        return null;
     }
 
     static double findPowerEntry(SmlGetListRes response) {

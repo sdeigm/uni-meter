@@ -56,6 +56,33 @@ public abstract class InputDevice extends AbstractBehavior<InputDevice.Command> 
     logger.trace("InputDevice.onWrappedOutputDeviceAck()");
     return Behaviors.same();
   }
+  
+  protected void notifyPowerData(double power1, double power2, double power3) {
+    getOutputDevice().tell(new OutputDevice.NotifyPhasesPowerData(
+          getNextMessageId(),
+          new OutputDevice.PowerData(
+                power1,
+                power1,
+                1.0,
+                power1 / getDefaultVoltage(),
+                getDefaultVoltage(),
+                getDefaultFrequency()),
+          new OutputDevice.PowerData(
+                power2,
+                power2,
+                1.0,
+                power2 / getDefaultVoltage(),
+                getDefaultVoltage(),
+                getDefaultFrequency()),
+          new OutputDevice.PowerData(
+                power3,
+                power3,
+                1.0,
+                power3 / getDefaultVoltage(),
+                getDefaultVoltage(),
+                getDefaultFrequency()),
+          getOutputDeviceAckAdapter()));
+  }
 
   protected void notifyPowerData(@NotNull PhaseMode powerPhaseMode,
                                  @NotNull String powerPhase,
@@ -79,7 +106,7 @@ public abstract class InputDevice extends AbstractBehavior<InputDevice.Command> 
                                  double current,
                                  double voltage,
                                  double frequency) {
-    logger.trace("Pulse.notifyPowerData()");
+    logger.trace("InputDevice.notifyPowerData()");
 
     OutputDevice.PowerData powerData = new OutputDevice.PowerData(
           power,
@@ -109,7 +136,7 @@ public abstract class InputDevice extends AbstractBehavior<InputDevice.Command> 
                                   @NotNull String energyPhase,
                                   double energyImport, 
                                   double energyExport) {
-    logger.trace("Pulse.notifyEnergyData()");
+    logger.trace("InputDevice.notifyEnergyData()");
 
     OutputDevice.EnergyData energyData = new OutputDevice.EnergyData(
           energyImport,
