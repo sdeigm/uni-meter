@@ -8,7 +8,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 class PulseTest {
   @Test
   void testFindPowerEntryText() {
-    Double powerEntry = Pulse.findEntry(Pulse.POWER_PATTERN, getTestLines());
+    Double powerEntry = Pulse.findEntry(Pulse.POWER_16_7_PATTERN, getTestLines());
     assertThat(powerEntry, is(equalTo(-458.90)));
   }
   
