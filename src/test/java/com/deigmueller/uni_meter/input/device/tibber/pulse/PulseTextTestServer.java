@@ -103,7 +103,7 @@ public class PulseTextTestServer {
 
 
     private Route onGet() {
-      return complete(MULTI_PHASE_ENTITY);
+      return complete(SINGLE_PHASE_ENTITY);
     }
   }
 }

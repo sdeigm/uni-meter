@@ -58,6 +58,12 @@ public abstract class InputDevice extends AbstractBehavior<InputDevice.Command> 
   }
   
   protected void notifyPowerData(double power1, double power2, double power3) {
+    logger.trace("InputDevice.notifyPowerData({}, {}, {})", power1, power2, power3);
+
+    logger.debug("Power L1 found (W): {}", power1);
+    logger.debug("Power L2 found (W): {}", power2);
+    logger.debug("Power L3 found (W): {}", power3);
+
     getOutputDevice().tell(new OutputDevice.NotifyPhasesPowerData(
           getNextMessageId(),
           new OutputDevice.PowerData(
