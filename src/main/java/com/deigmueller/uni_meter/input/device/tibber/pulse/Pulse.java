@@ -226,7 +226,6 @@ public class Pulse extends HttpInputDevice {
 
         String[] lines = textData.split("\r?\n");
         logger.debug("Received text data: {}", textData);
-
         
         Double totalPower;
         
@@ -234,16 +233,18 @@ public class Pulse extends HttpInputDevice {
         Double powerL2 = findEntry(POWER_L2_PATTERN, lines);
         Double powerL3 = findEntry(POWER_L3_PATTERN, lines);
         if (powerL1 != null && powerL2 != null && powerL3 != null) {
-            totalPower = powerL1 + powerL2 + powerL3;
+          logger.debug("Power L1 found (W): {}", powerL1);
+          logger.debug("Power L2 found (W): {}", powerL2);
+          logger.debug("Power L3 found (W): {}", powerL3);
+          notifyPowerData(powerL1, powerL2, powerL3);
         } else {
-            totalPower = findEntry(POWER_PATTERN, lines);
-        }
-        
-        if (totalPower != null) {
+          totalPower = findEntry(POWER_PATTERN, lines);
+          if (totalPower != null) {
             logger.debug("Power found (W): {}", totalPower);
             notifyPowerData(powerPhaseMode, powerPhase, totalPower);
+          }
         }
-
+        
         Double energyImport = findEntry(ENERGY_IMPORT_PATTERN, lines);
         Double energyExport = findEntry(ENERGY_EXPORT_PATTERN, lines);
         if (energyImport != null || energyExport != null) {
@@ -262,16 +263,6 @@ public class Pulse extends HttpInputDevice {
             logger.debug("Found tag {}", message.getMessageBody().getTag());
             if(message.getMessageBody().getTag() == EMessageBody.GET_LIST_RESPONSE) {
                 return message.getMessageBody().getChoice();
-            }
-        }
-        return null;
-    }
-
-    static @Nullable Double findEnergyImportEntry(String[] lines) {
-        for (String line : lines) {
-            Matcher matcher = ENERGY_IMPORT_PATTERN.matcher(line);
-            if (matcher.matches()) {
-                return Double.parseDouble(matcher.group(1));
             }
         }
         return null;
