@@ -15,8 +15,7 @@ import org.apache.pekko.http.javadsl.model.RemoteAddress;
 import org.apache.pekko.http.javadsl.model.StatusCodes;
 import org.apache.pekko.http.javadsl.model.ws.Message;
 import org.apache.pekko.http.javadsl.model.ws.WebSocketUpgrade;
-import org.apache.pekko.http.javadsl.server.AllDirectives;
-import org.apache.pekko.http.javadsl.server.Route;
+import org.apache.pekko.http.javadsl.server.*;
 import org.apache.pekko.http.javadsl.unmarshalling.StringUnmarshallers;
 import org.apache.pekko.stream.Materializer;
 import org.apache.pekko.stream.javadsl.Sink;
@@ -67,9 +66,6 @@ class HttpRoute extends AllDirectives {
                 path("settings", () -> 
                       get(() -> onSettingsGet(remoteAddress))
                 ), 
-                path("status", () -> 
-                      get(() -> onStatusGet(remoteAddress))
-                ),
                 path("rpc", () ->
                       concat(
                             post(() -> extractStrictEntity(finiteTimeout, strict -> 
@@ -125,6 +121,7 @@ class HttpRoute extends AllDirectives {
                                   path("Sys.GetConfig" , () ->
                                         onSysGetConfig(remoteAddress)
                                   ),
+                                  path("WiFi.GetStatus", this::onWifiGetStatus),
                                   path("Ws.GetConfig", this::onWsGetConfig),
                                   path("Ws.SetConfig", () -> 
                                         parameter(StringUnmarshallers.STRING, "config", this::onWsSetConfig)
@@ -194,31 +191,7 @@ class HttpRoute extends AllDirectives {
                 system.scheduler()), 
           Jackson.marshaller(objectMapper));
   }
-
-  private Route onStatusGet(@NotNull RemoteAddress remoteAddress) {
-    logger.trace("HttpRoute.onStatusGet({})", remoteAddress);
-    return completeOKWithFuture(
-          AskPattern.ask(
-                shelly,
-                (ActorRef<Shelly.GetStatusOrFailureResponse> replyTo) -> new Shelly.GetStatus(
-                      remoteAddress.getAddress().orElse(DEFAULT_ADDRESS), 
-                      replyTo),
-                timeout, 
-                system.scheduler()
-          ).thenApply(response -> {
-            if (response.failure() != null) {
-              if (response.failure() instanceof RuntimeException runtimeException) {
-                throw runtimeException;
-              } else {
-                throw new RuntimeException(response.failure());
-              }
-            }
-            return response.status();
-          }),
-          Jackson.marshaller(objectMapper)
-    );
-  }
-
+  
   private Route onRpcRequest(@NotNull RemoteAddress remoteAddress,
                              @NotNull Rpc.Request request) {
     logger.trace("HttpRoute.onRpcRequest({}, {})", remoteAddress, request);
@@ -450,6 +423,18 @@ class HttpRoute extends AllDirectives {
 
             return response.status();
           }),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onWifiGetStatus() {
+    logger.trace("HttpRoute.onWifiGetStatus()");
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                ShellyPro3EM.WifiGetStatus::new,
+                timeout,
+                system.scheduler()
+          ),
           Jackson.marshaller(objectMapper));
   }
 

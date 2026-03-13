@@ -104,6 +104,7 @@ public class Rpc {
         case "shelly.getdeviceinfo" -> objectMapper.treeToValue(tree, GetDeviceInfo.class);
         case "shelly.reboot" -> objectMapper.treeToValue(tree, ShellyReboot.class);
         case "sys.getconfig" -> objectMapper.treeToValue(tree, SysGetConfig.class);
+        case "wifi.getstatus" -> objectMapper.treeToValue(tree, WifiGetStatus.class);
         case "ws.getconfig" -> objectMapper.treeToValue(tree, WsGetConfig.class);
         case "ws.setconfig" -> objectMapper.treeToValue(tree, WsSetConfig.class);
         default -> throw new IllegalArgumentException("unhandled RPC method '" + method + "'");
@@ -293,25 +294,14 @@ public class Rpc {
   ) implements Request {}
   
   public record ShellyGetStatusResponse(
-        @JsonProperty("wifi_sta") WiFiStatus wifi_sta,
+        @JsonProperty("wifi") WifiGetStatusResponse wifi,
         @JsonProperty("cloud") CloudStatus cloud,
         @JsonProperty("mqtt") MqttStatus mqtt,
         @JsonProperty("sys") SysStatus sys,
         @JsonProperty("temp") TempStatus temp,
         @JsonProperty("emeters") List<EMeterStatus> emeters
-) implements Rpc.Response {}
-
-  public record WiFiStatus(
-        @JsonProperty("connected") boolean connected,
-        @JsonProperty("ssid") String ssid,
-        @JsonProperty("ip") String ip,
-        @JsonProperty("rssi") int rssi
-  ) {
-    public WiFiStatus(com.typesafe.config.Config config) {
-      this(config.getBoolean("connected"), config.getString("ssid"), config.getString("ip"), config.getInt("rssi"));
-    }
-  }
-
+  ) implements Rpc.Response {}
+  
   public record CloudStatus(
         @JsonProperty("enabled") boolean enabled,
         @JsonProperty("connected") boolean connected
@@ -732,6 +722,26 @@ public class Rpc {
   ) implements Response {
     @Override public @NotNull String toString() { return Rpc.toString(this); }
   }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record WifiGetStatus(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record WifiGetStatusResponse(
+        @JsonProperty("sta_ip") String sta_ip,
+        @JsonProperty("status") String status,
+        @JsonProperty("ssid") String ssid,
+        @JsonProperty("bssid") String bssid,
+        @JsonProperty("rssi") int rssi,
+        @JsonProperty("sta_ip6") List<String> sta_ip6
+  ) implements Response {}
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
