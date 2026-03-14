@@ -133,6 +133,8 @@ public class ShellyPro3EM extends Shelly {
           .onMessage(ShellyGetStatus.class, this::onShellyGetStatus)
           .onMessage(ShellyReboot.class, this::onShellyReboot)
           .onMessage(SysGetConfig.class, this::onSysGetConfig)
+          .onMessage(SysGetStatus.class, this::onSysGetStatus)
+          .onMessage(WifiGetStatus.class, this::onWifiGetStatus)
           .onMessage(WsGetConfig.class, this::onWsGetConfig)
           .onMessage(WsSetConfig.class, this::onWsSetConfig)
           .onMessage(HttpRpcRequest.class, this::onHttpRpcRequest)
@@ -173,24 +175,6 @@ public class ShellyPro3EM extends Shelly {
 
     request.response().tell(rpcGetDeviceInfo(request.remoteAddress()));
 
-    return Behaviors.same();
-  }
-
-  /**
-   * Handle the request to get the device's status
-   * @param request Request for the Shelly device status
-   * @return Same behavior
-   */
-  @Override
-  protected @NotNull Behavior<Command> onGetStatus(@NotNull Shelly.GetStatus request) {
-    logger.trace("ShellyPro3EM.onGetStatus()");
-    
-    try {
-      request.replyTo().tell(GetStatusOrFailureResponse.createSuccess(createStatus(request.remoteAddress())));
-    } catch (Exception e) {
-      request.replyTo().tell(GetStatusOrFailureResponse.createFailure(e));
-    }
-    
     return Behaviors.same();
   }
 
@@ -352,7 +336,7 @@ public class ShellyPro3EM extends Shelly {
     logger.trace("ShellyPro3EM.onShellyGetStatus()");
     
     try {
-      request.replyTo().tell(ShellyGetStatusOrFailureResponse.createSuccess(createStatus(request.remoteAddress())));
+      request.replyTo().tell(ShellyGetStatusOrFailureResponse.createSuccess(rpcShellyGetStatus(request.remoteAddress())));
     } catch (Exception e) {
       request.replyTo().tell(ShellyGetStatusOrFailureResponse.createFailure(e));
     }
@@ -375,7 +359,7 @@ public class ShellyPro3EM extends Shelly {
 
   /**
    * Handle the Sys.GetConfig HTTP request
-   * @param request Request to get the device's configuration
+   * @param request Request to get the config of the Sys component
    * @return Same behavior
    */
   protected @NotNull Behavior<Command> onSysGetConfig(@NotNull SysGetConfig request) {
@@ -383,6 +367,19 @@ public class ShellyPro3EM extends Shelly {
     
     request.replyTo().tell(rpcSysGetConfig(request.remoteAddress()));
     
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the Sys.GetStatus HTTP request
+   * @param request Request to get the status of the Sys component
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onSysGetStatus(@NotNull SysGetStatus request) {
+    logger.trace("ShellyPro3EM.onSysGetStatus()");
+
+    request.replyTo().tell(rpcSysGetStatus(request.remoteAddress()));
+
     return Behaviors.same();
   }
 
@@ -413,7 +410,20 @@ public class ShellyPro3EM extends Shelly {
 
     return Behaviors.same();
   }
-  
+
+  /**
+   * Handle the WifiGetStatus HTTP request
+   * @param request Request to get the device's configuration
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onWifiGetStatus(@NotNull WifiGetStatus request) {
+    logger.trace("ShellyPro3EM.onWifiGetStatus()");
+
+    request.replyTo().tell(rpcWifiGetStatus());
+
+    return Behaviors.same();
+  }
+
   /**
    * Handle the Ws.GetConfig HTTP request
    * @param request Request to get the device's configuration
@@ -943,6 +953,8 @@ public class ShellyPro3EM extends Shelly {
       case "shelly.getdeviceinfo" -> rpcGetDeviceInfo(remoteAddress);
       case "shelly.reboot" -> rpcReboot(remoteAddress);
       case "sys.getconfig" -> rpcSysGetConfig(remoteAddress);
+      case "sys.getstatus" -> rpcSysGetStatus(remoteAddress);
+      case "wifi.getstatus" -> rpcWifiGetStatus();
       case "ws.getconfig" -> rpcWsGetConfig();
       case "ws.setconfig" -> rpcWsSetConfig((Rpc.WsSetConfig) request);
       default -> rpcUnknownMethod(request);
@@ -992,11 +1004,11 @@ public class ShellyPro3EM extends Shelly {
     return createConfig(remoteAddress);
   }
 
-  private Rpc.Response rpcShellyGetStatus(@NotNull InetAddress remoteAddress) {
+  private Rpc.ShellyGetStatusResponse rpcShellyGetStatus(@NotNull InetAddress remoteAddress) {
     logger.trace("Shelly.rpcShellyGetStatus()");
     
     Rpc.ShellyGetStatusResponse response = new Rpc.ShellyGetStatusResponse(
-          createWiFiStatus(),
+          rpcWifiGetStatus(),
           createCloudStatus(),
           createMqttStatus(),
           createSysStatus(),
@@ -1201,6 +1213,46 @@ public class ShellyPro3EM extends Shelly {
     );
   }
 
+  private Rpc.SysGetStatusResponse rpcSysGetStatus(@NotNull InetAddress remoteAddress) {
+    logger.trace("ShellyPro3EM.rpcSysGetStatus()");
+    
+    return new Rpc.SysGetStatusResponse(
+          getMac(remoteAddress),
+          false,
+          getLocalTime(),
+          Instant.now().getEpochSecond(),
+          Instant.now().getEpochSecond(),
+          getUptime(),
+          getRamSize(),
+          getRamFree(),
+          getRamMinFree(),
+          getFsSize(),
+          getFsFree(),
+          9,
+          0,
+          0,
+          0,
+          0,
+          new Rpc.AvailableUpdates(
+                new Rpc.VersionInfo("1.7.5-beta1")
+          ),
+          1,
+          getUtcOffset()
+    );
+  }
+
+  private Rpc.WifiGetStatusResponse rpcWifiGetStatus() {
+    logger.trace("ShellyPro3EM.rpcWifiGetStatus()");
+    return new Rpc.WifiGetStatusResponse(
+          NetUtils.detectPrimaryIpAddress(),
+          "got ip",
+          getConfig().getString("wifi-status.ssid"),
+          "04:b4:fe:a6:ec:38",
+          getConfig().getInt("wifi-status.rssi"),
+          Collections.emptyList()
+    );
+  }
+
   /**
    * Get the outgoing websocket configuration
    * @return Outgoing websocket configuration
@@ -1301,45 +1353,9 @@ public class ShellyPro3EM extends Shelly {
           rpcCloudGetConfig(),
           rpcEmGetConfig(),
           rpcSysGetConfig(remoteAddress),
-          createWiFiStatus(),
+          rpcWifiGetStatus(),
           rpcWsGetConfig()
     );
-  }
-
-  /**
-   * Create the device's status
-   * @return Device's status
-   */
-  private Status createStatus(@NotNull InetAddress remoteAddress) {
-    double clientPowerFactor = getPowerFactorForRemoteAddress(remoteAddress);
-    
-    PowerData powerPhase0 = getPowerPhase0OrDefault();
-    PowerData powerPhase1 = getPowerPhase1OrDefault();
-    PowerData powerPhase2 = getPowerPhase2OrDefault();
-    
-    return new Status(
-          createWiFiStatus(),
-          createCloudStatus(),
-          createMqttStatus(),
-          getTime(),
-          Instant.now().getEpochSecond(),
-          1,
-          false,
-          getMac(remoteAddress),
-          50648,
-          38376,
-          32968,
-          233681,
-          174194,
-          getUptime(),
-          28.08,
-          false,
-          createTempStatus(),
-          rpcEmGetStatus(getPowerFactorForRemoteAddress(remoteAddress)),
-          rpcEmDataGetStatus(),
-          createModbusStatus(),
-          (powerPhase0.power() + powerPhase1.power() + powerPhase2.power()) * clientPowerFactor,
-          true);
   }
   
   private List<Rpc.EMeterStatus> createEMeterStatus(@NotNull InetAddress remoteAddress) {
@@ -1353,10 +1369,6 @@ public class ShellyPro3EM extends Shelly {
           Rpc.EMeterStatus.of(powerPhase0, clientPowerFactor, getEnergyPhase0()),
           Rpc.EMeterStatus.of(powerPhase1, clientPowerFactor, getEnergyPhase1()),
           Rpc.EMeterStatus.of(powerPhase2, clientPowerFactor, getEnergyPhase2()));
-  }
-  
-  private Rpc.ModbusStatus createModbusStatus() {
-    return new Rpc.ModbusStatus(false);
   }
   
   private Rpc.Response rpcUnknownMethod(Rpc.Request request) {
@@ -1636,9 +1648,9 @@ public class ShellyPro3EM extends Shelly {
   
   public record ShellyGetStatusOrFailureResponse(
         @JsonProperty("failure") Exception failure,
-        @JsonProperty("status") Shelly.Status status
+        @JsonProperty("status") Rpc.ShellyGetStatusResponse status
   ) {
-    static ShellyGetStatusOrFailureResponse createSuccess(Shelly.Status status) {
+    static ShellyGetStatusOrFailureResponse createSuccess(Rpc.ShellyGetStatusResponse status) {
       return new ShellyGetStatusOrFailureResponse(null, status);
     }
     static ShellyGetStatusOrFailureResponse createFailure(Exception failure) {
@@ -1655,6 +1667,11 @@ public class ShellyPro3EM extends Shelly {
   public record SysGetConfig(
         @JsonProperty("remoteAddress") InetAddress remoteAddress,
         @JsonProperty("replyTo") ActorRef<Rpc.SysGetConfigResponse> replyTo
+  ) implements Command {}
+
+  public record SysGetStatus(
+        @JsonProperty("remoteAddress") InetAddress remoteAddress,
+        @JsonProperty("replyTo") ActorRef<Rpc.SysGetStatusResponse> replyTo
   ) implements Command {}
 
   public record CloudGetConfig(
@@ -1698,6 +1715,10 @@ public class ShellyPro3EM extends Shelly {
         @JsonProperty("status") Rpc.EmDataGetStatusResponse status
   ) {}
 
+  public record WifiGetStatus(
+        @JsonProperty("replyTo") ActorRef<Rpc.WifiGetStatusResponse> replyTo
+  ) implements Command {}
+
   public record WsGetConfig(
         @JsonProperty("replyTo") ActorRef<Rpc.WsGetConfigResponse> replyTo
   ) implements Command {}
@@ -1732,52 +1753,11 @@ public class ShellyPro3EM extends Shelly {
         @JsonProperty("cloud") Rpc.CloudGetConfigResponse cloud,
         @JsonProperty("em:0") Rpc.EmGetConfigResponse em0,
         @JsonProperty("sys") Rpc.SysGetConfigResponse sys,
-        @JsonProperty("wifi_sta") Rpc.WiFiStatus wifi_sta,
+        @JsonProperty("wifi") Rpc.WifiGetStatusResponse wifi,
         @JsonProperty("ws") Rpc.WsGetConfigResponse ws
   ) implements Rpc.Response {}
   
   public enum RetryStartUdpServer implements Command {
     INSTANCE
   }
-
-  @Getter
-  public static class Status extends Shelly.Status {
-    @JsonProperty("em:0") private final Rpc.EmGetStatusResponse em0;
-    @JsonProperty("emdata:0") private final Rpc.EmDataGetStatusResponse emdata0;
-    private final Rpc.ModbusStatus modbus;
-    private final double total_power;
-    private final boolean fs_mounted;
-    
-    public Status(@NotNull Rpc.WiFiStatus wifi_sta,
-                  @NotNull Rpc.CloudStatus cloud,
-                  @NotNull Rpc.MqttStatus mqtt,
-                  @NotNull String time,
-                  long unixtime,
-                  int serial,
-                  boolean has_update,
-                  String mac,
-                  int ram_total,
-                  int ram_free,
-                  int ram_lwm,
-                  int fs_size,
-                  int fs_free,
-                  long uptime,
-                  double temperature,
-                  boolean overtemperature,
-                  @NotNull Rpc.TempStatus temp,
-                  @NotNull Rpc.EmGetStatusResponse em0,
-                  @NotNull Rpc.EmDataGetStatusResponse emdata0,
-                  @NotNull Rpc.ModbusStatus modbus,
-                  double total_power,
-                  boolean fs_mounted) {
-      super(wifi_sta, cloud, mqtt, time, unixtime, serial, has_update, mac, ram_total, ram_free, ram_lwm, fs_size, 
-            fs_free, uptime, temperature, overtemperature, temp);
-      this.em0 = em0;
-      this.emdata0 = emdata0;
-      this.modbus = modbus;
-      this.total_power = total_power;
-      this.fs_mounted = fs_mounted;
-    }
-  }
-
 }
