@@ -84,7 +84,7 @@ public class PulseTextTestServer {
                 1-0:96.5.0*255(001C0104)
                 0-0:96.8.0*255(055BD83E)
                 !
-                """);
+                """.replace("\n", "\r\n"));
     private static final HttpEntity.Strict MULTI_PHASE_ENTITY =
           HttpEntities.create(
                 ContentTypes.APPLICATION_JSON,
@@ -99,7 +99,7 @@ public class PulseTextTestServer {
                 1-0:96.5.5*255(80)
                 0-0:96.1.255*255(1ESY1334001444)
                 !
-                """);
+                """.replace("\n", "\r\n"));
 
 
     private Route onGet() {
