@@ -34,6 +34,9 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Input device getting data from a Tibber Pulse bridge
+ */
 public class Pulse extends HttpInputDevice {
   // Class members
   public static final String TYPE = "TibberPulse";
@@ -67,6 +70,9 @@ public class Pulse extends HttpInputDevice {
   static final byte[] POWER_76_7_BYTES = new byte[] {0x01, 0x00, 0x4C, 0x07, 0x00, (byte) 0xFF };
   static final byte[] ENERGY_IMPORT_BYTES = new byte[] {0x01, 0x00, 0x01, 0x08, 0x00, (byte) 0xFF };
   static final byte[] ENERGY_EXPORT_BYTES = new byte[] {0x01, 0x00, 0x02, 0x08, 0x00, (byte) 0xFF };
+  
+  static final byte[] TEXT_START = new byte[] { 0x2f };
+  static final byte[] TEXT_END = new byte[] { 0x21, 0x0d, 0x0a };
 
   // Instance members
   private final PhaseMode powerPhaseMode = getPhaseMode("power-phase-mode");
@@ -78,27 +84,13 @@ public class Pulse extends HttpInputDevice {
   private final String password = getConfig().getString("password");
   private final Duration pulseStatusPollingInterval = getConfig().getDuration("polling-interval");
   private final Duration jsmlTimeout = getConfig().getDuration("jsml-timeout");
-  private final boolean textMode = getConfig().getBoolean("text-mode");
   private final String requestUrl = getUrl() + "/data.json?node_id=" + nodeId;
   private final HttpCredentials credentials = BasicHttpCredentials.createBasicHttpCredentials(userId, password);
+  private final boolean forceTextMode = getConfig().getBoolean("text-mode");
+  private final boolean forceBinaryMode = getConfig().getBoolean("binary-mode");
 
   private int nParseErrorsLogged = 0;
   private Instant lastParseErrorLogged = Instant.MIN;
-
-  /**
-   * Protected constructor called by the static factory method.
-   *
-   * @param context      The actor context
-   * @param outputDevice The output device actor reference
-   * @param config       The configuration
-   */
-  protected Pulse(@NotNull ActorContext<Command> context,
-                  @NotNull ActorRef<OutputDevice.Command> outputDevice,
-                  @NotNull Config config) {
-    super(context, outputDevice, config);
-
-    executePulseStatusPolling();
-  }
 
   /**
    * Create a new Pulse actor instance.
@@ -112,14 +104,20 @@ public class Pulse extends HttpInputDevice {
     return Behaviors.setup(context -> new Pulse(context, outputDevice, config));
   }
 
-  static @Nullable Double findEntry(@NotNull Pattern pattern, @NotNull String[] lines) {
-    for (String line : lines) {
-      Matcher matcher = pattern.matcher(line);
-      if (matcher.matches()) {
-        return Double.parseDouble(matcher.group(1));
-      }
-    }
-    return null;
+  /**
+   * Protected constructor called by the static factory method.
+   * @param context      The actor context
+   * @param outputDevice The output device actor reference
+   * @param config       The configuration
+   */
+  protected Pulse(@NotNull ActorContext<Command> context,
+                  @NotNull ActorRef<OutputDevice.Command> outputDevice,
+                  @NotNull Config config) {
+    super(context, outputDevice, config);
+    
+    getLogger().info("using request url: {}", requestUrl);
+
+    executePulseStatusPolling();
   }
 
   /**
@@ -199,10 +197,12 @@ public class Pulse extends HttpInputDevice {
     HttpEntity.Strict strictEntity = message.entity();
 
     try {
-      if (textMode) {
-        parseTextMode(strictEntity);
+      byte[] rawData = strictEntity.getData().toArray();
+      
+      if (isTextMode(rawData)) {
+        parseTextMode(rawData);
       } else {
-        parseBinaryMode(strictEntity);
+        parseBinaryMode(rawData);
       }
     } catch (IOException e) {
       logParseError(e);
@@ -217,7 +217,6 @@ public class Pulse extends HttpInputDevice {
 
   /**
    * Handle the notification to execute the next pulse status polling.
-   *
    * @param message Notification message
    * @return Same behavior to continue processing
    */
@@ -229,10 +228,38 @@ public class Pulse extends HttpInputDevice {
     return Behaviors.same();
   }
 
-  private void parseBinaryMode(HttpEntity.Strict strictEntity) throws IOException {
+  /**
+   * Check whether the data shall be processed in text mode.
+   * @param rawData Raw data to check
+   * @return true if the data shall be processed in text mode, false otherwise
+   */
+  private boolean isTextMode(byte@NotNull[] rawData) {
+    logger.trace("Pulse.isTextMode()");
+
+    if (forceTextMode) {
+      return true;
+    }
+    if (forceBinaryMode) {
+      return false;   
+    }
+    
+    int length = rawData.length;
+    return 
+          (length > 0 && rawData[0] == TEXT_START[0]) 
+                && 
+                (length > TEXT_END.length && 
+                      rawData[length-3] == TEXT_END[0] && 
+                      rawData[length-2] == TEXT_END[1] &&
+                      rawData[length-1] == TEXT_END[2]);
+  }
+
+  /**
+   * Parse the data in binary mode.
+   * @param rawData Raw data to parse
+   */
+  private void parseBinaryMode(byte@NotNull[] rawData) throws IOException {
     logger.trace("Pulse.parseBinaryMode()");
 
-    byte[] rawData = strictEntity.getData().toArray();
     if (logger.isDebugEnabled()) {
       logger.debug("Received raw data: {}", Hex.format(rawData));
     }
@@ -247,33 +274,91 @@ public class Pulse extends HttpInputDevice {
     SmlGetListRes listResponse = findListResponse(messages);
     if (listResponse != null) {
       
-      checkPower(listResponse);
+      searchForPowerData(listResponse);
       
-      Double energyImport = findEntry(ENERGY_IMPORT_BYTES, listResponse);
-      Double energyExport = findEntry(ENERGY_EXPORT_BYTES, listResponse);
-
-      if (energyImport != null || energyExport != null) {
-        logger.debug("Energy Import found (Wh): {}", energyImport != null ? energyImport : 0.0);
-        logger.debug("Energy Export found (Wh): {}", energyExport != null ? energyExport : 0.0);
-        notifyEnergyData(
-              energyPhaseMode,
-              energyPhase,
-              energyImport != null ? energyImport : 0.0,
-              energyExport != null ? energyExport : 0.0);
-      }
+      searchForEnergyData(listResponse);
     }
   }
 
-  private void parseTextMode(HttpEntity.Strict strictEntity) throws IOException {
+  /**
+   * Parse the data in text mode.
+   * @param rawData Raw data to parse
+   */
+  private void parseTextMode(byte@NotNull[] rawData) throws IOException {
     logger.trace("Pulse.parseTextMode()");
 
-    String textData = new String(strictEntity.getData().toArray(), StandardCharsets.US_ASCII);
+    String textData = new String(rawData, StandardCharsets.US_ASCII);
 
     String[] lines = textData.split("\r?\n");
     logger.debug("Received text data: {}", textData);
 
-    checkPower(lines);
+    searchForPowerData(lines);
     
+    searchForEnergyData(lines);
+  }
+
+  /**
+   * Search for the power data in the specified SML message.
+   * @param response SML message containing the power data
+   */
+  private void searchForPowerData(@NotNull SmlGetListRes response) {
+    if (searchFor21_7to61_7(response)) {
+      return;
+    }
+    if (searchFor36_7to76_7(response)) {
+      return;
+    }
+
+    if (searchFor16_7(response)) {
+      return;
+    }
+
+    searchFor1_7(response);
+  }
+
+  /**
+   * Search for the power data in the specified text lines.
+   * @param lines Text lines containing the power data
+   */
+  private void searchForPowerData(@NotNull String[] lines) {
+    if (searchFor21_7to61_7(lines)) {
+      return;
+    }
+    if (searchFor36_7to76_7(lines)) {
+      return;
+    }
+    
+    if (searchFor16_7(lines)) {
+      return;
+    }
+
+    searchFor1_7(lines);
+  }
+
+  /**
+   * Search for the energy data in the specified SML message.
+   * @param response SML message containing the energy data
+   */
+  private void searchForEnergyData(@NotNull SmlGetListRes response) {
+    Double energyImport = findEntry(ENERGY_IMPORT_BYTES, response);
+    Double energyExport = findEntry(ENERGY_EXPORT_BYTES, response);
+
+    if (energyImport != null || energyExport != null) {
+      logger.debug("Energy Import found (Wh): {}", energyImport != null ? energyImport : 0.0);
+      logger.debug("Energy Export found (Wh): {}", energyExport != null ? energyExport : 0.0);
+      notifyEnergyData(
+            energyPhaseMode,
+            energyPhase,
+            energyImport != null ? energyImport : 0.0,
+            energyExport != null ? energyExport : 0.0);
+    }
+  }
+  
+  /**
+   * Search for the energy data in the specified text lines.
+   * @param lines Text lines containing the energy data
+   */
+  private void searchForEnergyData(@NotNull String[] lines) {
     Double energyImport = findEntry(ENERGY_IMPORT_PATTERN, lines);
     Double energyExport = findEntry(ENERGY_EXPORT_PATTERN, lines);
     if (energyImport != null || energyExport != null) {
@@ -287,37 +372,12 @@ public class Pulse extends HttpInputDevice {
     }
   }
 
-  private void checkPower(@NotNull SmlGetListRes response) {
-    if (checkFor21_7to61_7(response)) {
-      return;
-    }
-    if (checkFor36_7to76_7(response)) {
-      return;
-    }
-
-    if (checkFor16_7(response)) {
-      return;
-    }
-
-    checkFor1_7(response);
-  }
-
-  private void checkPower(@NotNull String[] lines) {
-    if (checkFor21_7to61_7(lines)) {
-      return;
-    }
-    if (checkFor36_7to76_7(lines)) {
-      return;
-    }
-    
-    if (checkFor16_7(lines)) {
-      return;
-    }
-
-    checkFor1_7(lines);
-  }
-
-  private boolean checkFor21_7to61_7(@NotNull SmlGetListRes response) {
+  /**
+   * Search for power data 21.7.0, 41.7.0, 61.7.0 in the specified SML message.
+   * @param response SML message containing the power data
+   * @return true if power data was found, false otherwise
+   */
+  private boolean searchFor21_7to61_7(@NotNull SmlGetListRes response) {
     Double impPowerL1 = findEntry(POWER_21_7_BYTES, response);
     Double expPowerL1 = findEntry(POWER_22_7_BYTES, response);
     Double impPowerL2 = findEntry(POWER_41_7_BYTES, response);
@@ -337,7 +397,12 @@ public class Pulse extends HttpInputDevice {
     return false;
   }
 
-  private boolean checkFor21_7to61_7(@NotNull String[] lines) {
+  /**
+   * Search for power data 21.7.0, 41.7.0, 61.7.0 in the specified text lines.
+   * @param lines Text lines containing the power data
+   * @return true if power data was found, false otherwise
+   */
+  private boolean searchFor21_7to61_7(@NotNull String[] lines) {
     Double impPowerL1 = findEntry(POWER_21_7_PATTERN, lines);
     Double expPowerL1 = findEntry(POWER_22_7_PATTERN, lines);
     Double impPowerL2 = findEntry(POWER_41_7_PATTERN, lines);
@@ -355,8 +420,13 @@ public class Pulse extends HttpInputDevice {
     }
     return false;
   }
-  
-  private boolean checkFor36_7to76_7(@NotNull SmlGetListRes response) {
+
+  /**
+   * Search for power data 36.7.0, 56.7.0, 76.7.0 in the specified SML message.
+   * @param response SML message containing the power data
+   * @return true if power data was found, false otherwise
+   */
+  private boolean searchFor36_7to76_7(@NotNull SmlGetListRes response) {
     Double powerL1 = findEntry(POWER_36_7_BYTES, response);
     Double powerL2 = findEntry(POWER_56_7_BYTES, response);
     Double powerL3 = findEntry(POWER_76_7_BYTES, response);
@@ -372,8 +442,13 @@ public class Pulse extends HttpInputDevice {
     
     return false;
   }
-  
-  private boolean checkFor36_7to76_7(@NotNull String[] lines) {
+
+  /**
+   * Search for power data 36.7.0, 56.7.0, 76.7.0 in the specified text lines.
+   * @param lines Text lines containing the power data
+   * @return true if power data was found, false otherwise
+   */
+  private boolean searchFor36_7to76_7(@NotNull String[] lines) {
     Double powerL1 = findEntry(POWER_36_7_PATTERN, lines);
     Double powerL2 = findEntry(POWER_56_7_PATTERN, lines);
     Double powerL3 = findEntry(POWER_76_7_PATTERN, lines);
@@ -389,8 +464,13 @@ public class Pulse extends HttpInputDevice {
     
     return false;
   }
-  
-  private boolean checkFor16_7(@NotNull SmlGetListRes response) {
+
+  /**
+   * Search for power data 16.7.0 in the specified SML message.
+   * @param response SML message containing the power data
+   * @return true if power data was found, false otherwise
+   */
+  private boolean searchFor16_7(@NotNull SmlGetListRes response) {
     Double power = findEntry(POWER_16_7_BYTES, response);
     if (power != null) {
       logger.debug("Power 16.7.0 found (W): {}", power);
@@ -402,8 +482,13 @@ public class Pulse extends HttpInputDevice {
     
     return false;
   }
-  
-  private boolean checkFor16_7(@NotNull String[] lines) {
+
+  /**
+   * Search for power data 16.7.0 in the specified text lines.
+   * @param lines Text lines containing the power data
+   * @return true if power data was found, false otherwise
+   */
+  private boolean searchFor16_7(@NotNull String[] lines) {
     Double power = findEntry(POWER_16_7_PATTERN, lines);
     if (power != null) {
       logger.debug("Power 16.7.0 found (W): {}", power);
@@ -415,8 +500,12 @@ public class Pulse extends HttpInputDevice {
 
     return false;
   }
-  
-  private void checkFor1_7(@NotNull SmlGetListRes response) {
+
+  /**
+   * Search for power data 1.7.0 in the specified SML message.
+   * @param response SML message containing the power data
+   */
+  private void searchFor1_7(@NotNull SmlGetListRes response) {
     Double impPower = findEntry(POWER_1_7_BYTES, response);
     Double expPower = findEntry(POWER_2_7_BYTES, response);
     if (impPower != null || expPower != null) {
@@ -428,7 +517,11 @@ public class Pulse extends HttpInputDevice {
     }
   }
 
-  private void checkFor1_7(@NotNull String[] lines) {
+  /**
+   * Search for power data 1.7.0 in the specified text lines.
+   * @param lines Text lines containing the power data
+   */
+  private void searchFor1_7(@NotNull String[] lines) {
     Double impPower = findEntry(POWER_1_7_PATTERN, lines);
     Double expPower = findEntry(POWER_2_7_PATTERN, lines);
     if (impPower != null || expPower != null) {
@@ -440,6 +533,11 @@ public class Pulse extends HttpInputDevice {
     }
   }
 
+  /**
+   * Find the SmlGetListRes message in the specified SML messages.
+   * @param messages SML messages to search in
+   * @return SmlGetListRes message or null if not found
+   */
   private @Nullable SmlGetListRes findListResponse(List<SmlMessage> messages) {
     for (SmlMessage message : messages) {
       logger.debug("Found tag {}", message.getMessageBody().getTag());
@@ -449,8 +547,14 @@ public class Pulse extends HttpInputDevice {
     }
     return null;
   }
-  
-  private @Nullable Double findEntry(byte @NotNull[] name, @NotNull SmlGetListRes response) {
+
+  /**
+   * Find an entry in the specified SML message.
+   * @param name Name of the entry to find
+   * @param response SML message containing the entries
+   * @return Value of the entry or null if not found
+   */
+  static @Nullable Double findEntry(byte @NotNull[] name, @NotNull SmlGetListRes response) {
     for (SmlListEntry entry : response.getValList().getValListEntry()) {
       if (Arrays.equals(entry.getObjName().getValue(), name)) {
         int energyScaler = entry.getScaler().getIntVal();
@@ -459,6 +563,22 @@ public class Pulse extends HttpInputDevice {
       }
     }
     
+    return null;
+  }
+
+  /**
+   * Find an entry in the specified text lines.
+   * @param pattern Pattern to match the entry
+   * @param lines Text lines containing the entries
+   * @return Value of the entry or null if not found
+   */
+  static @Nullable Double findEntry(@NotNull Pattern pattern, @NotNull String[] lines) {
+    for (String line : lines) {
+      Matcher matcher = pattern.matcher(line);
+      if (matcher.matches()) {
+        return Double.parseDouble(matcher.group(1));
+      }
+    }
     return null;
   }
   
