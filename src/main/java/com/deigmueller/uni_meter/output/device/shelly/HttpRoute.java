@@ -121,6 +121,9 @@ class HttpRoute extends AllDirectives {
                                   path("Sys.GetConfig" , () ->
                                         onSysGetConfig(remoteAddress)
                                   ),
+                                  path("Sys.GetStatus" , () ->
+                                        onSysGetStatus(remoteAddress)
+                                  ),
                                   path("WiFi.GetStatus", this::onWifiGetStatus),
                                   path("Ws.GetConfig", this::onWsGetConfig),
                                   path("Ws.SetConfig", () -> 
@@ -326,6 +329,20 @@ class HttpRoute extends AllDirectives {
                       remoteAddress.getAddress().orElse(DEFAULT_ADDRESS), 
                       replyTo), 
                 timeout, 
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onSysGetStatus(@NotNull RemoteAddress remoteAddress) {
+    logger.trace("HttpRoute.onSysGetStatus()");
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<Rpc.SysGetStatusResponse> replyTo) -> new ShellyPro3EM.SysGetStatus(
+                      remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
+                      replyTo),
+                timeout,
                 system.scheduler()
           ),
           Jackson.marshaller(objectMapper));

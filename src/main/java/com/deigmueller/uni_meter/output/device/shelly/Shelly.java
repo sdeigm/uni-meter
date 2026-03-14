@@ -109,6 +109,34 @@ public abstract class Shelly extends OutputDevice {
     return Duration.between(startTime, Instant.now()).getSeconds();
   }
 
+  protected long getRamSize() {
+    return 259176;
+  }
+  
+  protected long getRamFree() {
+    return 87268;
+  }
+  
+  protected long getRamMinFree() {
+    return 74044;
+  }
+  
+  protected long getFsSize() {
+    return 524288;
+  }
+  
+  protected long getFsFree() {
+    return 196608;
+  }
+
+  protected int getUtcOffset() {
+    return TimeZone.getDefault().getRawOffset() / 1000;
+  }
+
+  protected String getLocalTime() {
+    return LocalTime.now().format(TIME_FORMATTER);
+  }
+
   @Override
   protected Route createRoute() {
     return null;

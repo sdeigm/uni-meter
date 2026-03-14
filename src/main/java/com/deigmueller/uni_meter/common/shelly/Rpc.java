@@ -104,6 +104,7 @@ public class Rpc {
         case "shelly.getdeviceinfo" -> objectMapper.treeToValue(tree, GetDeviceInfo.class);
         case "shelly.reboot" -> objectMapper.treeToValue(tree, ShellyReboot.class);
         case "sys.getconfig" -> objectMapper.treeToValue(tree, SysGetConfig.class);
+        case "sys.getstatus" -> objectMapper.treeToValue(tree, SysGetStatus.class);
         case "wifi.getstatus" -> objectMapper.treeToValue(tree, WifiGetStatus.class);
         case "ws.getconfig" -> objectMapper.treeToValue(tree, WsGetConfig.class);
         case "ws.setconfig" -> objectMapper.treeToValue(tree, WsSetConfig.class);
@@ -607,6 +608,15 @@ public class Rpc {
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
+  public record SysGetStatus(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public record SysGetConfigParams(
   ) {}
   
@@ -623,7 +633,41 @@ public class Rpc {
   ) implements Response {
     @Override public @NotNull String toString() { return Rpc.toString(this); }
   }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record SysGetStatusResponse(
+        @JsonProperty("mac") String mac,
+        @JsonProperty("restart_required") boolean restartRequired,
+        @JsonProperty("time") String time,
+        @JsonProperty("unixtime") long unixTime,
+        @JsonProperty("last_sync_ts") long lastSyncTs,
+        @JsonProperty("uptime") long upTime,
+        @JsonProperty("ram_size") long ramSize,
+        @JsonProperty("ram_free") long ramFree,
+        @JsonProperty("ram_min_free") long ramMinFree,
+        @JsonProperty("fs_size") long fsSize,
+        @JsonProperty("fs_free") long fsFree,
+        @JsonProperty("cfg_rev") int cfgRev,
+        @JsonProperty("kvs_rev") int kvsRev,
+        @JsonProperty("schedule_rev") int scheduleRev,
+        @JsonProperty("webhook_rev") int webhookRev,
+        @JsonProperty("btrelay_ref") int btRelayRev,
+        @JsonProperty("available_updates") AvailableUpdates availableUpdates,
+        @JsonProperty("reset_reason") int reasetReason,
+        @JsonProperty("utc_offset") int utcOffset
+  ) implements Response {
+    @Override public @NotNull String toString() { return Rpc.toString(this); }
+  }
   
+  public record VersionInfo(
+        @JsonProperty("version") String version
+  ) {}
+  
+  public record AvailableUpdates(
+        @JsonProperty("beta") VersionInfo beta
+  ) {}
+
   public record Device(
         @JsonProperty("name") String name,
         @JsonProperty("mac") String mac,
