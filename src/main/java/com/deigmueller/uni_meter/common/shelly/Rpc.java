@@ -295,31 +295,35 @@ public class Rpc {
   ) implements Request {}
   
   public record ShellyGetStatusResponse(
+        @JsonProperty("ble") BleGetStatusResponse ble,
+        @JsonProperty("bthome") BtHomeGetStatusResponse bthome,
+        @JsonProperty("cloud") CloudGetStatusResponse cloud,
+        @JsonProperty("em:0") EmGetStatusResponse em0,
+        @JsonProperty("emdata:0") EmDataGetStatusResponse emdata0,
+        @JsonProperty("eth") EthGetStatusResponse eth,
+        @JsonProperty("modbus") ModbusGetStatusResponse modbus,
+        @JsonProperty("mqtt") MqttGetStatusResponse mqtt,
+        @JsonProperty("sys") SysGetStatusResponse sys,
+        @JsonProperty("temperature:0") TemperatureGetStatusResponse temperature0,
         @JsonProperty("wifi") WifiGetStatusResponse wifi,
-        @JsonProperty("cloud") CloudStatus cloud,
-        @JsonProperty("mqtt") MqttStatus mqtt,
-        @JsonProperty("sys") SysStatus sys,
-        @JsonProperty("temp") TempStatus temp,
-        @JsonProperty("emeters") List<EMeterStatus> emeters
+        @JsonProperty("ws") WsGetStatusResponse ws
   ) implements Rpc.Response {}
   
-  public record CloudStatus(
-        @JsonProperty("enabled") boolean enabled,
-        @JsonProperty("connected") boolean connected
-  ) {
-    public CloudStatus(com.typesafe.config.Config config) {
-      this(config.getBoolean("enabled"), config.getBoolean("connected"));
-    }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonPropertyOrder({"id", "method", "src", "dst"})
+  public record TemperatureGetStatus(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst) implements Request {
   }
-
-  public record MqttStatus(
-        @JsonProperty("connected") boolean connected
-  ) {}
-
-  public record TempStatus(
+  
+  public record TemperatureGetStatusResponse(
+        @JsonProperty("id") long id,
         @JsonProperty("tC") double tC,
-        @JsonProperty("tF") double tF,
-        @JsonProperty("is_valid") boolean isValid
+        @JsonProperty("tF") double tF
   ) {}
 
   public record EMeterStatus(
@@ -343,17 +347,6 @@ public class Rpc {
     }
   }
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  public record ModbusStatus(
-        @JsonProperty("enabled") Boolean enabled
-  ) {}
-
-  public record SysStatus(
-        @JsonProperty("uptime") long uptime,
-        @JsonProperty("fw_version") String fw_version
-  ) {}
-  
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record ShellyReboot(
@@ -578,23 +571,54 @@ public class Rpc {
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record EmDataGetConfigResponse(
   ) implements Response, Config {}
-  
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  @JsonPropertyOrder({"ts", "emdata:0"})
-  public record EmDataGetStatusNotification(
-        @JsonProperty("ts") Double ts,
-        @JsonProperty("emdata:0") EmDataGetStatusResponse emdata0
-  ) implements NotificationParam {}
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
-  @JsonPropertyOrder({"ts", "em:0", "emdata:0"})
-  public record FullStatusNotification(
-        @JsonProperty("ts") Double ts,
-        @JsonProperty("em:0") EmGetStatusResponse em0,
-        @JsonProperty("emdata:0") EmDataGetStatusResponse emdata0
-  ) implements NotificationParam {}
+  @JsonPropertyOrder({"id", "method", "src", "dst"})
+  public record EthGetStatus(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst) implements Request {
+  }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record EthGetStatusResponse(
+        @JsonProperty("ip") RpcStringOrNull ip,
+        @JsonProperty("ip6") RpcStringOrNull ip6
+  ) implements Response, Config {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonPropertyOrder({"id", "method", "src", "dst"})
+  public record ModbusGetStatus(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst) implements Request {
+  }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ModbusGetStatusResponse(
+  ) implements Response, Config {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonPropertyOrder({"id", "method", "src", "dst"})
+  public record MqttGetStatus(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst) implements Request {
+  }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record MqttGetStatusResponse(
+        @JsonProperty("connected") boolean connected
+  ) implements Response, Config {}
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
@@ -714,6 +738,53 @@ public class Rpc {
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
+  public record BleGetStatus(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record BleGetStatusResponse(
+  ) implements Response {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record BtHomeGetStatus(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record BtHomeGetStatusResponse(
+  ) implements Response {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record CloudGetStatus(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst
+  ) implements Request {}
+
+  public record CloudGetStatusResponse(
+        @JsonProperty("enabled") boolean enabled,
+        @JsonProperty("connected") boolean connected
+  ) {
+    public CloudGetStatusResponse(com.typesafe.config.Config config) {
+      this(config.getBoolean("enabled"), config.getBoolean("connected"));
+    }
+  }
+
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public record CloudGetConfig(
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
@@ -787,6 +858,21 @@ public class Rpc {
         @JsonProperty("sta_ip6") List<String> sta_ip6
   ) implements Response {}
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record WsGetStatus(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record WsGetStatusResponse(
+        @JsonProperty("enable") Boolean enable
+  ) implements Response {}
+  
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record WsGetConfig(

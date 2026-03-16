@@ -148,25 +148,6 @@ public abstract class Shelly extends OutputDevice {
 
   protected abstract int getNumMeters();
 
-
-  protected Rpc.CloudStatus createCloudStatus() {
-    return new Rpc.CloudStatus(getConfig().getConfig(("cloud-status")));
-  }
-
-  protected Rpc.MqttStatus createMqttStatus() {
-    return new Rpc.MqttStatus(false);
-  }
-
-  protected Rpc.SysStatus createSysStatus() {
-    return new Rpc.SysStatus(
-          getUptime(),
-          getConfig().getString("fw"));
-  }
-
-  protected Rpc.TempStatus createTempStatus() {
-    return new Rpc.TempStatus(28.08, 82.54, true);
-  }
-
   /**
    * Get the hostname to use it for the specified remote address
    * @param remoteAddress Remote address
