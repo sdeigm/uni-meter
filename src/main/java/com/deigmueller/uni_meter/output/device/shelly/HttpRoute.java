@@ -81,6 +81,7 @@ class HttpRoute extends AllDirectives {
                       get(() ->
                             concat(
                                   path("Cloud.GetConfig", this::onCloudGetConfig),
+                                  path("Cloud.GetStatus", this::onCloudGetStatus),
                                   path("Cloud.SetConfig", () ->
                                         parameter(StringUnmarshallers.STRING, "config", this::onCloudSetConfig)
                                   ),
@@ -91,6 +92,10 @@ class HttpRoute extends AllDirectives {
                                   path("EM.GetStatus", () ->
                                         parameterOptional(StringUnmarshallers.INTEGER, "id", id -> 
                                               onEmGetStatus(remoteAddress, id.orElse(0)))
+                                  ),
+                                  path("EMData.GetConfig", () ->
+                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id ->
+                                              onEmDataGetConfig(id.orElse(0)))
                                   ),
                                   path("EMData.GetStatus", () ->
                                         parameterOptional(StringUnmarshallers.INTEGER, "id", id -> 
@@ -124,6 +129,15 @@ class HttpRoute extends AllDirectives {
                                   path("Sys.GetStatus" , () ->
                                         onSysGetStatus(remoteAddress)
                                   ),
+                                  path("Temperature.GetConfig", () ->
+                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id ->
+                                              onTemperatureGetConfig(id.orElse(0)))
+                                  ),
+                                  path("Temperature.GetStatus", () ->
+                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id ->
+                                              onTemperatureGetStatus(id.orElse(0)))
+                                  ),
+                                  path("WiFi.GetConfig", this::onWifiGetConfig),
                                   path("WiFi.GetStatus", this::onWifiGetStatus),
                                   path("Ws.GetConfig", this::onWsGetConfig),
                                   path("Ws.SetConfig", () -> 
@@ -351,6 +365,18 @@ class HttpRoute extends AllDirectives {
           Jackson.marshaller(objectMapper));
   }
 
+  private Route onCloudGetStatus() {
+    logger.trace("HttpRoute.onCloudGetStatus()");
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                ShellyPro3EM.CloudGetStatus::new,
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
   private Route onCloudSetConfig(@NotNull String config) {
     logger.trace("HttpRoute.onCloudSetConfig({})", config);
     Rpc.CloudSetConfigParams setConfigParams;
@@ -411,6 +437,27 @@ class HttpRoute extends AllDirectives {
           Jackson.marshaller(objectMapper));
   }
 
+  private Route onEmDataGetConfig(int id) {
+    logger.trace("HttpRoute.onEmDataGetConfig({})", id);
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<ShellyPro3EM.EmDataGetConfigOrFailureResponse> replyTo) ->
+                      new ShellyPro3EM.EmDataGetConfig(
+                            id,
+                            replyTo),
+                timeout,
+                system.scheduler()
+          ).thenApply(response -> {
+            if (response.failure() != null) {
+              throw response.failure();
+            }
+
+            return response.status();
+          }),
+          Jackson.marshaller(objectMapper));
+  }
+
   private Route onEmDataGetStatus(@NotNull RemoteAddress remoteAddress,
                                   int id) {
     logger.trace("HttpRoute.onEmDataGetStatus({}, {})", remoteAddress, id);
@@ -431,6 +478,44 @@ class HttpRoute extends AllDirectives {
 
             return response.status();
           }),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onTemperatureGetConfig(int id) {
+    logger.trace("HttpRoute.onTemperatureGetConfig()");
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<Rpc.TemperatureGetConfigResponse> replyTo) -> 
+                      new ShellyPro3EM.TemperatureGetConfig(id, replyTo),
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onTemperatureGetStatus(int id) {
+    logger.trace("HttpRoute.onTemperatureGetStatus()");
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<Rpc.TemperatureGetStatusResponse> replyTo) ->
+                      new ShellyPro3EM.TemperatureGetStatus(id, replyTo),
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onWifiGetConfig() {
+    logger.trace("HttpRoute.onWifiGetConfig()");
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                ShellyPro3EM.WifiGetConfig::new,
+                timeout,
+                system.scheduler()
+          ),
           Jackson.marshaller(objectMapper));
   }
 
