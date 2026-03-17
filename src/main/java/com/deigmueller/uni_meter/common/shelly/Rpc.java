@@ -35,6 +35,7 @@ public class Rpc {
     simpleModule.addSerializer(Float.class, new FloatSerializer());
     simpleModule.addSerializer(Double.class, new DoubleSerializer());
     simpleModule.addSerializer(RpcNull.class, new RpcNullSerializer());
+    simpleModule.addSerializer(RpcDoubleOrNull.class, new RpcDoubleOrNullSerializer());
     simpleModule.addSerializer(RpcStringOrNull.class, new RpcStringOrNullSerializer());
     simpleModule.addSerializer(Duration.class, new DurationSerializer());
     objectMapper.registerModule(simpleModule);
@@ -92,9 +93,11 @@ public class Rpc {
       String method = tree.get("method").asText();
       return switch (method.toLowerCase()) {
         case "cloud.getconfig" -> objectMapper.treeToValue(tree, CloudGetConfig.class);
+        case "cloud.getstatus" -> objectMapper.treeToValue(tree, CloudGetStatus.class);
         case "cloud.setconfig" -> objectMapper.treeToValue(tree, CloudSetConfig.class);
         case "em.getconfig" -> objectMapper.treeToValue(tree, EmGetConfig.class);
         case "em.getstatus" -> objectMapper.treeToValue(tree, EmGetStatus.class);
+        case "emdata.getconfig" -> objectMapper.treeToValue(tree, EmDataGetConfig.class);
         case "emdata.getstatus" -> objectMapper.treeToValue(tree, EmDataGetStatus.class);
         case "script.list" -> objectMapper.treeToValue(tree, ScriptList.class);
         case "script.getcode" -> objectMapper.treeToValue(tree, ScriptGetCode.class);
@@ -105,6 +108,7 @@ public class Rpc {
         case "shelly.reboot" -> objectMapper.treeToValue(tree, ShellyReboot.class);
         case "sys.getconfig" -> objectMapper.treeToValue(tree, SysGetConfig.class);
         case "sys.getstatus" -> objectMapper.treeToValue(tree, SysGetStatus.class);
+        case "wifi.getconfig" -> objectMapper.treeToValue(tree, WifiGetConfig.class);
         case "wifi.getstatus" -> objectMapper.treeToValue(tree, WifiGetStatus.class);
         case "ws.getconfig" -> objectMapper.treeToValue(tree, WsGetConfig.class);
         case "ws.setconfig" -> objectMapper.treeToValue(tree, WsSetConfig.class);
@@ -308,7 +312,22 @@ public class Rpc {
         @JsonProperty("wifi") WifiGetStatusResponse wifi,
         @JsonProperty("ws") WsGetStatusResponse ws
   ) implements Rpc.Response {}
-  
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonPropertyOrder({"id", "method", "src", "dst"})
+  public record TemperatureGetConfig(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst) implements Request {
+  }
+
+  public record TemperatureGetStatusResponse(
+        @JsonProperty("id") long id,
+        @JsonProperty("tC") double tC,
+        @JsonProperty("tF") double tF
+  ) {}
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
@@ -319,11 +338,14 @@ public class Rpc {
         @JsonProperty("src") String src,
         @JsonProperty("dst") String dst) implements Request {
   }
-  
-  public record TemperatureGetStatusResponse(
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record TemperatureGetConfigResponse(
         @JsonProperty("id") long id,
-        @JsonProperty("tC") double tC,
-        @JsonProperty("tF") double tF
+        @JsonProperty("method") RpcStringOrNull name,
+        @JsonProperty("report_thr_C") double reportThrC,
+        @JsonProperty("offset_C") double offsetC
   ) {}
 
   public record EMeterStatus(
@@ -459,7 +481,7 @@ public class Rpc {
         @JsonProperty("c_pf") Double c_pf,
         @JsonProperty("c_freq") Double c_freq,
         @JsonProperty("c_errors") List<String> c_errors,
-        @JsonProperty("n_current") Double n_current,
+        @JsonProperty("n_current") RpcDoubleOrNull n_current,
         @JsonProperty("n_errors") List<String> n_errors,
         @JsonProperty("total_current") Double total_current,
         @JsonProperty("total_act_power") Double total_act_power,
@@ -511,27 +533,27 @@ public class Rpc {
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
-  public record BleGetConfigResponse(
-    @JsonProperty("enable") Boolean enable,
-    @JsonProperty("rpc") BleGetConfigResponseRpc rpc,
-    @JsonProperty("observer") BleGetConfigResponseObserver observer
-  ) {}
-  
-  public record BleGetConfigResponseRpc(
-        @JsonProperty("enable") Boolean enable
-  ) {}
-
-  public record BleGetConfigResponseObserver(
-        @JsonProperty("enable") Boolean enable
-  ) {}
-
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  @JsonIgnoreProperties(ignoreUnknown = true)
   @JsonPropertyOrder({"ts", "em:0"})
   public record EmGetStatusNotification(
         @JsonProperty("ts") Double ts,
         @JsonProperty("em:0") EmGetStatusResponse em0
   ) implements NotificationParam {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonPropertyOrder({"id", "method", "src", "dst", "params"})
+  public record EmDataGetConfig(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst,
+        @JsonProperty("params") EmDataGetStatusParams params) implements Request {
+  }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record EmDataGetConfigResponse(
+  ) implements Response, Config {}
   
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
@@ -566,11 +588,6 @@ public class Rpc {
         @JsonProperty("total_act_ret") Double total_act_ret,
         @JsonProperty("errors") String[] errors
   ) implements Response, Status {}
-
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  public record EmDataGetConfigResponse(
-  ) implements Response, Config {}
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
@@ -738,6 +755,32 @@ public class Rpc {
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
+  public record BleGetConfig(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record BleGetConfigResponse(
+        @JsonProperty("enable") Boolean enable,
+        @JsonProperty("rpc") BleGetConfigResponseRpc rpc,
+        @JsonProperty("observer") BleGetConfigResponseObserver observer
+  ) implements Config {}
+
+  public record BleGetConfigResponseRpc(
+        @JsonProperty("enable") Boolean enable
+  ) {}
+
+  public record BleGetConfigResponseObserver(
+        @JsonProperty("enable") Boolean enable
+  ) {}
+
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public record BleGetStatus(
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
@@ -748,7 +791,7 @@ public class Rpc {
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record BleGetStatusResponse(
-  ) implements Response {}
+  ) implements Response, Status {}
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
@@ -773,16 +816,19 @@ public class Rpc {
         @JsonProperty("dst") String dst
   ) implements Request {}
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public record CloudGetStatusResponse(
-        @JsonProperty("enabled") boolean enabled,
-        @JsonProperty("connected") boolean connected
-  ) {
+        @JsonProperty("enabled") Boolean enabled,
+        @JsonProperty("connected") Boolean connected
+  ) implements Response, Status {
     public CloudGetStatusResponse(com.typesafe.config.Config config) {
-      this(config.getBoolean("enabled"), config.getBoolean("connected"));
+      this(
+            config.getBoolean("connected") ? null : config.getBoolean("enabled"),
+            config.getBoolean("enabled") ? config.getBoolean("connected") : null);
     }
   }
-
-
+  
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record CloudGetConfig(
@@ -840,6 +886,59 @@ public class Rpc {
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
+  public record AccessPointRangeExtender (
+        @JsonProperty("enable") boolean enable
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record AccessPointConfig (
+        @JsonProperty("ssid") String ssid,
+        @JsonProperty("is_open") boolean isOpen,
+        @JsonProperty("enable") boolean enable,
+        @JsonProperty("range_extender") AccessPointRangeExtender rangeExtender
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record InterfaceConfig (
+        @JsonProperty("ssid") RpcStringOrNull ssid,
+        @JsonProperty("is_open") boolean isOpen,
+        @JsonProperty("enable") boolean enable,
+        @JsonProperty("ipv4mode") String ipV4Mode,
+        @JsonProperty("ip") RpcStringOrNull ip,
+        @JsonProperty("netmask") RpcStringOrNull netmask,
+        @JsonProperty("gw") RpcStringOrNull gw,
+        @JsonProperty("nameserver") RpcStringOrNull nameserver
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record RoamConfig(
+        @JsonProperty("rssi_thr") int rssiThr,
+        @JsonProperty("interval") int interval
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record WifiGetConfig(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record WifiGetConfigResponse(
+        @JsonProperty("ap") AccessPointConfig ap,
+        @JsonProperty("sta") InterfaceConfig sta,
+        @JsonProperty("sta1") InterfaceConfig sta1,
+        @JsonProperty("roam") RoamConfig roam
+  ) implements Response {}
+  
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public record WifiGetStatus(
         @JsonProperty("id") Long id,
         @JsonProperty("method") String method,
@@ -870,7 +969,7 @@ public class Rpc {
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record WsGetStatusResponse(
-        @JsonProperty("enable") Boolean enable
+        @JsonProperty("connected") Boolean connected
   ) implements Response {}
   
   @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -939,8 +1038,22 @@ public class Rpc {
   public record RpcStringOrNull(
         String value
   ) {
+    public static RpcStringOrNull of() {
+      return new RpcStringOrNull(null);
+    }
     public static RpcStringOrNull of(@Nullable String value) {
       return new RpcStringOrNull(value);
+    }
+  }
+
+  public record RpcDoubleOrNull(
+        Double value
+  ) {
+    public static RpcDoubleOrNull of() {
+      return new RpcDoubleOrNull(null);
+    }
+    public static RpcDoubleOrNull of(@Nullable Double value) {
+      return new RpcDoubleOrNull(value);
     }
   }
 
@@ -994,6 +1107,19 @@ public class Rpc {
     public void serialize(RpcStringOrNull value, JsonGenerator jsonGenerator, SerializerProvider provider) throws IOException {
       if (value != null && value.value() != null) {
         jsonGenerator.writeString(value.value());
+      } else {
+        jsonGenerator.writeNull();
+      }
+    }
+  }
+
+  private static class RpcDoubleOrNullSerializer extends JsonSerializer<RpcDoubleOrNull> {
+    private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#0.00", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
+
+    @Override
+    public void serialize(RpcDoubleOrNull value, JsonGenerator jsonGenerator, SerializerProvider provider) throws IOException {
+      if (value != null && value.value() != null) {
+        jsonGenerator.writeNumber(DECIMAL_FORMAT.format(value));
       } else {
         jsonGenerator.writeNull();
       }

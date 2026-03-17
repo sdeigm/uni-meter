@@ -76,7 +76,7 @@ public class ShellyPro3EM extends Shelly {
 
   private ActorRef<Datagram> udpOutput = null;
   
-  private Rpc.CloudGetConfigResponse cloudConfig = new Rpc.CloudGetConfigResponse(true, Rpc.RpcStringOrNull.of(null));
+  private Rpc.CloudGetConfigResponse cloudConfig = new Rpc.CloudGetConfigResponse(true, Rpc.RpcStringOrNull.of(getConfig().getString("cloud.server")));
   private Rpc.WsGetConfigResponse wsConfig = new Rpc.WsGetConfigResponse(getConfig().getConfig("ws"));
   private InetAddress outboundWebsocketAddress = null;
   private String outboundWebsocketConnectionId = null;
@@ -120,9 +120,11 @@ public class ShellyPro3EM extends Shelly {
   public @NotNull ReceiveBuilder<Command> newReceiveBuilder() {
     return super.newReceiveBuilder()
           .onMessage(CloudGetConfig.class, this::onCloudGetConfig)
+          .onMessage(CloudGetStatus.class, this::onCloudGetStatus)
           .onMessage(CloudSetConfig.class, this::onCloudSetConfig)
           .onMessage(EmGetConfig.class, this::onEmGetConfig)
           .onMessage(EmGetStatus.class, this::onEmGetStatus)
+          .onMessage(EmDataGetConfig.class, this::onEmDataGetConfig)
           .onMessage(EmDataGetStatus.class, this::onEmDataGetStatus)
           .onMessage(ResetData.class, this::onResetData)
           .onMessage(ScriptList.class, this::onScriptList)
@@ -134,6 +136,9 @@ public class ShellyPro3EM extends Shelly {
           .onMessage(ShellyReboot.class, this::onShellyReboot)
           .onMessage(SysGetConfig.class, this::onSysGetConfig)
           .onMessage(SysGetStatus.class, this::onSysGetStatus)
+          .onMessage(TemperatureGetConfig.class, this::onTemperatureGetConfig)
+          .onMessage(TemperatureGetStatus.class, this::onTemperatureGetStatus)
+          .onMessage(WifiGetConfig.class, this::onWiFiGetConfig)
           .onMessage(WifiGetStatus.class, this::onWifiGetStatus)
           .onMessage(WsGetConfig.class, this::onWsGetConfig)
           .onMessage(WsSetConfig.class, this::onWsSetConfig)
@@ -221,6 +226,28 @@ public class ShellyPro3EM extends Shelly {
     } else  {
       request.replyTo().tell(
             new EmGetConfigOrFailureResponse(
+                  new NoSuchElementException("unknown EM with id " + request.id()),
+                  null));
+    }
+
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the EMData.GetConfig HTTP request
+   * @param request Request to get the EM data config
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onEmDataGetConfig(@NotNull EmDataGetConfig request) {
+    logger.trace("ShellyPro3EM.onEmDataGetConfig()");
+
+    if (request.id() == 0) {
+      request.replyTo().tell(
+            new EmDataGetConfigOrFailureResponse(null, rpcEmDataGetConfig())
+      );
+    } else  {
+      request.replyTo().tell(
+            new EmDataGetConfigOrFailureResponse(
                   new NoSuchElementException("unknown EM with id " + request.id()),
                   null));
     }
@@ -381,13 +408,26 @@ public class ShellyPro3EM extends Shelly {
 
   /**
    * Handle the Cloud.GetConfig HTTP request
-   * @param request Request to get the device's configuration
+   * @param request Request to get the cloud configuration
    * @return Same behavior
    */
   protected @NotNull Behavior<Command> onCloudGetConfig(@NotNull CloudGetConfig request) {
     logger.trace("ShellyPro3EM.onCloudGetConfig()");
 
     request.replyTo().tell(rpcCloudGetConfig());
+
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the Cloud.GetStatus HTTP request
+   * @param request Request to get the status of the cloud component
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onCloudGetStatus(@NotNull CloudGetStatus request) {
+    logger.trace("ShellyPro3EM.onCloudGetStatus()");
+
+    request.replyTo().tell(rpcCloudGetStatus());
 
     return Behaviors.same();
   }
@@ -408,8 +448,47 @@ public class ShellyPro3EM extends Shelly {
   }
 
   /**
+   * Handle the TemperatireGetConfig HTTP request
+   * @param request Request to get the Temperature configuration
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onTemperatureGetConfig(@NotNull TemperatureGetConfig request) {
+    logger.trace("ShellyPro3EM.onTemperatureGetConfig()");
+
+    request.replyTo().tell(rpcTemperatureGetConfig());
+
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the TemperatureGetStatus HTTP request
+   * @param request Request to get the status of the Temperature component
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onTemperatureGetStatus(@NotNull TemperatureGetStatus request) {
+    logger.trace("ShellyPro3EM.onTemperatureGetStatus()");
+
+    request.replyTo().tell(rpcTemperatureGetStatus());
+
+    return Behaviors.same();
+  }
+
+  /**
+   * Handle the WifiGetConfig HTTP request
+   * @param request Request to get the Wi-Fi configuration
+   * @return Same behavior
+   */
+  protected @NotNull Behavior<Command> onWiFiGetConfig(@NotNull WifiGetConfig request) {
+    logger.trace("ShellyPro3EM.onWiFiGetConfig()");
+
+    request.replyTo().tell(rpcWifiGetConfig());
+
+    return Behaviors.same();
+  }
+
+  /**
    * Handle the WifiGetStatus HTTP request
-   * @param request Request to get the device's configuration
+   * @param request Request to get the status of the Wi-Fi component
    * @return Same behavior
    */
   protected @NotNull Behavior<Command> onWifiGetStatus(@NotNull WifiGetStatus request) {
@@ -937,9 +1016,11 @@ public class ShellyPro3EM extends Shelly {
                                          @NotNull Rpc.Request request) throws RpcException {
     return switch (request.method().toLowerCase()) {
       case "cloud.getconfig" -> rpcCloudGetConfig();
+      case "cloud.getstatus" -> rpcCloudGetStatus();
       case "cloud.setconfig" -> rpcCloudSetConfig((Rpc.CloudSetConfig) request);
       case "em.getconfig" -> rpcEmGetConfig();
       case "em.getstatus" -> rpcEmGetStatus(getPowerFactorForRemoteAddress(remoteAddress));
+      case "emdata.getconfig" -> rpcEmDataGetConfig();
       case "emdata.getstatus" -> rpcEmDataGetStatus();
       case "script.list" -> rpcScriptList();
       case "script.getcode" -> rpcScriptGetCode();
@@ -950,6 +1031,7 @@ public class ShellyPro3EM extends Shelly {
       case "shelly.reboot" -> rpcReboot(remoteAddress);
       case "sys.getconfig" -> rpcSysGetConfig(remoteAddress);
       case "sys.getstatus" -> rpcSysGetStatus(remoteAddress);
+      case "wifi.getconfig" -> rpcWifiGetConfig();
       case "wifi.getstatus" -> rpcWifiGetStatus();
       case "ws.getconfig" -> rpcWsGetConfig();
       case "ws.setconfig" -> rpcWsSetConfig((Rpc.WsSetConfig) request);
@@ -961,6 +1043,15 @@ public class ShellyPro3EM extends Shelly {
   protected Map<String, Object> getParameters(@NotNull Map<String, Object> parameters) {
     parameters.put("min-sample-period", minSamplePeriod.toMillis() + "ms");
     return super.getParameters(parameters);
+  }
+
+  /**
+   * Handle the request to get the config of the Ble component
+   * @return Config of the Ble component
+   */
+  private Rpc.BleGetConfigResponse rpcBleGetConfig() {
+    logger.trace("ShellyPro3EM.rpcBleGetConfig()");
+    return new Rpc.BleGetConfigResponse(true, new Rpc.BleGetConfigResponseRpc(true), null);
   }
 
   /**
@@ -1156,14 +1247,19 @@ public class ShellyPro3EM extends Shelly {
           powerPhase2.powerFactor(),
           powerPhase2.frequency(),
           null,
-          null,
+          Rpc.RpcDoubleOrNull.of(),
           null,
           (powerPhase0.current() + powerPhase1.current() + powerPhase2.current()) * factor,
           totalPower,
           (powerPhase0.apparentPower() + powerPhase1.apparentPower() + powerPhase2.apparentPower()) * factor,
-          null,
+          Collections.emptyList(),
           null
     );
+  }
+  
+  private Rpc.EmDataGetConfigResponse rpcEmDataGetConfig() {
+    logger.trace("ShellyPro3EM.rpcEmDataGetConfig()");
+    return new Rpc.EmDataGetConfigResponse();
   }
 
   private Rpc.EmDataGetStatusResponse rpcEmDataGetStatus() {
@@ -1301,6 +1397,52 @@ public class ShellyPro3EM extends Shelly {
     return new Rpc.TemperatureGetStatusResponse(0, 39.1, 102.4);
   }
 
+  private Rpc.TemperatureGetConfigResponse rpcTemperatureGetConfig() {
+    logger.trace("ShellyPro3EM.rpcTemperatureGetConfig()");
+    return new Rpc.TemperatureGetConfigResponse(
+          0,
+          Rpc.RpcStringOrNull.of(),
+          5.0,
+          0.0
+    );
+  }
+
+  private Rpc.WifiGetConfigResponse rpcWifiGetConfig() {
+    logger.trace("ShellyPro3EM.rpcWifiGetConfig()");
+    return new Rpc.WifiGetConfigResponse(
+          new Rpc.AccessPointConfig(
+                getDefaultHostname(),
+                true,
+                false,
+                new Rpc.AccessPointRangeExtender(false)
+          ),
+          new Rpc.InterfaceConfig(
+                Rpc.RpcStringOrNull.of(getConfig().getString("wifi.ssid")),
+                false,
+                true,
+                "dhcp",
+                Rpc.RpcStringOrNull.of(),
+                Rpc.RpcStringOrNull.of(),
+                Rpc.RpcStringOrNull.of(),
+                Rpc.RpcStringOrNull.of()
+          ),
+          new Rpc.InterfaceConfig(
+                Rpc.RpcStringOrNull.of(),
+                true,
+                false,
+                "dhcp",
+                Rpc.RpcStringOrNull.of(),
+                Rpc.RpcStringOrNull.of(),
+                Rpc.RpcStringOrNull.of(),
+                Rpc.RpcStringOrNull.of()
+          ),
+          new Rpc.RoamConfig(
+                -80,
+                60
+          )
+    );
+  }
+
   private Rpc.WifiGetStatusResponse rpcWifiGetStatus() {
     logger.trace("ShellyPro3EM.rpcWifiGetStatus()");
     return new Rpc.WifiGetStatusResponse(
@@ -1401,6 +1543,7 @@ public class ShellyPro3EM extends Shelly {
   private Rpc.ShellyGetComponentsResponse createComponents(@NotNull InetAddress remoteAddress) {
     return new Rpc.ShellyGetComponentsResponse(
           List.of(
+                new Rpc.Component("ble", rpcBleGetStatus(), rpcBleGetConfig()),
                 new Rpc.Component("em:0", rpcEmGetStatus(getPowerFactorForRemoteAddress(remoteAddress)), rpcEmGetConfig()),
                 new Rpc.Component("emdata:0", rpcEmDataGetStatus(), new Rpc.EmDataGetConfigResponse())
           ),
@@ -1423,22 +1566,10 @@ public class ShellyPro3EM extends Shelly {
           rpcCloudGetConfig(),
           rpcEmGetConfig(),
           rpcSysGetConfig(remoteAddress),
-          rpcWifiGetStatus(),
+          rpcTemperatureGetConfig(),
+          rpcWifiGetConfig(),
           rpcWsGetConfig()
     );
-  }
-  
-  private List<Rpc.EMeterStatus> createEMeterStatus(@NotNull InetAddress remoteAddress) {
-    double clientPowerFactor = getPowerFactorForRemoteAddress(remoteAddress);
-
-    PowerData powerPhase0 = getPowerPhase0OrDefault();
-    PowerData powerPhase1 = getPowerPhase1OrDefault();
-    PowerData powerPhase2 = getPowerPhase2OrDefault();
-    
-    return List.of(
-          Rpc.EMeterStatus.of(powerPhase0, clientPowerFactor, getEnergyPhase0()),
-          Rpc.EMeterStatus.of(powerPhase1, clientPowerFactor, getEnergyPhase1()),
-          Rpc.EMeterStatus.of(powerPhase2, clientPowerFactor, getEnergyPhase2()));
   }
   
   private Rpc.Response rpcUnknownMethod(Rpc.Request request) {
@@ -1716,18 +1847,6 @@ public class ShellyPro3EM extends Shelly {
         @JsonProperty("replyTo") ActorRef<Rpc.ShellyGetStatusResponse> replyTo
   ) implements Command {}
   
-  public record ShellyGetStatusOrFailureResponse(
-        @JsonProperty("failure") Exception failure,
-        @JsonProperty("status") Rpc.ShellyGetStatusResponse status
-  ) {
-    static ShellyGetStatusOrFailureResponse createSuccess(Rpc.ShellyGetStatusResponse status) {
-      return new ShellyGetStatusOrFailureResponse(null, status);
-    }
-    static ShellyGetStatusOrFailureResponse createFailure(Exception failure) {
-      return new ShellyGetStatusOrFailureResponse(failure, null);
-    }
-  }
-
   public record ShellyReboot(
         @JsonProperty("remoteAddress") InetAddress remoteAddress,
         @JsonProperty("delayMs") int delayMs,
@@ -1746,6 +1865,10 @@ public class ShellyPro3EM extends Shelly {
 
   public record CloudGetConfig(
         @JsonProperty("replyTo") ActorRef<Rpc.CloudGetConfigResponse> replyTo
+  ) implements Command {}
+
+  public record CloudGetStatus(
+        @JsonProperty("replyTo") ActorRef<Rpc.CloudGetStatusResponse> replyTo
   ) implements Command {}
 
   public record CloudSetConfig(
@@ -1774,6 +1897,16 @@ public class ShellyPro3EM extends Shelly {
         @JsonProperty("status") Rpc.EmGetConfigResponse status
   ) {}
 
+  public record EmDataGetConfig(
+        @JsonProperty("id") int id,
+        @JsonProperty("replyTo") ActorRef<EmDataGetConfigOrFailureResponse> replyTo
+  ) implements Command {}
+
+  public record EmDataGetConfigOrFailureResponse(
+        @JsonProperty("failure") RuntimeException failure,
+        @JsonProperty("status") Rpc.EmDataGetConfigResponse status
+  ) {}
+
   public record EmDataGetStatus(
         @JsonProperty("remoteAddress") InetAddress remoteAddress,
         @JsonProperty("id") int id,
@@ -1784,6 +1917,20 @@ public class ShellyPro3EM extends Shelly {
         @JsonProperty("failure") RuntimeException failure,
         @JsonProperty("status") Rpc.EmDataGetStatusResponse status
   ) {}
+
+  public record TemperatureGetConfig(
+        @JsonProperty("id") int id,
+        @JsonProperty("replyTo") ActorRef<Rpc.TemperatureGetConfigResponse> replyTo
+  ) implements Command {}
+
+  public record TemperatureGetStatus(
+        @JsonProperty("id") int id,
+        @JsonProperty("replyTo") ActorRef<Rpc.TemperatureGetStatusResponse> replyTo
+  ) implements Command {}
+
+  public record WifiGetConfig(
+        @JsonProperty("replyTo") ActorRef<Rpc.WifiGetConfigResponse> replyTo
+  ) implements Command {}
 
   public record WifiGetStatus(
         @JsonProperty("replyTo") ActorRef<Rpc.WifiGetStatusResponse> replyTo
@@ -1823,7 +1970,8 @@ public class ShellyPro3EM extends Shelly {
         @JsonProperty("cloud") Rpc.CloudGetConfigResponse cloud,
         @JsonProperty("em:0") Rpc.EmGetConfigResponse em0,
         @JsonProperty("sys") Rpc.SysGetConfigResponse sys,
-        @JsonProperty("wifi") Rpc.WifiGetStatusResponse wifi,
+        @JsonProperty("temperature:0") Rpc.TemperatureGetConfigResponse temperature0,
+        @JsonProperty("wifi") Rpc.WifiGetConfigResponse wifi,
         @JsonProperty("ws") Rpc.WsGetConfigResponse ws
   ) implements Rpc.Response {}
   
