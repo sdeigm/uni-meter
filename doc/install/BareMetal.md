@@ -119,7 +119,7 @@ To start the tool automatically on boot, you can use the provided systemd servic
 within the `/etc/systemd/system` directory using the following command:
 
 ```shell
-sudo ln -s /opt/uni-meter/config/systemd/uni-meter.service /etc/systemd/system/uni-meter.service
+sudo ln -s /opt/uni-meter/src/main/resources/config/systemd/uni-meter.service /etc/systemd/system/uni-meter.service
 ```
 
 Afterward, you can enable the service using the following command so that it will be automatically started on boot:
