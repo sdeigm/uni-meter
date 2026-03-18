@@ -28,6 +28,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.function.Supplier;
 
 /**
  * Represents an output device responsible for handling power and energy data,
@@ -530,23 +531,23 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     
     return parameters;
   }
-  
+
   protected abstract Route createRoute();
-  
+
   protected abstract void eventPowerDataChanged();
 
   protected @NotNull String resolveAnnouncedIpAddress() {
     Config mdnsConfig = getContext().getSystem().settings().config().getConfig("uni-meter.mdns");
-    return resolveAnnouncedIpAddress(mdnsConfig, logger, resolveMdnsFallbackIpAddress());
+    return resolveAnnouncedIpAddress(mdnsConfig, logger, this::resolveMdnsFallbackIpAddress);
   }
 
   public static @NotNull String resolveAnnouncedIpAddress(@NotNull Config mdnsConfig, @NotNull Logger logger) {
-    return resolveAnnouncedIpAddress(mdnsConfig, logger, NetUtils.detectPrimaryIpAddress());
+    return resolveAnnouncedIpAddress(mdnsConfig, logger, NetUtils::detectPrimaryIpAddress);
   }
 
   public static @NotNull String resolveAnnouncedIpAddress(@NotNull Config mdnsConfig,
                                                            @NotNull Logger logger,
-                                                           @NotNull String fallbackIpAddress) {
+                                                           @NotNull Supplier<String> fallbackIpAddressSupplier) {
     String configuredIpAddress = StringUtils.trimToEmpty(mdnsConfig.getString("ip-address"));
     if (StringUtils.isNotBlank(configuredIpAddress)) {
       return configuredIpAddress;
@@ -569,7 +570,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
       }
     }
 
-    return fallbackIpAddress;
+    return fallbackIpAddressSupplier.get();
   }
 
   private @NotNull String resolveMdnsFallbackIpAddress() {
