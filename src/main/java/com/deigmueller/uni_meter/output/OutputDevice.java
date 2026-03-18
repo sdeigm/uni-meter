@@ -541,7 +541,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
 
   protected abstract void eventPowerDataChanged();
 
-  protected @NotNull String resolveAnnouncedIpAddress() {
+  private @NotNull String resolveAnnouncedIpAddress() {
     Config mdnsConfig = getContext().getSystem().settings().config().getConfig("uni-meter.mdns");
     return resolveAnnouncedIpAddress(mdnsConfig, logger, this::resolveMdnsFallbackIpAddress);
   }
