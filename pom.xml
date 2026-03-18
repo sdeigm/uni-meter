@@ -24,6 +24,7 @@
         <junit5.version>5.8.2</junit5.version>
         <mockito.version>5.21.0</mockito.version>
         <maven-surefire-plugin.version>3.5.5</maven-surefire-plugin.version>
+        <templating-maven-plugin.version>3.1.0</templating-maven-plugin.version>
     </properties>
 
     <profiles>
@@ -246,13 +247,13 @@
           <version>${maven-surefire-plugin.version}</version>
           <configuration>
             <!-- mockito: https://javadoc.io/doc/org.mockito/mockito-core/latest/org/mockito/Mockito.html#0.3  -->
-            <argLine>@{argLine} -XX:+EnableDynamicAgentLoading</argLine>
+            <argLine>-XX:+EnableDynamicAgentLoading</argLine>
           </configuration>
         </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>templating-maven-plugin</artifactId>
-                <version>3.1.0</version>
+                <version>${templating-maven-plugin.version}</version>
                 <executions>
                     <execution>
                         <id>generate-version-class</id>
