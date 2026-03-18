@@ -94,6 +94,11 @@ uni-meter {
 
 Some sample configurations for different devices can be found [here](https://github.com/sdeigm/uni-meter/tree/main/samples).
 
+If you use mDNS, the announced IP address is derived from the selected output device `interface` configuration.
+If `interface` contains an IPv4 or IPv6 address, `uni-meter` uses it directly. Otherwise, it is treated as a network
+interface name and `uni-meter` tries to resolve an IP address from it, preferring IPv4 over IPv6. If that does not
+work, `uni-meter` falls back to the detected primary IPv4 address.
+
 ## Output device configuration
 
 To configure the output device, follow the instructions in these sections:
@@ -167,4 +172,3 @@ type.
 ```
 
 A restart is necessary for these changes to take effect.
-
