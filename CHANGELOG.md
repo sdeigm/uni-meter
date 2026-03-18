@@ -1,6 +1,16 @@
 # Change Log
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.4.1] - 2026-03-18
+
+### Fixed 
+
+- [#344](https://github.com/sdeigm/uni-meter/issues/344) Adjust Shelly.GetStatus to be compatible with a physical shelly
+
+### Added
+
+- [#346](https://github.com/sdeigm/uni-meter/issues/346) Add Shelly Pro3EM rpc method Wifi.GetConfig
+
 ## [1.4.0] - 2026-03-14
 
 ### Added
