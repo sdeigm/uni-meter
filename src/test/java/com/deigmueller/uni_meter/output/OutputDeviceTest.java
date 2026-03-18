@@ -39,25 +39,37 @@ class OutputDeviceTest {
   // ---------------------------------------------------------------------------
 
   @Test
-  @DisplayName("resolveAnnouncedIpAddress uses configured ip-address with highest priority")
-  void resolveAnnouncedIpAddressUsesConfiguredIpAddress() {
+  @DisplayName("resolveAnnouncedIpAddress uses configured interface when it is an IPv4 address")
+  void resolveAnnouncedIpAddressUsesConfiguredIpv4Address() {
     try (MockedStatic<NetUtils> mockedNetUtils = Mockito.mockStatic(NetUtils.class)) {
       mockedNetUtils.when(NetUtils::detectPrimaryIpAddress).thenReturn("10.0.0.5");
 
-      String result = resolveAnnouncedIpAddress(" 192.168.1.10 ", "");
+      String result = resolveAnnouncedIpAddress(" 192.168.1.10 ");
 
       assertThat(result, is("192.168.1.10"));
     }
   }
 
   @Test
-  @DisplayName("resolveAnnouncedIpAddress resolves IP from configured interface")
-  void resolveAnnouncedIpAddressUsesConfiguredIpInterface() {
+  @DisplayName("resolveAnnouncedIpAddress uses configured interface when it is an IPv6 address")
+  void resolveAnnouncedIpAddressUsesConfiguredIpv6Address() {
+    try (MockedStatic<NetUtils> mockedNetUtils = Mockito.mockStatic(NetUtils.class)) {
+      mockedNetUtils.when(NetUtils::detectPrimaryIpAddress).thenReturn("10.0.0.5");
+
+      String result = resolveAnnouncedIpAddress(" 2001:db8::10 ");
+
+      assertThat(result, is("2001:db8::10"));
+    }
+  }
+
+  @Test
+  @DisplayName("resolveAnnouncedIpAddress resolves IP from configured interface name")
+  void resolveAnnouncedIpAddressUsesConfiguredInterfaceName() {
     try (MockedStatic<NetUtils> mockedNetUtils = Mockito.mockStatic(NetUtils.class)) {
       mockedNetUtils.when(NetUtils::listNetworkInterfaceNames).thenReturn(List.of("eth0", "wlan0"));
       mockedNetUtils.when(() -> NetUtils.detectIpAddressFromInterface("eth0")).thenReturn("192.168.178.22");
 
-      String result = resolveAnnouncedIpAddress("", "eth0");
+      String result = resolveAnnouncedIpAddress("eth0");
 
       assertThat(result, is("192.168.178.22"));
     }
@@ -70,21 +82,21 @@ class OutputDeviceTest {
       mockedNetUtils.when(NetUtils::listNetworkInterfaceNames).thenReturn(List.of("eth0", "wlan0"));
       mockedNetUtils.when(NetUtils::detectPrimaryIpAddress).thenReturn("10.0.0.5");
 
-      String result = resolveAnnouncedIpAddress("", "eth9");
+      String result = resolveAnnouncedIpAddress("eth9");
 
       assertThat(result, is("10.0.0.5"));
     }
   }
 
   @Test
-  @DisplayName("resolveAnnouncedIpAddress falls back to primary IP when interface has no IPv4 address")
-  void resolveAnnouncedIpAddressFallsBackForInterfaceWithoutIpv4() {
+  @DisplayName("resolveAnnouncedIpAddress falls back to primary IP when interface has no IP address")
+  void resolveAnnouncedIpAddressFallsBackForInterfaceWithoutIpAddress() {
     try (MockedStatic<NetUtils> mockedNetUtils = Mockito.mockStatic(NetUtils.class)) {
       mockedNetUtils.when(NetUtils::listNetworkInterfaceNames).thenReturn(List.of("eth0", "wlan0"));
       mockedNetUtils.when(() -> NetUtils.detectIpAddressFromInterface("eth0")).thenReturn(null);
       mockedNetUtils.when(NetUtils::detectPrimaryIpAddress).thenReturn("10.0.0.5");
 
-      String result = resolveAnnouncedIpAddress("", "eth0");
+      String result = resolveAnnouncedIpAddress("eth0");
 
       assertThat(result, is("10.0.0.5"));
     }
@@ -96,64 +108,57 @@ class OutputDeviceTest {
     try (MockedStatic<NetUtils> mockedNetUtils = Mockito.mockStatic(NetUtils.class)) {
       mockedNetUtils.when(NetUtils::detectPrimaryIpAddress).thenReturn("10.0.0.5");
 
-      String result = resolveAnnouncedIpAddress("", "");
+      String result = resolveAnnouncedIpAddress("");
 
       assertThat(result, is("10.0.0.5"));
     }
   }
 
-  private static String resolveAnnouncedIpAddress(String ipAddress, String ipInterface) {
-    Config mdnsConfig = ConfigFactory.parseString("""
-        ip-address = "%s"
-        ip-interface = "%s"
-        """.formatted(ipAddress, ipInterface));
+  private static String resolveAnnouncedIpAddress(String configuredInterface) {
+    Config outputDeviceConfig = ConfigFactory.parseString("""
+        interface = "%s"
+        """.formatted(configuredInterface));
 
-    return OutputDevice.resolveAnnouncedIpAddress(mdnsConfig, NetUtils::detectPrimaryIpAddress);
+    return OutputDevice.resolveAnnouncedIpAddress(outputDeviceConfig, NetUtils::detectPrimaryIpAddress);
   }
 
   // ---------------------------------------------------------------------------
   // Tests for the instance resolveAnnouncedIpAddress() method
-  // (reads uni-meter.mdns from ActorSystem config and calls resolveMdnsFallbackIpAddress)
+  // (reads interface from the output-device config)
   // ---------------------------------------------------------------------------
 
   @Test
-  @DisplayName("instance resolveAnnouncedIpAddress uses configured ip-address from system config")
-  void instanceResolveAnnouncedIpAddressUsesConfiguredIpAddress() {
-    Config systemConfig = buildSystemConfig("192.168.1.10", "", "0.0.0.0");
+  @DisplayName("instance resolveAnnouncedIpAddress uses configured IPv4 address from output-device config")
+  void instanceResolveAnnouncedIpAddressUsesConfiguredIpv4Address() {
+    Config systemConfig = buildSystemConfig("192.168.1.10");
     testKit = ActorTestKit.create(systemConfig);
     String result = spawnAndResolve(testKit, systemConfig);
     assertThat(result, is("192.168.1.10"));
   }
 
   @Test
-  @DisplayName("instance resolveAnnouncedIpAddress falls back to device interface address")
-  void instanceResolveAnnouncedIpAddressUsesDeviceInterface() {
-    Config systemConfig = buildSystemConfig("", "", "192.168.178.50");
+  @DisplayName("instance resolveAnnouncedIpAddress uses configured IPv6 address from output-device config")
+  void instanceResolveAnnouncedIpAddressUsesConfiguredIpv6Address() {
+    Config systemConfig = buildSystemConfig("2001:db8::10");
     testKit = ActorTestKit.create(systemConfig);
     String result = spawnAndResolve(testKit, systemConfig);
-    assertThat(result, is("192.168.178.50"));
+    assertThat(result, is("2001:db8::10"));
   }
 
   @Test
   @DisplayName("instance resolveAnnouncedIpAddress falls back to primary IP when interface is unspecified")
-  void instanceResolveAnnouncedIpAddressFallsBackToPrimaryIp() {
-    Config systemConfig = buildSystemConfig("", "", "0.0.0.0");
+  void instanceResolveAnnouncedIpAddressFallsBackToPrimaryIpForUnspecifiedAddress() {
+    Config systemConfig = buildSystemConfig("0.0.0.0");
     testKit = ActorTestKit.create(systemConfig);
     String result = spawnAndResolve(testKit, systemConfig);
-    // The exact IP depends on the machine, but it must be a non-empty address
     assertThat(result, is(not(isEmptyOrNullString())));
   }
 
   /**
-   * Builds a minimal system config with the given mdns ip-address, ip-interface
-   * and the device-level interface (used by resolveMdnsFallbackIpAddress).
+   * Builds a minimal system config with the given output-device interface.
    */
-  private static Config buildSystemConfig(String mdnsIpAddress, String mdnsIpInterface, String deviceInterface) {
+  private static Config buildSystemConfig(String deviceInterface) {
     return ConfigFactory.parseString("""
-        uni-meter.mdns {
-          ip-address = "%s"
-          ip-interface = "%s"
-        }
         test-output-device {
           interface = "%s"
           forget-interval = 1m
@@ -166,7 +171,7 @@ class OutputDeviceTest {
           power-offset-l3 = 0
           usage-constraint-init-duration = 60s
         }
-        """.formatted(mdnsIpAddress, mdnsIpInterface, deviceInterface)).withFallback(ConfigFactory.load());
+        """.formatted(deviceInterface)).withFallback(ConfigFactory.load());
   }
 
   /**

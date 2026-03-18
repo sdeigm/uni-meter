@@ -543,47 +543,42 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   protected abstract void eventPowerDataChanged();
 
   protected @NotNull String resolveAnnouncedIpAddress() {
-    Config mdnsConfig = getContext().getSystem().settings().config().getConfig("uni-meter.mdns");
-    return resolveAnnouncedIpAddress(mdnsConfig, this::resolveMdnsFallbackIpAddress);
+    return resolveAnnouncedIpAddress(config, NetUtils::detectPrimaryIpAddress);
   }
 
-  public static @NotNull String resolveAnnouncedIpAddress(@NotNull Config mdnsConfig,
+  public static @NotNull String resolveAnnouncedIpAddress(@NotNull Config outputDeviceConfig,
                                                            @NotNull Supplier<String> fallbackIpAddressSupplier) {
-    String configuredIpAddress = StringUtils.trimToEmpty(mdnsConfig.getString("ip-address"));
-    if (StringUtils.isNotBlank(configuredIpAddress)) {
-      return configuredIpAddress;
-    }
+    String configuredInterface = StringUtils.trimToEmpty(outputDeviceConfig.getString("interface"));
+    if (StringUtils.isNotBlank(configuredInterface)
+        && !Strings.CS.equalsAny(configuredInterface, UNSPECIFIED_IPV4_ADRESS, UNSPECIFIED_IPV6_ADRESS)) {
+      if (isIpAddress(configuredInterface)) {
+        return configuredInterface;
+      }
 
-    String configuredIpInterface = StringUtils.trimToEmpty(mdnsConfig.getString("ip-interface"));
-    if (StringUtils.isNotBlank(configuredIpInterface)) {
       List<String> availableInterfaces = NetUtils.listNetworkInterfaceNames();
-      if (!availableInterfaces.contains(configuredIpInterface)) {
-        LOGGER.warn("configured mdns interface '{}' not found. available interfaces: {}",
-              configuredIpInterface,
+      if (!availableInterfaces.contains(configuredInterface)) {
+        LOGGER.warn("configured output-device interface '{}' not found. available interfaces: {}",
+              configuredInterface,
               String.join(", ", availableInterfaces));
       } else {
-        String ipAddress = NetUtils.detectIpAddressFromInterface(configuredIpInterface);
+        String ipAddress = NetUtils.detectIpAddressFromInterface(configuredInterface);
         if (StringUtils.isNotBlank(ipAddress)) {
           return ipAddress;
         }
-        LOGGER.warn("failed to resolve IPv4 address for mdns interface '{}', falling back to configured default address",
-              configuredIpInterface);
+        LOGGER.warn("failed to resolve IP address for output-device interface '{}', falling back to configured default address",
+              configuredInterface);
       }
     }
 
     return fallbackIpAddressSupplier.get();
   }
 
-  private @NotNull String resolveMdnsFallbackIpAddress() {
-    if (config.hasPath("interface")) {
-      String bindAddress = StringUtils.trimToEmpty(config.getString("interface"));
-      if (StringUtils.isNotBlank(bindAddress) //
-          && !Strings.CS.equalsAny(bindAddress, UNSPECIFIED_IPV4_ADRESS, UNSPECIFIED_IPV6_ADRESS)) {
-        return bindAddress;
-      }
+  private static boolean isIpAddress(@NotNull String value) {
+    try {
+      return InetAddress.getByName(value) != null;
+    } catch (Exception e) {
+      return false;
     }
-
-    return NetUtils.detectPrimaryIpAddress();
   }
 
   protected void initPowerOffsets(@NotNull Config config) {

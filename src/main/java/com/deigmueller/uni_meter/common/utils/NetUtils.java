@@ -1,7 +1,6 @@
 package com.deigmueller.uni_meter.common.utils;
 
 import java.net.DatagramSocket;
-import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -46,7 +45,7 @@ public class NetUtils {
   /**
    * Detects the IP address associated with the specified network interface.
    * @param interfaceName the name of the network interface (e.g., "eth0", "wlan0")
-   * @return the IP address as a string, or null if the interface is not found, not up, or has no valid IPv4 address
+   * @return the IP address as a string, or null if the interface is not found, not up, or has no valid IP address
    */
   public static @Nullable String detectIpAddressFromInterface(@NotNull String interfaceName) {
     try {
@@ -54,11 +53,15 @@ public class NetUtils {
       if (networkInterface == null || !networkInterface.isUp()) {
         return null;
       }
-      return Streams.of(networkInterface.getInetAddresses()) //
-          .filter(Inet4Address.class::isInstance) //
+      List<InetAddress> addresses = Streams.of(networkInterface.getInetAddresses()) //
           .filter(a -> !a.isLoopbackAddress()) //
-          .map(InetAddress::getHostAddress) //
-          .findFirst().orElse(null);
+          .toList();
+      return addresses.stream()
+          .filter(address -> address.getAddress().length == 4)
+          .findFirst()
+          .or(() -> addresses.stream().findFirst())
+          .map(InetAddress::getHostAddress)
+          .orElse(null);
     } catch (Exception e) {
       // We don't care
     }
