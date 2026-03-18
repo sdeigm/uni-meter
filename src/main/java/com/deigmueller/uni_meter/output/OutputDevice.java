@@ -10,6 +10,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.PostStop;
@@ -38,6 +39,10 @@ import java.util.function.Supplier;
 @Getter(AccessLevel.PROTECTED)
 @Setter(AccessLevel.PROTECTED)
 public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command> {
+  
+  private static final String UNSPECIFIED_IPV4_ADRESS = "0.0.0.0";
+  private static final String UNSPECIFIED_IPV6_ADRESS = "::";
+  
   // Instance members
   protected final Logger logger = LoggerFactory.getLogger("uni-meter.output");
   protected final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -576,7 +581,8 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   private @NotNull String resolveMdnsFallbackIpAddress() {
     if (config.hasPath("interface")) {
       String bindAddress = StringUtils.trimToEmpty(config.getString("interface"));
-      if (StringUtils.isNotBlank(bindAddress) && !"0.0.0.0".equals(bindAddress) && !"::".equals(bindAddress)) {
+      if (StringUtils.isNotBlank(bindAddress) //
+          && !Strings.CS.equalsAny(bindAddress, UNSPECIFIED_IPV4_ADRESS, UNSPECIFIED_IPV6_ADRESS)) {
         return bindAddress;
       }
     }
