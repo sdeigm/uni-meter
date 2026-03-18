@@ -7,15 +7,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import com.deigmueller.uni_meter.common.utils.NetUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
 class OutputDeviceTest {
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(OutputDeviceTest.class);
 
   @Test
   @DisplayName("resolveAnnouncedIpAddress uses configured ip-address with highest priority")
@@ -83,9 +79,10 @@ class OutputDeviceTest {
 
   private static String resolveAnnouncedIpAddress(String ipAddress, String ipInterface) {
     Config mdnsConfig = ConfigFactory.parseString("""
-          ip-address = "%s"
-          ip-interface = "%s"
-          """.formatted(ipAddress, ipInterface));
-    return OutputDevice.resolveAnnouncedIpAddress(mdnsConfig, LOGGER);
+        ip-address = "%s"
+        ip-interface = "%s"
+        """.formatted(ipAddress, ipInterface));
+
+    return OutputDevice.resolveAnnouncedIpAddress(mdnsConfig, NetUtils::detectPrimaryIpAddress);
   }
 }

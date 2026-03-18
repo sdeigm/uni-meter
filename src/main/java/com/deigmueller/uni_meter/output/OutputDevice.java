@@ -42,6 +42,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   
   private static final String UNSPECIFIED_IPV4_ADRESS = "0.0.0.0";
   private static final String UNSPECIFIED_IPV6_ADRESS = "::";
+  private static final Logger LOGGER = LoggerFactory.getLogger("uni-meter.output");
   
   // Instance members
   protected final Logger logger = LoggerFactory.getLogger("uni-meter.output");
@@ -541,17 +542,12 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
 
   protected abstract void eventPowerDataChanged();
 
-  private @NotNull String resolveAnnouncedIpAddress() {
+  protected @NotNull String resolveAnnouncedIpAddress() {
     Config mdnsConfig = getContext().getSystem().settings().config().getConfig("uni-meter.mdns");
-    return resolveAnnouncedIpAddress(mdnsConfig, logger, this::resolveMdnsFallbackIpAddress);
-  }
-
-  public static @NotNull String resolveAnnouncedIpAddress(@NotNull Config mdnsConfig, @NotNull Logger logger) {
-    return resolveAnnouncedIpAddress(mdnsConfig, logger, NetUtils::detectPrimaryIpAddress);
+    return resolveAnnouncedIpAddress(mdnsConfig, this::resolveMdnsFallbackIpAddress);
   }
 
   public static @NotNull String resolveAnnouncedIpAddress(@NotNull Config mdnsConfig,
-                                                           @NotNull Logger logger,
                                                            @NotNull Supplier<String> fallbackIpAddressSupplier) {
     String configuredIpAddress = StringUtils.trimToEmpty(mdnsConfig.getString("ip-address"));
     if (StringUtils.isNotBlank(configuredIpAddress)) {
@@ -562,7 +558,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     if (StringUtils.isNotBlank(configuredIpInterface)) {
       List<String> availableInterfaces = NetUtils.listNetworkInterfaceNames();
       if (!availableInterfaces.contains(configuredIpInterface)) {
-        logger.warn("configured mdns interface '{}' not found. available interfaces: {}",
+        LOGGER.warn("configured mdns interface '{}' not found. available interfaces: {}",
               configuredIpInterface,
               String.join(", ", availableInterfaces));
       } else {
@@ -570,7 +566,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
         if (StringUtils.isNotBlank(ipAddress)) {
           return ipAddress;
         }
-        logger.warn("failed to resolve IPv4 address for mdns interface '{}', falling back to configured default address",
+        LOGGER.warn("failed to resolve IPv4 address for mdns interface '{}', falling back to configured default address",
               configuredIpInterface);
       }
     }
