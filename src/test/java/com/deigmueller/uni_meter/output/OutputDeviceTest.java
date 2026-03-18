@@ -1,23 +1,21 @@
-package com.deigmueller.uni_meter.mdns;
+package com.deigmueller.uni_meter.output;
 
-import com.deigmueller.uni_meter.common.utils.NetUtils;
-import com.deigmueller.uni_meter.output.OutputDevice;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.deigmueller.uni_meter.common.utils.NetUtils;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 
-import java.util.List;
+class OutputDeviceTest {
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
-
-class MDnsAvahiTest {
-  private static final Logger LOGGER = LoggerFactory.getLogger(MDnsAvahiTest.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(OutputDeviceTest.class);
 
   @Test
   @DisplayName("resolveAnnouncedIpAddress uses configured ip-address with highest priority")
