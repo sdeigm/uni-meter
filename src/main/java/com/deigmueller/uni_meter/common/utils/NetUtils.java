@@ -95,9 +95,12 @@ public class NetUtils {
    * @param networkInterface the network interface whose hardware address is to be converted
    * @return the string representation of the hardware address, or null if the hardware address cannot be retrieved
    */
-  public static String hardwareAddressToString(NetworkInterface networkInterface ) {
+  public static @Nullable String hardwareAddressToString(NetworkInterface networkInterface ) {
     try {
       byte[] macAddress = networkInterface.getHardwareAddress();
+      if (macAddress == null || macAddress.length == 0) {
+        return null;
+      }
       StringBuilder macAddressString = new StringBuilder();
       for (byte address : macAddress) {
         macAddressString.append(String.format("%02X", address));
