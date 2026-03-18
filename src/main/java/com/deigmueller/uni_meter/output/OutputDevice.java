@@ -537,10 +537,16 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
 
   protected @NotNull String resolveAnnouncedIpAddress() {
     Config mdnsConfig = getContext().getSystem().settings().config().getConfig("uni-meter.mdns");
-    return resolveAnnouncedIpAddress(mdnsConfig, logger);
+    return resolveAnnouncedIpAddress(mdnsConfig, logger, resolveMdnsFallbackIpAddress());
   }
 
   public static @NotNull String resolveAnnouncedIpAddress(@NotNull Config mdnsConfig, @NotNull Logger logger) {
+    return resolveAnnouncedIpAddress(mdnsConfig, logger, NetUtils.detectPrimaryIpAddress());
+  }
+
+  public static @NotNull String resolveAnnouncedIpAddress(@NotNull Config mdnsConfig,
+                                                           @NotNull Logger logger,
+                                                           @NotNull String fallbackIpAddress) {
     String configuredIpAddress = StringUtils.trimToEmpty(mdnsConfig.getString("ip-address"));
     if (StringUtils.isNotBlank(configuredIpAddress)) {
       return configuredIpAddress;
@@ -558,8 +564,19 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
         if (StringUtils.isNotBlank(ipAddress)) {
           return ipAddress;
         }
-        logger.warn("failed to resolve IPv4 address for mdns interface '{}', falling back to primary address",
+        logger.warn("failed to resolve IPv4 address for mdns interface '{}', falling back to configured default address",
               configuredIpInterface);
+      }
+    }
+
+    return fallbackIpAddress;
+  }
+
+  private @NotNull String resolveMdnsFallbackIpAddress() {
+    if (config.hasPath("interface")) {
+      String bindAddress = StringUtils.trimToEmpty(config.getString("interface"));
+      if (StringUtils.isNotBlank(bindAddress) && !"0.0.0.0".equals(bindAddress) && !"::".equals(bindAddress)) {
+        return bindAddress;
       }
     }
 
