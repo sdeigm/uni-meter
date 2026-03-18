@@ -8,6 +8,8 @@ import java.net.SocketException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.stream.Streams;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -30,11 +32,11 @@ public class NetUtils {
  public static @Nullable String detectPrimaryMacAddress() {
    try {
      var foundAddresses = Streams.of(NetworkInterface.getNetworkInterfaces()) //
-     .filter(n -> !isLoopbackOrVirtual(n)) // filter out loopback and virtual interfaces
-     .map(NetUtils::hardwareAddressToString) // convert to string representation of the MAC address
-     .filter(Objects::nonNull) // filter out interfaces without a hardware address
-     .toList();
-     return foundAddresses.isEmpty() ? null : foundAddresses.get(foundAddresses.size() - 1);
+         .filter(n -> !isLoopbackOrVirtual(n)) // filter out loopback and virtual interfaces
+         .map(NetUtils::hardwareAddressToString) // convert to string representation of the MAC address
+         .filter(Objects::nonNull) // filter out interfaces without a hardware address
+         .collect(Collectors.toCollection(TreeSet::new)); // collect the results
+     return foundAddresses.isEmpty() ? null : foundAddresses.last();
    } catch (SocketException e) {
      // We dont't care
      return null;
@@ -95,7 +97,7 @@ public class NetUtils {
    * @param networkInterface the network interface whose hardware address is to be converted
    * @return the string representation of the hardware address, or null if the hardware address cannot be retrieved
    */
-  public static @Nullable String hardwareAddressToString(NetworkInterface networkInterface ) {
+  private static @Nullable String hardwareAddressToString(NetworkInterface networkInterface) {
     try {
       byte[] macAddress = networkInterface.getHardwareAddress();
       if (macAddress == null || macAddress.length == 0) {
