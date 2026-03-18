@@ -102,51 +102,39 @@ public abstract class Shelly extends OutputDevice {
 
     return Behaviors.same();
   }
-
-  /**
-   * Handle an HTTP GET request for the Shelly device status
-   * @param request Request for the Shelly device status
-   * @return Same behavior
-   */
-  protected Behavior<Command> onGetStatus(@NotNull Shelly.GetStatus request) {
-    logger.trace("Shelly.onGetStatus()");
-
-    try {
-      request.replyTo().tell(
-            GetStatusOrFailureResponse.createSuccess(
-                  new Status(
-                        createWiFiStatus(),
-                        createCloudStatus(),
-                        createMqttStatus(),
-                        getTime(),
-                        Instant.now().getEpochSecond(),
-                        1,
-                        false,
-                        getMac(request.remoteAddress()),
-                        50648,
-                        38376,
-                        32968,
-                        233681,
-                        174194,
-                        getUptime(),
-                        28.08,
-                        false,
-                        createTempStatus())));
-    } catch (Exception e) {
-      request.replyTo().tell(GetStatusOrFailureResponse.createFailure(e));
-    }
-
-      return Behaviors.same();
-  }
   
   private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
   
-  protected String getTime() {
-    return LocalTime.now().format(TIME_FORMATTER);
-  }
-  
   protected long getUptime() {
     return Duration.between(startTime, Instant.now()).getSeconds();
+  }
+
+  protected long getRamSize() {
+    return 259176;
+  }
+  
+  protected long getRamFree() {
+    return 87268;
+  }
+  
+  protected long getRamMinFree() {
+    return 74044;
+  }
+  
+  protected long getFsSize() {
+    return 524288;
+  }
+  
+  protected long getFsFree() {
+    return 196608;
+  }
+
+  protected int getUtcOffset() {
+    return TimeZone.getDefault().getRawOffset() / 1000;
+  }
+
+  protected String getLocalTime() {
+    return LocalTime.now().format(TIME_FORMATTER);
   }
 
   @Override
@@ -159,29 +147,6 @@ public abstract class Shelly extends OutputDevice {
   }
 
   protected abstract int getNumMeters();
-
-
-  protected Rpc.WiFiStatus createWiFiStatus() {
-    return new Rpc.WiFiStatus(getConfig().getConfig("wifi-status"));
-  }
-
-  protected Rpc.CloudStatus createCloudStatus() {
-    return new Rpc.CloudStatus(getConfig().getConfig(("cloud-status")));
-  }
-
-  protected Rpc.MqttStatus createMqttStatus() {
-    return new Rpc.MqttStatus(false);
-  }
-
-  protected Rpc.SysStatus createSysStatus() {
-    return new Rpc.SysStatus(
-          getUptime(),
-          getConfig().getString("fw"));
-  }
-
-  protected Rpc.TempStatus createTempStatus() {
-    return new Rpc.TempStatus(28.08, 82.54, true);
-  }
 
   /**
    * Get the hostname to use it for the specified remote address
@@ -339,45 +304,6 @@ public abstract class Shelly extends OutputDevice {
         String username
   ) {}
 
-  public record GetStatus(
-        @NotNull InetAddress remoteAddress,
-        @NotNull ActorRef<GetStatusOrFailureResponse> replyTo
-  ) implements Command {}
-  
-  public record GetStatusOrFailureResponse(
-        @Nullable Exception failure,
-        @Nullable Status status
-  ) implements Command {
-    public static GetStatusOrFailureResponse createSuccess(@NotNull Status status) {
-      return new GetStatusOrFailureResponse(null, status);
-    }
-    public static GetStatusOrFailureResponse createFailure(@NotNull Exception failure) {
-      return new GetStatusOrFailureResponse(failure, null);
-    }
-  }
-
-  @Getter
-  @AllArgsConstructor
-  public static class Status implements Rpc.Response{
-    private final @NotNull Rpc.WiFiStatus wifi_sta;
-    private final @NotNull Rpc.CloudStatus cloud;
-    private final @NotNull Rpc.MqttStatus mqtt;
-    private final @NotNull String time;
-    private final long unixtime;
-    private final int serial;
-    private final boolean has_update;
-    private final String mac;
-    private final long ram_total;
-    private final long ram_free;
-    private final long ram_lwm;
-    private final long fs_size;
-    private final long fs_free;
-    private final long uptime;
-    private final Double temperature;
-    private final boolean overtemperature;
-    private final Rpc.TempStatus tmp;
-  }
-  
   public record ShellyClientContext(
         @Nullable String mac,
         @Nullable String hostname,

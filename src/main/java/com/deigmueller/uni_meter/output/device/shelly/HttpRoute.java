@@ -15,8 +15,7 @@ import org.apache.pekko.http.javadsl.model.RemoteAddress;
 import org.apache.pekko.http.javadsl.model.StatusCodes;
 import org.apache.pekko.http.javadsl.model.ws.Message;
 import org.apache.pekko.http.javadsl.model.ws.WebSocketUpgrade;
-import org.apache.pekko.http.javadsl.server.AllDirectives;
-import org.apache.pekko.http.javadsl.server.Route;
+import org.apache.pekko.http.javadsl.server.*;
 import org.apache.pekko.http.javadsl.unmarshalling.StringUnmarshallers;
 import org.apache.pekko.stream.Materializer;
 import org.apache.pekko.stream.javadsl.Sink;
@@ -67,9 +66,6 @@ class HttpRoute extends AllDirectives {
                 path("settings", () -> 
                       get(() -> onSettingsGet(remoteAddress))
                 ), 
-                path("status", () -> 
-                      get(() -> onStatusGet(remoteAddress))
-                ),
                 path("rpc", () ->
                       concat(
                             post(() -> extractStrictEntity(finiteTimeout, strict -> 
@@ -85,6 +81,7 @@ class HttpRoute extends AllDirectives {
                       get(() ->
                             concat(
                                   path("Cloud.GetConfig", this::onCloudGetConfig),
+                                  path("Cloud.GetStatus", this::onCloudGetStatus),
                                   path("Cloud.SetConfig", () ->
                                         parameter(StringUnmarshallers.STRING, "config", this::onCloudSetConfig)
                                   ),
@@ -95,6 +92,10 @@ class HttpRoute extends AllDirectives {
                                   path("EM.GetStatus", () ->
                                         parameterOptional(StringUnmarshallers.INTEGER, "id", id -> 
                                               onEmGetStatus(remoteAddress, id.orElse(0)))
+                                  ),
+                                  path("EMData.GetConfig", () ->
+                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id ->
+                                              onEmDataGetConfig(id.orElse(0)))
                                   ),
                                   path("EMData.GetStatus", () ->
                                         parameterOptional(StringUnmarshallers.INTEGER, "id", id -> 
@@ -125,6 +126,19 @@ class HttpRoute extends AllDirectives {
                                   path("Sys.GetConfig" , () ->
                                         onSysGetConfig(remoteAddress)
                                   ),
+                                  path("Sys.GetStatus" , () ->
+                                        onSysGetStatus(remoteAddress)
+                                  ),
+                                  path("Temperature.GetConfig", () ->
+                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id ->
+                                              onTemperatureGetConfig(id.orElse(0)))
+                                  ),
+                                  path("Temperature.GetStatus", () ->
+                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id ->
+                                              onTemperatureGetStatus(id.orElse(0)))
+                                  ),
+                                  path("WiFi.GetConfig", this::onWifiGetConfig),
+                                  path("WiFi.GetStatus", this::onWifiGetStatus),
                                   path("Ws.GetConfig", this::onWsGetConfig),
                                   path("Ws.SetConfig", () -> 
                                         parameter(StringUnmarshallers.STRING, "config", this::onWsSetConfig)
@@ -194,31 +208,7 @@ class HttpRoute extends AllDirectives {
                 system.scheduler()), 
           Jackson.marshaller(objectMapper));
   }
-
-  private Route onStatusGet(@NotNull RemoteAddress remoteAddress) {
-    logger.trace("HttpRoute.onStatusGet({})", remoteAddress);
-    return completeOKWithFuture(
-          AskPattern.ask(
-                shelly,
-                (ActorRef<Shelly.GetStatusOrFailureResponse> replyTo) -> new Shelly.GetStatus(
-                      remoteAddress.getAddress().orElse(DEFAULT_ADDRESS), 
-                      replyTo),
-                timeout, 
-                system.scheduler()
-          ).thenApply(response -> {
-            if (response.failure() != null) {
-              if (response.failure() instanceof RuntimeException runtimeException) {
-                throw runtimeException;
-              } else {
-                throw new RuntimeException(response.failure());
-              }
-            }
-            return response.status();
-          }),
-          Jackson.marshaller(objectMapper)
-    );
-  }
-
+  
   private Route onRpcRequest(@NotNull RemoteAddress remoteAddress,
                              @NotNull Rpc.Request request) {
     logger.trace("HttpRoute.onRpcRequest({}, {})", remoteAddress, request);
@@ -310,21 +300,12 @@ class HttpRoute extends AllDirectives {
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
-                (ActorRef<ShellyPro3EM.ShellyGetStatusOrFailureResponse> replyTo) -> new ShellyPro3EM.ShellyGetStatus(
+                (ActorRef<Rpc.ShellyGetStatusResponse> replyTo) -> new ShellyPro3EM.ShellyGetStatus(
                       remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
                       replyTo),
                 timeout,
                 system.scheduler()
-          ).thenApply(response -> {
-            if (response.failure() != null) {
-              if (response.failure() instanceof RuntimeException runtimeException) {
-                throw runtimeException;
-              } else {
-                throw new RuntimeException(response.failure());
-              }
-            }
-            return response.status();
-          }),
+          ),
           Jackson.marshaller(objectMapper));
   }
 
@@ -358,12 +339,38 @@ class HttpRoute extends AllDirectives {
           Jackson.marshaller(objectMapper));
   }
 
+  private Route onSysGetStatus(@NotNull RemoteAddress remoteAddress) {
+    logger.trace("HttpRoute.onSysGetStatus()");
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<Rpc.SysGetStatusResponse> replyTo) -> new ShellyPro3EM.SysGetStatus(
+                      remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
+                      replyTo),
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
   private Route onCloudGetConfig() {
     logger.trace("HttpRoute.onCloudGetConfig()");
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
                 ShellyPro3EM.CloudGetConfig::new,
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onCloudGetStatus() {
+    logger.trace("HttpRoute.onCloudGetStatus()");
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                ShellyPro3EM.CloudGetStatus::new,
                 timeout,
                 system.scheduler()
           ),
@@ -430,6 +437,27 @@ class HttpRoute extends AllDirectives {
           Jackson.marshaller(objectMapper));
   }
 
+  private Route onEmDataGetConfig(int id) {
+    logger.trace("HttpRoute.onEmDataGetConfig({})", id);
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<ShellyPro3EM.EmDataGetConfigOrFailureResponse> replyTo) ->
+                      new ShellyPro3EM.EmDataGetConfig(
+                            id,
+                            replyTo),
+                timeout,
+                system.scheduler()
+          ).thenApply(response -> {
+            if (response.failure() != null) {
+              throw response.failure();
+            }
+
+            return response.status();
+          }),
+          Jackson.marshaller(objectMapper));
+  }
+
   private Route onEmDataGetStatus(@NotNull RemoteAddress remoteAddress,
                                   int id) {
     logger.trace("HttpRoute.onEmDataGetStatus({}, {})", remoteAddress, id);
@@ -450,6 +478,56 @@ class HttpRoute extends AllDirectives {
 
             return response.status();
           }),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onTemperatureGetConfig(int id) {
+    logger.trace("HttpRoute.onTemperatureGetConfig()");
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<Rpc.TemperatureGetConfigResponse> replyTo) -> 
+                      new ShellyPro3EM.TemperatureGetConfig(id, replyTo),
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onTemperatureGetStatus(int id) {
+    logger.trace("HttpRoute.onTemperatureGetStatus()");
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<Rpc.TemperatureGetStatusResponse> replyTo) ->
+                      new ShellyPro3EM.TemperatureGetStatus(id, replyTo),
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onWifiGetConfig() {
+    logger.trace("HttpRoute.onWifiGetConfig()");
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                ShellyPro3EM.WifiGetConfig::new,
+                timeout,
+                system.scheduler()
+          ),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onWifiGetStatus() {
+    logger.trace("HttpRoute.onWifiGetStatus()");
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                ShellyPro3EM.WifiGetStatus::new,
+                timeout,
+                system.scheduler()
+          ),
           Jackson.marshaller(objectMapper));
   }
 

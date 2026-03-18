@@ -1,13 +1,33 @@
 # Change Log
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.4.1] - 2026-03-18
+
+### Fixed 
+
+- [#344](https://github.com/sdeigm/uni-meter/issues/344) Adjust Shelly.GetStatus to be compatible with a physical shelly
+
+### Added
+
+- [#346](https://github.com/sdeigm/uni-meter/issues/346) Add Shelly Pro3EM rpc method Wifi.GetConfig
+
+## [1.4.0] - 2026-03-14
+
+### Added
+
+- [#156](https://github.com/sdeigm/uni-meter/issues/156) Support for Tibber Pulse bridges sending text data
+- [#168](https://github.com/sdeigm/uni-meter/issues/168) Support authentication for Shelly 3EM input devices
+- [#332](https://github.com/sdeigm/uni-meter/issues/332) Disabled PID file of the dbus-daemon in the docker container
+- [#339](https://github.com/sdeigm/uni-meter/issues/339) RPC method WiFi.GetStatus added to the Shelly 3EM output device
+- [#340](https://github.com/sdeigm/uni-meter/issues/340) RPC method Sys.GetStatus added to the Shelly 3EM output device
+
+## [1.3.0] - 2026-02-09
+
 <h4 style="color:red">
 Important: if you are using the Home Assistant version: For the version 1.2.0 and newer you have to update the 
 uni-meter-mdns.py script manually to the newest version. Otherwise, the mDNS registration will not work 
 correctly.
 </h4>
-
-## [1.3.0] - 2026-02-09
 
 ### Added 
 
