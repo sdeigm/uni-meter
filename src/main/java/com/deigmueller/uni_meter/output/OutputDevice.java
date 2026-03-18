@@ -1,6 +1,7 @@
 package com.deigmueller.uni_meter.output;
 
 import com.deigmueller.uni_meter.application.UniMeter;
+import com.deigmueller.uni_meter.common.utils.NetUtils;
 import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.typesafe.config.Config;
@@ -8,6 +9,7 @@ import com.typesafe.config.ConfigFactory;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.PostStop;
@@ -47,6 +49,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   private final double defaultVoltage;
   private final double defaultFrequency;
   private final double defaultClientPowerFactor;
+  private final String announcedIpAddress;
   private final Map<InetAddress, ClientContext> clientContexts = new HashMap<>();
   
   private Instant offUntil = Instant.MIN;
@@ -86,6 +89,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     this.defaultFrequency = config.getDouble("default-frequency");
     this.defaultClientPowerFactor = config.getDouble("default-client-power-factor");
     this.usageConstraintInitDuration = config.getDuration("usage-constraint-init-duration");
+    this.announcedIpAddress = resolveAnnouncedIpAddress();
     
     initPowerOffsets(config);
 
@@ -530,7 +534,38 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   protected abstract Route createRoute();
   
   protected abstract void eventPowerDataChanged();
-  
+
+  protected @NotNull String resolveAnnouncedIpAddress() {
+    Config mdnsConfig = getContext().getSystem().settings().config().getConfig("uni-meter.mdns");
+    return resolveAnnouncedIpAddress(mdnsConfig, logger);
+  }
+
+  public static @NotNull String resolveAnnouncedIpAddress(@NotNull Config mdnsConfig, @NotNull Logger logger) {
+    String configuredIpAddress = StringUtils.trimToEmpty(mdnsConfig.getString("ip-address"));
+    if (StringUtils.isNotBlank(configuredIpAddress)) {
+      return configuredIpAddress;
+    }
+
+    String configuredIpInterface = StringUtils.trimToEmpty(mdnsConfig.getString("ip-interface"));
+    if (StringUtils.isNotBlank(configuredIpInterface)) {
+      List<String> availableInterfaces = NetUtils.listNetworkInterfaceNames();
+      if (!availableInterfaces.contains(configuredIpInterface)) {
+        logger.warn("configured mdns interface '{}' not found. available interfaces: {}",
+              configuredIpInterface,
+              String.join(", ", availableInterfaces));
+      } else {
+        String ipAddress = NetUtils.detectIpAddressFromInterface(configuredIpInterface);
+        if (StringUtils.isNotBlank(ipAddress)) {
+          return ipAddress;
+        }
+        logger.warn("failed to resolve IPv4 address for mdns interface '{}', falling back to primary address",
+              configuredIpInterface);
+      }
+    }
+
+    return NetUtils.detectPrimaryIpAddress();
+  }
+
   protected void initPowerOffsets(@NotNull Config config) {
     offsetPhase0 = config.getDouble("power-offset-l1");
     offsetPhase1 = config.getDouble("power-offset-l2");

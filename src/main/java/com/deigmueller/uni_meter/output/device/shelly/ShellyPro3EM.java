@@ -1444,7 +1444,7 @@ public class ShellyPro3EM extends Shelly {
     ConfigObject mdnsObject = getConfig().getObject("mdns");
     mdnsObject.forEach((key, value) -> txtRecords.put(key, value.unwrapped().toString()));
     
-    String primaryIpAddress = NetUtils.detectPrimaryIpAddress();
+    String announcedIpAddress = getAnnouncedIpAddress();
     
     getMdnsRegistrator().tell(
           new MDnsRegistrator.RegisterService(
@@ -1453,7 +1453,7 @@ public class ShellyPro3EM extends Shelly {
                 getBindPort(),
                 txtRecords,
                 getDefaultHostname() + ".local",
-                primaryIpAddress
+                announcedIpAddress
           )
     );  
 
@@ -1464,7 +1464,7 @@ public class ShellyPro3EM extends Shelly {
                 getBindPort(),
                 txtRecords,
                 getDefaultHostname() + ".local",
-                primaryIpAddress
+                announcedIpAddress
           )
     );
   }
