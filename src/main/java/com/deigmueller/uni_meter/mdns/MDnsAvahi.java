@@ -1,18 +1,6 @@
 package com.deigmueller.uni_meter.mdns;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.Duration;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
+import com.typesafe.config.Config;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.DispatcherSelector;
@@ -23,8 +11,17 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.typesafe.config.Config;
 import scala.concurrent.ExecutionContextExecutor;
+
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Duration;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 public class MDnsAvahi extends MDnsKind {
   // Class members
@@ -182,12 +179,10 @@ public class MDnsAvahi extends MDnsKind {
   private void registerServer(@NotNull RegisterService registerService) {
     LOGGER.trace("MDnsAvahi.registerServer()");
 
-    String ipAddress = registerService.ipAddress();
-
-    if (registeredServers.add(new NameAndIpAddress(registerService.name(), ipAddress)) //
-        && enableAvahiPublish //
-        && !StringUtils.isAllBlank(avahiPublishBinary)) {
-      startAvahiPublish(registerService.server(), ipAddress);
+    if (registeredServers.add(new NameAndIpAddress(registerService.name(), registerService.ipAddress()))) {
+      if (enableAvahiPublish && !StringUtils.isAllBlank(avahiPublishBinary)) {
+        startAvahiPublish(registerService.server(), registerService.ipAddress());
+      }
     }
   }
   
@@ -313,3 +308,4 @@ public class MDnsAvahi extends MDnsKind {
   
   private record NameAndIpAddress(String name, String ipAddress) {}
 }
+
