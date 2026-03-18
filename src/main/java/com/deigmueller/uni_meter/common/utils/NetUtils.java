@@ -51,16 +51,16 @@ public class NetUtils {
     try {
       NetworkInterface networkInterface = NetworkInterface.getByName(interfaceName);
       if (networkInterface == null || !networkInterface.isUp()) {
-        return null;
+        return null; // interface not found or not up return null
       }
       List<InetAddress> addresses = Streams.of(networkInterface.getInetAddresses()) //
-          .filter(a -> !a.isLoopbackAddress()) //
+          .filter(a -> !a.isLoopbackAddress()) // filter out loopback addresses
           .toList();
       return addresses.stream()
-          .filter(address -> address.getAddress().length == 4)
-          .findFirst()
-          .or(() -> addresses.stream().findFirst())
-          .map(InetAddress::getHostAddress)
+          .filter(address -> address.getAddress().length == 4) // prefer IPv4 addresses
+          .findFirst() //
+          .or(() -> addresses.stream().findFirst()) // if no IPv4 address is found, return the first available address (which may be IPv6)
+          .map(InetAddress::getHostAddress) //
           .orElse(null);
     } catch (Exception e) {
       // We don't care
