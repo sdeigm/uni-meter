@@ -524,6 +524,16 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     parameters.put("power-offset-l3", offsetPhase2);
     parameters.put("power-offset-total", offsetPhase0 + offsetPhase1 + offsetPhase2);
     
+    if (usageConstraint != UsageConstraint.NONE) {
+      parameters.put("usage-constraint", usageConstraint.name());
+      if (Instant.now().isBefore(usageConstraintInitUntil)) {
+        parameters.put("usage-constraint-init-until", dateTimeInfo(usageConstraintInitUntil));
+      }
+      if (Instant.now().isBefore(usageConstraintUntil)) {
+        parameters.put("usage-constraint-until", dateTimeInfo(usageConstraintUntil));
+      }
+    }
+
     return parameters;
   }
   
