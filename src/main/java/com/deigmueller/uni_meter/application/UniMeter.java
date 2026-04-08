@@ -9,6 +9,7 @@ import com.deigmueller.uni_meter.input.device.modbus.sdm120.Sdm120;
 import com.deigmueller.uni_meter.input.device.modbus.solaredge.Solaredge;
 import com.deigmueller.uni_meter.input.device.modbus.sungrow.Sungrow;
 import com.deigmueller.uni_meter.input.device.mqtt.Mqtt;
+import com.deigmueller.uni_meter.input.device.poweropti.Poweropti;
 import com.deigmueller.uni_meter.input.device.shelly._3em.Shelly3EM;
 import com.deigmueller.uni_meter.input.device.shrdzm.ShrDzm;
 import com.deigmueller.uni_meter.input.device.tasmota.Tasmota;
@@ -137,40 +138,45 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
     final Config config = getContext().getSystem().settings().config()
           .getConfig(outputDeviceConfigPath)
           .withFallback(getContext().getSystem().settings().config().getConfig(COMMON_CONFIG));
-    
-    if (outputDeviceType.equals(ShellyPro3EM.TYPE)) {
-      logger.info("creating ShellyPro3EM output device");
-      return getContext().spawn(
-            Behaviors.supervise(
-              ShellyPro3EM.create(
-                    getContext().getSelf(), 
-                    mDnsRegistrator,
-                    config)
-            ).onFailure(failureStrategy), 
-            "output");
-    } else if (outputDeviceType.equals(EcoTracker.TYPE)) {
-      logger.info("creating EcoTracker output device");
-      return getContext().spawn(
-            Behaviors.supervise(
-                  EcoTracker.create(
-                        getContext().getSelf(),
-                        mDnsRegistrator,
-                        config)
-            ).onFailure(failureStrategy),
-            "output");
-    } else if (outputDeviceType.equals(SmaEM.TYPE)) {
-      logger.info("creating SmaEM output device");
-      return getContext().spawn(
-            Behaviors.supervise(
-                  SmaEM.create(
-                        getContext().getSelf(),
-                        mDnsRegistrator,
-                        config)
-            ).onFailure(failureStrategy),
-            "output");
-    } else {
-      logger.error("unknown output device type: {}", outputDeviceType);
-      throw new IllegalArgumentException("unknown output device type: " + outputDeviceType);
+
+    switch (outputDeviceType) {
+      case ShellyPro3EM.TYPE -> {
+        logger.info("creating ShellyPro3EM output device");
+        return getContext().spawn(
+              Behaviors.supervise(
+                    ShellyPro3EM.create(
+                          getContext().getSelf(),
+                          mDnsRegistrator,
+                          config)
+              ).onFailure(failureStrategy),
+              "output");
+      }
+      case EcoTracker.TYPE -> {
+        logger.info("creating EcoTracker output device");
+        return getContext().spawn(
+              Behaviors.supervise(
+                    EcoTracker.create(
+                          getContext().getSelf(),
+                          mDnsRegistrator,
+                          config)
+              ).onFailure(failureStrategy),
+              "output");
+      }
+      case SmaEM.TYPE -> {
+        logger.info("creating SmaEM output device");
+        return getContext().spawn(
+              Behaviors.supervise(
+                    SmaEM.create(
+                          getContext().getSelf(),
+                          mDnsRegistrator,
+                          config)
+              ).onFailure(failureStrategy),
+              "output");
+      }
+      default -> {
+        logger.error("unknown output device type: {}", outputDeviceType);
+        throw new IllegalArgumentException("unknown output device type: " + outputDeviceType);
+      }
     }
   }
   
@@ -334,6 +340,16 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
         return getContext().spawn(
               Behaviors.supervise(
                     HuaweiInverter.create(
+                          output,
+                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
+              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
+              "input");
+      }
+      
+      case Poweropti.TYPE -> {
+        return getContext().spawn(
+              Behaviors.supervise(
+                    Poweropti.create(
                           output,
                           getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
               ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
