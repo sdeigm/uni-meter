@@ -27,6 +27,7 @@ The real electrical meter data can be gathered from the following input devices:
 - ioBroker datapoints (via simple API adapter)
 - Kostal Smart Energy Meter
 - MQTT
+- Powerfox poweropti
 - Shelly 3EM
 - Shelly Pro 3EM
 - SHRDZM smartmeter interface module (UDP)
@@ -116,6 +117,7 @@ To configure the input device, follow the instructions in these sections:
 * **[ioBroker](doc/input/IoBroker.md)**
 * **[Kostal Smart Energy Meter](doc/input/Kostal.md)**
 * **[MQTT](doc/input/Mqtt.md)**
+* **[Powerfox poweropti](doc/input/Poweropti.md)**
 * **[Shelly 3EM](doc/input/Shelly3Em.md)**
 * **[Shelly Pro 3EM](doc/input/ShellyPro3Em.md)**
 * **[SHRDZM](doc/input/ShrDzm.md)**

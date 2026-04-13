@@ -1,5 +1,13 @@
 # Change Log
+
 All notable changes to the `uni-meter` will be documented in this file.
+
+## [1.5.0] - 2026-04-13
+
+### Added
+
+- [#359](https://github.com/sdeigm/uni-meter/issues/359) Improved formatting of timestamp parameters in get_parameters api call
+- [#362](https://github.com/sdeigm/uni-meter/issues/362) Support for the Powerfox poweropti input device
 
 ## [1.4.1] - 2026-03-18
 
