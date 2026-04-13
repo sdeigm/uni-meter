@@ -222,7 +222,7 @@ public class EcoTracker  extends OutputDevice {
     logger.trace("EcoTracer.registerMDns()");
     
     Map<String, String> txtRecords = new HashMap<>();
-    txtRecords.put("ip", NetUtils.detectPrimaryIpAddress());
+    txtRecords.put("ip", getAnnouncedIpAddress());
 
     ConfigObject mdnsObject = getConfig().getObject("mdns");
     mdnsObject.forEach((key, value) -> txtRecords.put(key, value.unwrapped().toString()));
@@ -234,7 +234,7 @@ public class EcoTracker  extends OutputDevice {
                 getBindPort(),
                 txtRecords,
                 getDefaultHostname() + ".local",
-                NetUtils.detectPrimaryIpAddress()
+                getAnnouncedIpAddress()
           )
     );
   }
