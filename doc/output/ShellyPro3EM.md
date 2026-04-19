@@ -86,8 +86,8 @@ Please be aware, that the `uni-meter` itself also provides some HTTP functionali
 separately. 
 
 > [!WARNING]
-> Some consumers have the target port hardcoded to `80` and cannot be configured to use a custom port. One known
-> example is the Growatt Noah 2000. If you change the port, those consumers might no longer be able to retrieve data.
+> Some consumers have the target port hardcoded to `80` and cannot be configured to use a custom port. Known
+> examples are the Growatt Noah/Nexa 2000 storages. If you change the port, those consumers might no longer be able to retrieve data.
 
 ## Configuring the Shelly device id
 
