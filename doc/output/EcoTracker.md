@@ -41,6 +41,10 @@ uni-meter {
 Please be aware, that the `uni-meter` itself also provides some HTTP functionality on a port which can be configured
 separately. 
 
+> [!WARNING]
+> Some consumers have the target port hardcoded to `80` and cannot be configured to use a custom port. One known
+> example is the Growatt Noah 2000. If you change the port, those consumers might no longer be able to retrieve data.
+
 ## Configuring the MAC address and hostname
 
 It is normally not necessary anymore to configure the MAC address or the hostname. It will be
