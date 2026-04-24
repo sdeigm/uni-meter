@@ -25,6 +25,7 @@ The real electrical meter data can be gathered from the following input devices:
 - Home Assistant sensors
 - Huawei Inverter (DTSU666-H)
 - ioBroker datapoints (via simple API adapter)
+- IOmeter smart meter
 - Kostal Smart Energy Meter
 - MQTT
 - Powerfox poweropti
@@ -115,6 +116,7 @@ To configure the input device, follow the instructions in these sections:
 * **[Home Assistant](doc/input/HomeAssistant.md)**
 * **[Huawei Inverter](doc/input/Huawei.md)**
 * **[ioBroker](doc/input/IoBroker.md)**
+* **[IOmeter](doc/input/IOmeter.md)**
 * **[Kostal Smart Energy Meter](doc/input/Kostal.md)**
 * **[MQTT](doc/input/Mqtt.md)**
 * **[Powerfox poweropti](doc/input/Poweropti.md)**
