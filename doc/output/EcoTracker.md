@@ -43,7 +43,8 @@ separately.
 
 > [!WARNING]
 > Some consumers have the target port hardcoded to `80` and cannot be configured to use a custom port. Known
-> examples are the Growatt Noah/Nexa 2000 storages. If you change the port, those consumers might no longer be able to retrieve data.
+> examples are the Growatt Noah/Nexa 2000 and Hoymiles storages. If you change the port, those consumers might no longer 
+> be able to retrieve data.
 
 ## Configuring the MAC address and hostname
 

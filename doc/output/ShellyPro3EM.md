@@ -43,7 +43,7 @@ uni-meter {
 
 ## Throttling the sampling frequency of the Shelly device
 
-In some setups with a higher latency until the real electrical meter readings are available on the output side, it might
+In some setups with higher latency until the real electrical meter readings are available on the output side, it might
 be necessary to throttle the sampling frequency of the output data. Otherwise, it might be possible that the storage
 oversteers the power production and consumption values and that they are fluctuating too much around 0 (see the comments
 and findings to this [issue](https://github.com/sdeigm/uni-meter/issues/12)).
@@ -87,7 +87,8 @@ separately.
 
 > [!WARNING]
 > Some consumers have the target port hardcoded to `80` and cannot be configured to use a custom port. Known
-> examples are the Growatt Noah/Nexa 2000 storages. If you change the port, those consumers might no longer be able to retrieve data.
+> examples are the Growatt Noah/Nexa 2000 and Hoymiles storages. If you change the port, those consumers might no longer 
+> be able to retrieve data.
 
 ## Configuring the Shelly device id
 
