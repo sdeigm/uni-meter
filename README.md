@@ -124,7 +124,7 @@ To configure the input device, follow the instructions in these sections:
 * **[Shelly Pro 3EM](doc/input/ShellyPro3Em.md)**
 * **[SHRDZM](doc/input/ShrDzm.md)**
 * **[SMA Energy Meter](doc/input/SmaEnergyMeter.md)**
-* **[SMD 120](doc/input/Smd120.md)**
+* **[SDM 120](doc/input/Smd120.md)**
 * **[Solaredge](doc/input/Solaredge.md)**
 * **[Sungrow Smart Energy Meter](doc/input/Sungrow.md)**
 * **[Tasmota](doc/input/Tasmota.md)**
