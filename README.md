@@ -33,7 +33,7 @@ The real electrical meter data can be gathered from the following input devices:
 - Shelly Pro 3EM
 - SHRDZM smartmeter interface module (UDP)
 - SMA energy meter / Sunny Home Manager (UDP protocol)
-- SMD120 modbus energy meter (via Protos PE11) (SMD630 could be added, I have no test device)
+- SDM120 modbus energy meter (via Protos PE11) (SDM630 could be added, I have no test device)
 - Solaredge
 - Sungrow Smart Energy Meter (DTSU666)
 - Tasmota IR read head (via HTTP)
