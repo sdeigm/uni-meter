@@ -25,13 +25,15 @@ The real electrical meter data can be gathered from the following input devices:
 - Home Assistant sensors
 - Huawei Inverter (DTSU666-H)
 - ioBroker datapoints (via simple API adapter)
+- IOmeter smart meter
 - Kostal Smart Energy Meter
 - MQTT
+- Powerfox poweropti
 - Shelly 3EM
 - Shelly Pro 3EM
 - SHRDZM smartmeter interface module (UDP)
 - SMA energy meter / Sunny Home Manager (UDP protocol)
-- SMD120 modbus energy meter (via Protos PE11) (SMD630 could be added, I have no test device)
+- SDM120 modbus energy meter (via Protos PE11) (SDM630 could be added, I have no test device)
 - Solaredge
 - Sungrow Smart Energy Meter (DTSU666)
 - Tasmota IR read head (via HTTP)
@@ -42,6 +44,8 @@ Storages known to be supported are
 
 * Growatt NOAH 2000 & NEXA 2000
 * Hoymiles MS-A2 & HiBattery 1920 AC
+* Indevolt SolidFlex 2000
+* Jackery SolarVault Serie 3
 * Marstek B2500 & Venus
 * Solakon One
 
@@ -119,13 +123,15 @@ To configure the input device, follow the instructions in these sections:
 * **[Home Assistant](doc/input/HomeAssistant.md)**
 * **[Huawei Inverter](doc/input/Huawei.md)**
 * **[ioBroker](doc/input/IoBroker.md)**
+* **[IOmeter](doc/input/IOmeter.md)**
 * **[Kostal Smart Energy Meter](doc/input/Kostal.md)**
 * **[MQTT](doc/input/Mqtt.md)**
+* **[Powerfox poweropti](doc/input/Poweropti.md)**
 * **[Shelly 3EM](doc/input/Shelly3Em.md)**
 * **[Shelly Pro 3EM](doc/input/ShellyPro3Em.md)**
 * **[SHRDZM](doc/input/ShrDzm.md)**
 * **[SMA Energy Meter](doc/input/SmaEnergyMeter.md)**
-* **[SMD 120](doc/input/Smd120.md)**
+* **[SDM 120](doc/input/Smd120.md)**
 * **[Solaredge](doc/input/Solaredge.md)**
 * **[Sungrow Smart Energy Meter](doc/input/Sungrow.md)**
 * **[Tasmota](doc/input/Tasmota.md)**
@@ -143,7 +149,7 @@ behavior. That API might, for instance, be used via a cron job using curl or dir
 
 ## Troubleshooting
 
-`uni-meter` use the Java logback logging system. In the default setup only info, warning and error messages are written
+`uni-meter` uses the Java logback logging system. In the default setup only info, warning and error messages are written
 to the logfile/standard output. For debugging purposes you can set the log level to `DEBUG` or even 
 `TRACE` within the logback configuration file. The location of that configuration file differs depending on your setup 
 type.

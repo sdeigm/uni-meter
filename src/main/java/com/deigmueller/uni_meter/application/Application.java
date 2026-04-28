@@ -20,8 +20,12 @@ public class Application {
           .withFallback(ConfigFactory.load());
       
     logStartupBanner();
-      
+         
     try {
+      if (config.hasPath("config.file")) {
+        LOGGER.info("using configuration file {}", config.getString("config.file"));
+      }
+      
       LOGGER.info("initializing actor system");
       ActorSystem<UniMeter.Command> actorSystem = ActorSystem.create(
             Behaviors.setup(context -> UniMeter.create()), "uni-meter", config);
