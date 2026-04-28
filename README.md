@@ -44,6 +44,7 @@ Storages known to be supported are
 
 * Growatt NOAH 2000 & NEXA 2000
 * Hoymiles MS-A2 & HiBattery 1920 AC
+* Indevolt SolidFlex 2000
 * Marstek B2500 & Venus
 * Solakon One
 
