@@ -143,7 +143,7 @@ public class VzLogger extends HttpInputDevice {
         tryAddToQueue(lastProductionValues, productionValue);
       }
 
-      notifyEnergyData(energyPhaseMode, energyPhase, production, consumption);
+      notifyEnergyData(energyPhaseMode, energyPhase, consumption, production);
 
       double power = 0.0;
       VzLoggerValue powerValue = response.dataByUuid(powerChannel);
