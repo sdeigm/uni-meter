@@ -10,7 +10,7 @@ uni-meter {
 
   input-devices {
     generic-http {
-      # Adjust the IP address of the ioBroker
+      # Adjust the IP address of the IOmeter
       url = "http://192.168.x.x/v1/reading"
 
       power-phase-mode = "mono-phase"
@@ -20,16 +20,17 @@ uni-meter {
         type = "json"
         channel = "energy-consumption-total"
         json-path = "$.meter.reading.registers[?(@.obis=='01-00:01.08.00*ff')].value"
-        scale = 0.001
+        scale = 1
       },{
         type = "json"
         channel = "energy-production-total"
         json-path = "$.meter.reading.registers[?(@.obis=='01-00:02.08.00*ff')].value"
-        scale = 0.001
+        scale = 1
       },{
         type = "json"
         channel = "power-total"
         json-path = "$.meter.reading.registers[?(@.obis=='01-00:10.07.00*ff')].value"
+        scale = 1
       }]
     }
   }
