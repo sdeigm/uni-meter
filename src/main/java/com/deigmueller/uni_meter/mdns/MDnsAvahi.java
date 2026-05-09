@@ -308,3 +308,4 @@ public class MDnsAvahi extends MDnsKind {
   
   private record NameAndIpAddress(String name, String ipAddress) {}
 }
+
