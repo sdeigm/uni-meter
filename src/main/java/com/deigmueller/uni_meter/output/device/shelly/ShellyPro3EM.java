@@ -1145,7 +1145,7 @@ public class ShellyPro3EM extends Shelly {
           "SPEM-003CEBEU",
           2,
           getConfig().getString("fw"),
-          versionMatcher.find() ? versionMatcher.group("version") ? "1.4.4",
+          versionMatcher.find() ? versionMatcher.group("version") : "1.4.4",
           "Pro3EM",
           false,
           Rpc.RpcStringOrNull.of(null),
