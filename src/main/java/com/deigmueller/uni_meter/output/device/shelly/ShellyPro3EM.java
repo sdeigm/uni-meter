@@ -1134,6 +1134,8 @@ public class ShellyPro3EM extends Shelly {
 
   private Rpc.GetDeviceInfoResponse rpcGetDeviceInfo(@NotNull InetAddress remoteAddress) {
     logger.trace("Shelly.rpcGetDeviceInfo()");
+    
+    var versionMatcher = Pattern.compile("/(?<version>[^/-]+)-").matcher(getConfig().getString("fw"));
 
     Rpc.GetDeviceInfoResponse response = new Rpc.GetDeviceInfoResponse(
           null,
@@ -1143,7 +1145,7 @@ public class ShellyPro3EM extends Shelly {
           "SPEM-003CEBEU",
           2,
           getConfig().getString("fw"),
-          "1.4.4",
+          versionMatcher.find() ? versionMatcher.group("version") ? "1.4.4",
           "Pro3EM",
           false,
           Rpc.RpcStringOrNull.of(null),
