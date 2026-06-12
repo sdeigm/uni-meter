@@ -99,6 +99,10 @@ public class Rpc {
         case "em.getstatus" -> objectMapper.treeToValue(tree, EmGetStatus.class);
         case "emdata.getconfig" -> objectMapper.treeToValue(tree, EmDataGetConfig.class);
         case "emdata.getstatus" -> objectMapper.treeToValue(tree, EmDataGetStatus.class);
+        case "em1.getconfig" -> objectMapper.treeToValue(tree, Em1GetConfig.class);
+        case "em1.getstatus" -> objectMapper.treeToValue(tree, Em1GetStatus.class);
+        case "em1data.getconfig" -> objectMapper.treeToValue(tree, Em1DataGetConfig.class);
+        case "em1data.getstatus" -> objectMapper.treeToValue(tree, Em1DataGetStatus.class);
         case "script.list" -> objectMapper.treeToValue(tree, ScriptList.class);
         case "script.getcode" -> objectMapper.treeToValue(tree, ScriptGetCode.class);
         case "shelly.getcomponents" -> objectMapper.treeToValue(tree, ShellyGetComponents.class);
@@ -586,6 +590,120 @@ public class Rpc {
         @JsonProperty("c_total_act_ret_energy") Double c_total_act_ret_energy,
         @JsonProperty("total_act") Double total_act,
         @JsonProperty("total_act_ret") Double total_act_ret,
+        @JsonProperty("errors") String[] errors
+  ) implements Response, Status {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record Em1GetStatus(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst,
+        @JsonProperty("params") Em1GetStatusParams params
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record Em1GetStatusParams(
+        @JsonProperty("id") int id
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonPropertyOrder({"id", "current", "voltage", "act_power", "aprt_power", "pf", "freq", "calibration", "errors",
+                     "flags"})
+  public record Em1GetStatusResponse(
+        @JsonProperty("id") Integer id,
+        @JsonProperty("current") Double current,
+        @JsonProperty("voltage") Double voltage,
+        @JsonProperty("act_power") Double act_power,
+        @JsonProperty("aprt_power") Double aprt_power,
+        @JsonProperty("pf") Double pf,
+        @JsonProperty("freq") Double freq,
+        @JsonProperty("calibration") String calibration,
+        @JsonProperty("errors") List<String> errors,
+        @JsonProperty("flags") List<String> flags
+  ) implements Response, Status {
+    @Override public @NotNull String toString() { return Rpc.toString(this); }
+  }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record Em1GetConfig(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst,
+        @JsonProperty("params") Em1GetConfigParams params
+  ) implements Request {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record Em1GetConfigParams(
+        @JsonProperty("id") int id
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonPropertyOrder({"id", "name", "reverse", "ct_type"})
+  public record Em1GetConfigResponse(
+        @JsonProperty("id") Integer id,
+        @JsonProperty("name") RpcStringOrNull name,
+        @JsonProperty("reverse") Boolean reverse,
+        @JsonProperty("ct_type") String ct_type
+  ) implements Response, Config {
+    @Override public @NotNull String toString() { return Rpc.toString(this); }
+  }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonPropertyOrder({"ts", "em1:0"})
+  public record Em1GetStatusNotification(
+        @JsonProperty("ts") Double ts,
+        @JsonProperty("em1:0") Em1GetStatusResponse em10
+  ) implements NotificationParam {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonPropertyOrder({"id", "method", "src", "dst", "params"})
+  public record Em1DataGetConfig(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst,
+        @JsonProperty("params") Em1DataGetStatusParams params) implements Request {
+  }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record Em1DataGetConfigResponse(
+  ) implements Response, Config {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonPropertyOrder({"id", "method", "src", "dst", "params"})
+  public record Em1DataGetStatus(
+        @JsonProperty("id") Long id,
+        @JsonProperty("method") String method,
+        @JsonProperty("src") String src,
+        @JsonProperty("dst") String dst,
+        @JsonProperty("params") Em1DataGetStatusParams params) implements Request {
+  }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record Em1DataGetStatusParams(
+        @JsonProperty("id") int id
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonPropertyOrder({"id", "total_act_energy", "total_act_ret_energy", "errors"})
+  public record Em1DataGetStatusResponse(
+        @JsonProperty("id") long id,
+        @JsonProperty("total_act_energy") Double total_act_energy,
+        @JsonProperty("total_act_ret_energy") Double total_act_ret_energy,
         @JsonProperty("errors") String[] errors
   ) implements Response, Status {}
 

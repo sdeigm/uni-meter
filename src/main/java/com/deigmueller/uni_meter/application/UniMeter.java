@@ -20,6 +20,7 @@ import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import com.deigmueller.uni_meter.output.device.eco_tracker.EcoTracker;
 import com.deigmueller.uni_meter.output.device.shelly.ShellyPro3EM;
+import com.deigmueller.uni_meter.output.device.shelly.ShellyProEM;
 import com.deigmueller.uni_meter.output.device.sma_em.SmaEM;
 import com.typesafe.config.Config;
 import org.apache.pekko.actor.typed.ActorRef;
@@ -145,6 +146,17 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
         return getContext().spawn(
               Behaviors.supervise(
                     ShellyPro3EM.create(
+                          getContext().getSelf(),
+                          mDnsRegistrator,
+                          config)
+              ).onFailure(failureStrategy),
+              "output");
+      }
+      case ShellyProEM.TYPE -> {
+        logger.info("creating ShellyProEM output device");
+        return getContext().spawn(
+              Behaviors.supervise(
+                    ShellyProEM.create(
                           getContext().getSelf(),
                           mDnsRegistrator,
                           config)

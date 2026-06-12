@@ -14,6 +14,7 @@ Currently, the following output devices are supported:
 
 * Everhome EcoTracker
 * Shelly Pro 3EM
+* Shelly Pro EM (single phase)
 * SMA Energy Meter
 
 The real electrical meter data can be gathered from the following input devices:
@@ -105,6 +106,7 @@ To configure the output device, follow the instructions in these sections:
 * **[Common configuration for all devices](doc/output/Common.md)**
 * **[Eco-Tracker](doc/output/EcoTracker.md)**
 * **[Shelly Pro 3EM](doc/output/ShellyPro3EM.md)**
+* **[Shelly Pro EM](doc/output/ShellyProEM.md)**
 * **[SMA Energy Meter](doc/output/SmaEM.md)**
 
 ## Input device configuration
