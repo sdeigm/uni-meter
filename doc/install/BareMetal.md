@@ -168,5 +168,17 @@ sudo systemctl start avahi-daemon
 Starting with `uni-meter` version 1.1.5, a running avahi daemon is automatically detected and all necessary configuration
 files will be automatically created in `/etc/avahi/service`.
 
+The IP address announced via mDNS is derived from the configuration of the selected output device.
+If `interface` contains an IPv4 or IPv6 address, `uni-meter` uses it directly. Otherwise, it is treated as a network
+interface name and `uni-meter` tries to resolve an IP address from it, preferring IPv4 over IPv6. If that does not
+work, `uni-meter` falls back to the detected primary IPv4 address of the host.
 
-
+```hocon
+uni-meter {
+  output-devices {
+    shelly-pro3em {
+      interface = "eth0"
+    }
+  }
+}
+```

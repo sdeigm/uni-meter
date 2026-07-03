@@ -1,6 +1,7 @@
 package com.deigmueller.uni_meter.output;
 
 import com.deigmueller.uni_meter.application.UniMeter;
+import com.deigmueller.uni_meter.common.utils.NetUtils;
 import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.typesafe.config.Config;
@@ -8,6 +9,8 @@ import com.typesafe.config.ConfigFactory;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.PostStop;
@@ -26,6 +29,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.function.Supplier;
 
 /**
  * Represents an output device responsible for handling power and energy data,
@@ -35,6 +39,11 @@ import java.util.*;
 @Getter(AccessLevel.PROTECTED)
 @Setter(AccessLevel.PROTECTED)
 public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command> {
+  
+  private static final String UNSPECIFIED_IPV4_ADRESS = "0.0.0.0";
+  private static final String UNSPECIFIED_IPV6_ADRESS = "::";
+  private static final Logger LOGGER = LoggerFactory.getLogger("uni-meter.output");
+  
   // Instance members
   protected final Logger logger = LoggerFactory.getLogger("uni-meter.output");
   protected final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -47,6 +56,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
   private final double defaultVoltage;
   private final double defaultFrequency;
   private final double defaultClientPowerFactor;
+  private final String announcedIpAddress;
   private final Map<InetAddress, ClientContext> clientContexts = new HashMap<>();
   
   private Instant offUntil = Instant.MIN;
@@ -86,6 +96,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     this.defaultFrequency = config.getDouble("default-frequency");
     this.defaultClientPowerFactor = config.getDouble("default-client-power-factor");
     this.usageConstraintInitDuration = config.getDuration("usage-constraint-init-duration");
+    this.announcedIpAddress = resolveAnnouncedIpAddress();
     
     initPowerOffsets(config);
 
@@ -534,11 +545,50 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
 
     return parameters;
   }
-  
+
   protected abstract Route createRoute();
-  
+
   protected abstract void eventPowerDataChanged();
-  
+
+  protected @NotNull String resolveAnnouncedIpAddress() {
+    return resolveAnnouncedIpAddress(config, NetUtils::detectPrimaryIpAddress);
+  }
+
+  public static @NotNull String resolveAnnouncedIpAddress(@NotNull Config outputDeviceConfig,
+                                                           @NotNull Supplier<String> fallbackIpAddressSupplier) {
+    String configuredInterface = StringUtils.trimToEmpty(outputDeviceConfig.getString("interface"));
+    if (StringUtils.isNotBlank(configuredInterface)
+        && !Strings.CS.equalsAny(configuredInterface, UNSPECIFIED_IPV4_ADRESS, UNSPECIFIED_IPV6_ADRESS)) {
+      if (isIpAddress(configuredInterface)) {
+        return configuredInterface;
+      }
+
+      List<String> availableInterfaces = NetUtils.listNetworkInterfaceNames();
+      if (!availableInterfaces.contains(configuredInterface)) {
+        LOGGER.warn("configured output-device interface '{}' not found. available interfaces: {}",
+              configuredInterface,
+              String.join(", ", availableInterfaces));
+      } else {
+        String ipAddress = NetUtils.detectIpAddressFromInterface(configuredInterface);
+        if (StringUtils.isNotBlank(ipAddress)) {
+          return ipAddress;
+        }
+        LOGGER.warn("failed to resolve IP address for output-device interface '{}', falling back to configured default address",
+              configuredInterface);
+      }
+    }
+
+    return fallbackIpAddressSupplier.get();
+  }
+
+  private static boolean isIpAddress(@NotNull String value) {
+    try {
+      return InetAddress.getByName(value) != null;
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
   protected void initPowerOffsets(@NotNull Config config) {
     offsetPhase0 = config.getDouble("power-offset-l1");
     offsetPhase1 = config.getDouble("power-offset-l2");

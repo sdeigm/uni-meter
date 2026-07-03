@@ -112,3 +112,22 @@ uni-meter {
   }
 }
 ```
+
+## Configuring the announced mDNS address
+
+If mDNS is used, the announced IP address is derived from the selected output device configuration.
+If `interface` contains an IPv4 or IPv6 address, `uni-meter` uses it directly. Otherwise, it is treated as a network
+interface name and `uni-meter` tries to resolve an IP address from it, preferring IPv4 over IPv6. If that does not
+work, `uni-meter` falls back to the detected primary IPv4 address.
+
+```hocon
+uni-meter {
+  #...
+  output-devices {
+    #...
+    shelly-pro3em {
+      interface = "eth0"
+    }
+  }
+}
+```
