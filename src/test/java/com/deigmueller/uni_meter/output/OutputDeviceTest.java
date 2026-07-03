@@ -114,10 +114,27 @@ class OutputDeviceTest {
     }
   }
 
+  @Test
+  @DisplayName("resolveAnnouncedIpAddress prefers mdns-host over interface (VIP not bound locally)")
+  void resolveAnnouncedIpAddressPrefersMdnsHost() {
+    try (MockedStatic<NetUtils> mockedNetUtils = Mockito.mockStatic(NetUtils.class)) {
+      mockedNetUtils.when(NetUtils::detectPrimaryIpAddress).thenReturn("10.0.0.5");
+
+      String result = resolveAnnouncedIpAddress("0.0.0.0", "192.168.178.188");
+
+      assertThat(result, is("192.168.178.188"));
+    }
+  }
+
   private static String resolveAnnouncedIpAddress(String configuredInterface) {
+    return resolveAnnouncedIpAddress(configuredInterface, "");
+  }
+
+  private static String resolveAnnouncedIpAddress(String configuredInterface, String mdnsHost) {
     Config outputDeviceConfig = ConfigFactory.parseString("""
         interface = "%s"
-        """.formatted(configuredInterface));
+        mdns-host = "%s"
+        """.formatted(configuredInterface, mdnsHost));
 
     return OutputDevice.resolveAnnouncedIpAddress(outputDeviceConfig, NetUtils::detectPrimaryIpAddress);
   }
