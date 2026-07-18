@@ -39,7 +39,14 @@ uni-meter {
   }
   #...
 }
-```  
+```
+
+**Notice:** When the Marstek Venus connects to Wi-Fi, it continuously sends UDP broadcast requests to port `1010`. The first device that responds to one of these broadcasts will subsequently receive direct (unicast) UDP requests on port `1010` and broadcasting stops after that point. Therefore:
+
+- You only need to configure `udp-port = 1010`.
+- In a docker setup, make sure forwarding port `1010:1010/udp`.
+- If you have multiple Wi-Fi networks or subnets, make sure the UPD broadcast is routed between the networks and that the (docker) host can actually answer to the broadcast.
+  A practical solution is to ensure that the `uni-meter` host is on the **same network** as the Marstek Venus.
 
 ## Throttling the sampling frequency of the Shelly device
 
