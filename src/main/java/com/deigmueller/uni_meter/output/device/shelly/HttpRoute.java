@@ -40,20 +40,23 @@ class HttpRoute extends AllDirectives {
   private final Materializer materializer;
   private final ActorRef<OutputDevice.Command> shelly;
   private final ActorRef<WebsocketInput.Notification> websocketInput;
+  private final boolean em1Support;
   private final Duration timeout = Duration.ofSeconds(5);
   private final FiniteDuration finiteTimeout = FiniteDuration.apply(5, TimeUnit.SECONDS);
   private final ObjectMapper objectMapper = Rpc.createObjectMapper();
-  
-  public HttpRoute(Logger logger, 
-                   ActorSystem<?> system, 
+
+  public HttpRoute(Logger logger,
+                   ActorSystem<?> system,
                    Materializer materializer,
                    ActorRef<OutputDevice.Command> shelly,
-                   ActorRef<WebsocketInput.Notification> websocketInput) {
+                   ActorRef<WebsocketInput.Notification> websocketInput,
+                   boolean em1Support) {
     this.logger = logger;
     this.system = system;
     this.materializer = materializer;
     this.shelly = shelly;
     this.websocketInput = websocketInput;
+    this.em1Support = em1Support;
   }
 
   public Route createRoute() {
@@ -98,8 +101,28 @@ class HttpRoute extends AllDirectives {
                                               onEmDataGetConfig(id.orElse(0)))
                                   ),
                                   path("EMData.GetStatus", () ->
-                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id -> 
+                                        parameterOptional(StringUnmarshallers.INTEGER, "id", id ->
                                               onEmDataGetStatus(remoteAddress, id.orElse(0)))
+                                  ),
+                                  path("EM1.GetConfig", () -> em1Support
+                                        ? parameterOptional(StringUnmarshallers.INTEGER, "id", id ->
+                                              onEm1GetConfig(id.orElse(0)))
+                                        : reject()
+                                  ),
+                                  path("EM1.GetStatus", () -> em1Support
+                                        ? parameterOptional(StringUnmarshallers.INTEGER, "id", id ->
+                                              onEm1GetStatus(remoteAddress, id.orElse(0)))
+                                        : reject()
+                                  ),
+                                  path("EM1Data.GetConfig", () -> em1Support
+                                        ? parameterOptional(StringUnmarshallers.INTEGER, "id", id ->
+                                              onEm1DataGetConfig(id.orElse(0)))
+                                        : reject()
+                                  ),
+                                  path("EM1Data.GetStatus", () -> em1Support
+                                        ? parameterOptional(StringUnmarshallers.INTEGER, "id", id ->
+                                              onEm1DataGetStatus(remoteAddress, id.orElse(0)))
+                                        : reject()
                                   ),
                                   path("Script.List", () ->
                                         onScripList(remoteAddress)
@@ -272,7 +295,7 @@ class HttpRoute extends AllDirectives {
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
-                (ActorRef<ShellyPro3EM.ShellyConfig> replyTo) -> new ShellyPro3EM.ShellyGetConfig(
+                (ActorRef<Rpc.Response> replyTo) -> new ShellyPro3EM.ShellyGetConfig(
                       remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
                       replyTo),
                 timeout,
@@ -300,7 +323,7 @@ class HttpRoute extends AllDirectives {
     return completeOKWithFuture(
           AskPattern.ask(
                 shelly,
-                (ActorRef<Rpc.ShellyGetStatusResponse> replyTo) -> new ShellyPro3EM.ShellyGetStatus(
+                (ActorRef<Rpc.Response> replyTo) -> new ShellyPro3EM.ShellyGetStatus(
                       remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
                       replyTo),
                 timeout,
@@ -468,6 +491,94 @@ class HttpRoute extends AllDirectives {
                       new ShellyPro3EM.EmDataGetStatus(
                             remoteAddress.getAddress().orElse(DEFAULT_ADDRESS), 
                             id, 
+                            replyTo),
+                timeout,
+                system.scheduler()
+          ).thenApply(response -> {
+            if (response.failure() != null) {
+              throw response.failure();
+            }
+
+            return response.status();
+          }),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onEm1GetConfig(int id) {
+    logger.trace("HttpRoute.onEm1GetConfig({})", id);
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<ShellyProEM.Em1GetConfigOrFailureResponse> replyTo) -> new ShellyProEM.Em1GetConfig(id, replyTo),
+                timeout,
+                system.scheduler()
+          ).thenApply(response -> {
+            if (response.failure() != null) {
+              throw response.failure();
+            }
+
+            return response.status();
+          }),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onEm1GetStatus(@NotNull RemoteAddress remoteAddress,
+                               int id) {
+    logger.trace("HttpRoute.onEm1GetStatus({}, {})", remoteAddress, id);
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<ShellyProEM.Em1GetStatusOrFailureResponse> replyTo) ->
+                      new ShellyProEM.Em1GetStatus(
+                            remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
+                            id,
+                            replyTo),
+                timeout,
+                system.scheduler()
+          ).thenApply(response -> {
+            if (response.failure() != null) {
+              if (response.failure() instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+              }
+              throw new RuntimeException(response.failure());
+            }
+
+            return response.status();
+          }),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onEm1DataGetConfig(int id) {
+    logger.trace("HttpRoute.onEm1DataGetConfig({})", id);
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<ShellyProEM.Em1DataGetConfigOrFailureResponse> replyTo) ->
+                      new ShellyProEM.Em1DataGetConfig(
+                            id,
+                            replyTo),
+                timeout,
+                system.scheduler()
+          ).thenApply(response -> {
+            if (response.failure() != null) {
+              throw response.failure();
+            }
+
+            return response.status();
+          }),
+          Jackson.marshaller(objectMapper));
+  }
+
+  private Route onEm1DataGetStatus(@NotNull RemoteAddress remoteAddress,
+                                   int id) {
+    logger.trace("HttpRoute.onEm1DataGetStatus({}, {})", remoteAddress, id);
+    return completeOKWithFuture(
+          AskPattern.ask(
+                shelly,
+                (ActorRef<ShellyProEM.Em1DataGetStatusOrFailureResponse> replyTo) ->
+                      new ShellyProEM.Em1DataGetStatus(
+                            remoteAddress.getAddress().orElse(DEFAULT_ADDRESS),
+                            id,
                             replyTo),
                 timeout,
                 system.scheduler()

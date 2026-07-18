@@ -235,8 +235,12 @@ public abstract class Shelly extends OutputDevice {
     if (! StringUtils.isAllBlank(config.getString("device.hostname"))) {
       return config.getString("device.hostname");
     }
-    
-    return "ShellyPro3EM-" + mac.toUpperCase();
+
+    String prefix = config.hasPath("device.hostname-prefix")
+          ? config.getString("device.hostname-prefix")
+          : "ShellyPro3EM-";
+
+    return prefix + mac.toUpperCase();
   }
   
   public record ShellyGet(
