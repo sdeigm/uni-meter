@@ -29,6 +29,7 @@ The real electrical meter data can be gathered from the following input devices:
 - Kostal Smart Energy Meter
 - MQTT
 - Powerfox poweropti
+- Refoss EM06P
 - Shelly 3EM
 - Shelly Pro 3EM
 - SHRDZM smartmeter interface module (UDP)
@@ -127,6 +128,7 @@ To configure the input device, follow the instructions in these sections:
 * **[Kostal Smart Energy Meter](doc/input/Kostal.md)**
 * **[MQTT](doc/input/Mqtt.md)**
 * **[Powerfox poweropti](doc/input/Poweropti.md)**
+* **[Refoss EM06P](doc/input/RefossEm06p.md)**
 * **[Shelly 3EM](doc/input/Shelly3Em.md)**
 * **[Shelly Pro 3EM](doc/input/ShellyPro3Em.md)**
 * **[SHRDZM](doc/input/ShrDzm.md)**

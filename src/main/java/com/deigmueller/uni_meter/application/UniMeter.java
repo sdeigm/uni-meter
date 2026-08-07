@@ -1,6 +1,7 @@
 package com.deigmueller.uni_meter.application;
 
 import com.deigmueller.uni_meter.input.InputDevice;
+import com.deigmueller.uni_meter.input.device.refoss.em06p.RefossEm06p;
 import com.deigmueller.uni_meter.input.device.generic_http.GenericHttp;
 import com.deigmueller.uni_meter.input.device.home_assistant.HomeAssistant;
 import com.deigmueller.uni_meter.input.device.modbus.huawei.HuaweiInverter;
@@ -356,6 +357,15 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
               "input");
       }
           
+      case RefossEm06p.TYPE -> {
+        return getContext().spawn(
+              Behaviors.supervise(
+                    RefossEm06p.create(
+                          output,
+                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
+              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
+              "input");
+      }
       default -> {
         logger.error("unknown input device type: {}", inputDeviceType);
         throw new IllegalArgumentException("unknown input device type: " + inputDeviceType);
