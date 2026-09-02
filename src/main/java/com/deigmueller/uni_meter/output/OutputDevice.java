@@ -556,25 +556,38 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
 
   public static @NotNull String resolveAnnouncedIpAddress(@NotNull Config outputDeviceConfig,
                                                            @NotNull Supplier<String> fallbackIpAddressSupplier) {
-    String configuredInterface = StringUtils.trimToEmpty(outputDeviceConfig.getString("interface"));
-    if (StringUtils.isNotBlank(configuredInterface)
-        && !Strings.CS.equalsAny(configuredInterface, UNSPECIFIED_IPV4_ADRESS, UNSPECIFIED_IPV6_ADRESS)) {
-      if (isIpAddress(configuredInterface)) {
-        return configuredInterface;
+    // 'mdns-host' explicitly overrides the announced address and is decoupled from the bind
+    // interface. This is required when the announced address is not present on any local NIC,
+    // e.g. a floating MetalLB/keepalived virtual IP while the sockets stay bound to 0.0.0.0.
+    String configKey = "mdns-host";
+    String configured = outputDeviceConfig.hasPath(configKey)
+          ? StringUtils.trimToEmpty(outputDeviceConfig.getString(configKey))
+          : "";
+    if (StringUtils.isBlank(configured)) {
+      configKey = "interface";
+      configured = StringUtils.trimToEmpty(outputDeviceConfig.getString(configKey));
+    }
+
+    if (StringUtils.isNotBlank(configured)
+        && !Strings.CS.equalsAny(configured, UNSPECIFIED_IPV4_ADRESS, UNSPECIFIED_IPV6_ADRESS)) {
+      if (isIpAddress(configured)) {
+        return configured;
       }
 
       List<String> availableInterfaces = NetUtils.listNetworkInterfaceNames();
-      if (!availableInterfaces.contains(configuredInterface)) {
-        LOGGER.warn("configured output-device interface '{}' not found. available interfaces: {}",
-              configuredInterface,
+      if (!availableInterfaces.contains(configured)) {
+        LOGGER.warn("configured output-device {} '{}' not found. available interfaces: {}",
+              configKey,
+              configured,
               String.join(", ", availableInterfaces));
       } else {
-        String ipAddress = NetUtils.detectIpAddressFromInterface(configuredInterface);
+        String ipAddress = NetUtils.detectIpAddressFromInterface(configured);
         if (StringUtils.isNotBlank(ipAddress)) {
           return ipAddress;
         }
-        LOGGER.warn("failed to resolve IP address for output-device interface '{}', falling back to configured default address",
-              configuredInterface);
+        LOGGER.warn("failed to resolve IP address for output-device {} '{}', falling back to configured default address",
+              configKey,
+              configured);
       }
     }
 
