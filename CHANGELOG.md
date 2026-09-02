@@ -2,6 +2,12 @@
 
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- [#382](https://github.com/sdeigm/uni-meter/issues/382) Support for the single phase Shelly Pro EM as an output device
+
 ## [1.5.0] - 2026-04-13
 
 ### Added
