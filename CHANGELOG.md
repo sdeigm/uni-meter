@@ -2,6 +2,18 @@
 
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.6.0] - 2026-09-02
+
+### Added
+
+- [#331](https://github.com/sdeigm/uni-meter/pull/331) Enhanced mDNS IP/interface configuration (thanks to [thimo-seitz](https://github.com/thimo-seitz))
+- [#404](https://github.com/sdeigm/uni-meter/pull/404) Option to announce a virtual IP decoupled from the bind interface (thanks to [fivetide](https://github.com/fivetide))
+- [#407](https://github.com/sdeigm/uni-meter/pull/407) Support for Refoss EM06P Smart Energy Monitor Input (thanks to [marcohald](https://github.com/marcohald))
+
+### Fixed
+
+- [#381](https://github.com/sdeigm/uni-meter/issues/381) VzLogger input - energy consumption and production had been interchanged
+
 ## [1.5.0] - 2026-04-13
 
 ### Added
