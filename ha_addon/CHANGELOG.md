@@ -2,6 +2,12 @@
 
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.6.1] - 2026-09-07
+
+### Fixed
+
+- [#410](https://github.com/sdeigm/uni-meter/pull/410) Fixed typo in changelog
+
 ## [1.6.0] - 2026-09-02
 
 ### Added
