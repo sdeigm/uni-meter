@@ -2,6 +2,12 @@
 
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.6.1] - 2026-09-07
+
+### Fixed
+
+- [#410](https://github.com/sdeigm/uni-meter/issues/410) Updated the hassio-addons/base image to version 21.0.4
+
 ## [1.6.0] - 2026-09-02
 
 ### Added
