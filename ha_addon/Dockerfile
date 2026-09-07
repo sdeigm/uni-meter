@@ -1,6 +1,6 @@
 ARG BUILD_FROM
 ARG UNI_METER_VERSION="1.6.0"
-FROM ${BUILD_FROM:-ghcr.io/hassio-addons/base:17.0.1}
+FROM ${BUILD_FROM:-ghcr.io/hassio-addons/base:21.0.4}
 
 # Build stage
 ARG UNI_METER_VERSION
