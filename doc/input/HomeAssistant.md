@@ -67,3 +67,30 @@ uni-meter {
   }
 }
 ```
+
+## Notifying the output device only on sensor updates
+
+The Home Assistant sensors are polled in the configured `polling-interval`, which defaults to one second. By default,
+the readings are forwarded to the output device after each polling cycle, even if Home Assistant still provides the
+same sensor values as before.
+
+If the output device is configured to deliver its data on input updates (see the `sample-mode` of the
+[Shelly Pro 3EM](../output/ShellyPro3EM.md) output device), the readings should only be forwarded when the sensors
+really have been updated. To achieve this, set `notify-on-update-only` to `true`. The uni-meter then uses the
+`last_reported` timestamp provided by Home Assistant and forwards the readings only if at least one of the sensors has
+a new timestamp.
+
+```hocon
+uni-meter {
+  #...
+  input-devices {
+    home-assistant {
+      #...
+      polling-interval = 1s
+      notify-on-update-only = true
+      #...
+    }
+  }
+  #...
+}
+```

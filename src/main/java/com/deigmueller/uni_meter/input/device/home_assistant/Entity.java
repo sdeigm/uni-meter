@@ -6,5 +6,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record Entity(
       @JsonProperty("entity_id") String entityId,
-      @JsonProperty("state") String state
+      @JsonProperty("state") String state,
+      @JsonProperty("last_reported") String lastReported
 ) {}

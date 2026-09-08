@@ -32,8 +32,11 @@ public class HomeAssistant extends GenericInputDevice {
   private final ObjectMapper objectMapper = new ObjectMapper();
   private final String url = StringUtils.stripEnd(getConfig().getString("url"), "/");
   private final Duration pollingInterval = getConfig().getDuration("polling-interval");
+  private final boolean notifyOnUpdateOnly = getConfig().getBoolean("notify-on-update-only");
   private final Map<String,String> sensorChannelMap = new HashMap<>();
+  private final Map<String,String> sensorLastReportedMap = new HashMap<>();
   private final HttpCredentials credentials;
+  private boolean sensorsUpdated = false;
   
   public static Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> outputDevice,
                                          @NotNull Config config) {
@@ -95,17 +98,26 @@ public class HomeAssistant extends GenericInputDevice {
         
         String channel = sensorChannelMap.get(message.sensor());
         
-        if (entity.state().equals("unknown")) {
-          setChannelData(channel, 0.0);
-        } else {
-          setChannelData(channel, Double.parseDouble(entity.state()));
+        if (isUpdated(message.sensor(), entity)) {
+          sensorsUpdated = true;
+          
+          if (entity.state().equals("unknown")) {
+            setChannelData(channel, 0.0);
+          } else {
+            setChannelData(channel, Double.parseDouble(entity.state()));
+          }
+          
+          sensorLastReportedMap.put(message.sensor(), entity.lastReported());
         }
       } catch (Exception e) {
         logger.error("failed to parse http response: {} - {}", e.getClass(), e.getMessage());
       }
       
       if (message.remainingSensors().isEmpty()) {
-        notifyOutputDevice();
+        if (sensorsUpdated) {
+          notifyOutputDevice();
+          sensorsUpdated = false;
+        }
         startNextPollingTimer();
       } else {
         readNextSensorValue(message.remainingSensors());
@@ -116,6 +128,20 @@ public class HomeAssistant extends GenericInputDevice {
     }
 
     return Behaviors.same();
+  }
+  
+  /**
+   * Check whether the sensor has been reported to Home Assistant since the last polling cycle
+   * @param sensor Sensor entity id
+   * @param entity Entity read from Home Assistant
+   * @return true if the sensor has been updated or the check is disabled
+   */
+  private boolean isUpdated(@NotNull String sensor, @NotNull Entity entity) {
+    if (!notifyOnUpdateOnly || entity.lastReported() == null) {
+      return true;
+    }
+    
+    return !entity.lastReported().equals(sensorLastReportedMap.get(sensor));
   }
   
   private Behavior<Command> onExecuteNextPollingCycle(@NotNull ExecuteNextPollingCycle message) {
