@@ -79,7 +79,8 @@ delivered to the storage only once. If the input device stops delivering reading
 anymore and the storage falls back to its default behavior. A configured `min-sample-period` is still respected as the
 minimum time between two answers. Please be aware, that for input devices which poll the physical meter, every poll
 counts as a new reading, so the `polling-interval` of the input device should not be shorter than the update interval
-of the meter.
+of the meter. For the Home Assistant input, set its `notify-on-update-only` option instead (see the
+[Home Assistant input](../input/HomeAssistant.md)), so that only real sensor updates are forwarded.
 
 Some input devices deliver the values of the three phases one after another in separate messages. To avoid that the
 storage gets an answer after each of these messages, the answer is delayed by the `linger-period`, which defaults to
