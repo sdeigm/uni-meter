@@ -65,6 +65,45 @@ uni-meter {
 }
 ```
 
+## Delivering output data only on input updates
+
+If the input device provides new readings only every few seconds, throttling with a fixed `min-sample-period` does not
+fit well. The throttling period never exactly matches the reading interval of the input device, so the storage sometimes
+gets a reading that is already several seconds old, and sometimes a reading is not delivered at all. If the input device
+delivers its readings at irregular intervals, there is no suitable value at all: a short `min-sample-period` delivers
+the same reading several times while the input device is slow, a long one skips readings while it is fast.
+
+For such setups, you can set the `sample-mode` to `on-input-update` in the `/etc/uni-meter.conf` file. In this mode,
+the requests of the storage are answered as soon as the input device has delivered a new reading, and each reading is
+delivered to the storage only once. If the input device stops delivering readings, the requests are not answered
+anymore and the storage falls back to its default behavior. A configured `min-sample-period` is still respected as the
+minimum time between two answers. Please be aware, that for input devices which poll the physical meter, every poll
+counts as a new reading, so the `polling-interval` of the input device should not be shorter than the update interval
+of the meter.
+
+Some input devices deliver the values of the three phases one after another in separate messages. To avoid that the
+storage gets an answer after each of these messages, the answer is delayed by the `linger-period`, which defaults to
+100 milliseconds. Normally there is no need to change this value, as long as it covers the time between the first and
+the last of these messages.
+
+```hocon
+uni-meter {
+  #...
+  output-devices {
+    shelly-pro3em {
+      #...
+      sample-mode = "on-input-update"
+      linger-period = 100ms
+      #...
+    }
+  }
+  #...
+}
+```
+
+Like the `min-sample-period`, the `sample-mode` only affects the JSON RPC over UDP and the websocket interface. Plain
+HTTP requests to `/rpc/EM.GetStatus` are always answered immediately.
+
 ## Changing the HTTP server port
 
 In its default configuration, the emulated Shelly Pro 3EM listens on port 80 for incoming HTTP requests. That port can 
