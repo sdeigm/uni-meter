@@ -20,9 +20,7 @@ import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.ActorContext;
 import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import org.apache.pekko.actor.typed.javadsl.ReceiveBuilder;
-import org.apache.pekko.http.javadsl.model.ws.*;
 import org.apache.pekko.http.javadsl.server.Route;
-import org.apache.pekko.stream.connectors.udp.Datagram;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -269,15 +267,13 @@ public abstract class Shelly extends OutputDevice {
         @NotNull UdpServer.Notification notification
   ) implements Command {}
   
-  public record WebsocketProcessPendingEmGetStatusRequest(
-        @NotNull WebsocketContext websocketContext,
-        @NotNull Message websocketMessage
-  ) implements Command {}
+  public enum WebsocketProcessPendingEmGetStatusRequest implements Command {
+    INSTANCE
+  }
 
-  public record UdpClientProcessPendingEmGetStatusRequest(
-        @NotNull UdpClientContext udpClientContext,
-        @NotNull Datagram datagram
-  ) implements Command {}
+  public enum UdpClientProcessPendingEmGetStatusRequest implements Command {
+    INSTANCE
+  }
 
   public enum ThrottlingQueueClosed implements Command {
     INSTANCE
@@ -316,12 +312,17 @@ public abstract class Shelly extends OutputDevice {
   protected static class WebsocketContext {
     private final InetAddress remoteAddress;
     private final ActorRef<WebsocketOutput.Command> output;
-    private Rpc.Request lastEmGetStatusRequest;
+    private WebsocketEmGetStatusRequest lastEmGetStatusRequest;
     
-    public void handleEmGetStatusRequest(@NotNull Rpc.Request emGetStatusRequest) {
-      lastEmGetStatusRequest = emGetStatusRequest;
+    public void handleEmGetStatusRequest(@NotNull Rpc.Request emGetStatusRequest, boolean textMode) {
+      lastEmGetStatusRequest = new WebsocketEmGetStatusRequest(emGetStatusRequest, textMode);
     }
   }
+
+  public record WebsocketEmGetStatusRequest(
+        @NotNull Rpc.Request request,
+        boolean textMode
+  ) {}
 
   @Getter
   @Setter

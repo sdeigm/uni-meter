@@ -54,6 +54,8 @@ import java.util.concurrent.CompletionStage;
 public class ShellyPro3EM extends Shelly {
   // Class members
   public static final String TYPE = "ShellyPro3EM";  
+  public static final String SAMPLE_MODE_THROTTLE = "throttle";
+  public static final String SAMPLE_MODE_ON_INPUT_UPDATE = "on-input-update";
   
   // Instance members
   private final ActorRef<WebsocketInput.Notification> websocketInputNotificationAdapter =
@@ -73,6 +75,8 @@ public class ShellyPro3EM extends Shelly {
   private final String udpInterface = getConfig().getString("udp-interface");
   private final Duration udpRestartBackoff = getConfig().getDuration("udp-restart-backoff");
   private Duration minSamplePeriod = getConfig().getDuration("min-sample-period");
+  private final SampleMode sampleMode = getSampleMode("sample-mode");
+  private final Duration lingerPeriod = getConfig().getDuration("linger-period");
 
   private ActorRef<Datagram> udpOutput = null;
   
@@ -81,6 +85,7 @@ public class ShellyPro3EM extends Shelly {
   private InetAddress outboundWebsocketAddress = null;
   private String outboundWebsocketConnectionId = null;
   private boolean outboundWebsocketFailure = false;
+  private boolean lingerPeriodRunning = false;
 
   /**
    * Static setup method
@@ -156,6 +161,7 @@ public class ShellyPro3EM extends Shelly {
           .onMessage(RetryStartUdpServer.class, this::onRetryStartUdpServer)
           .onMessage(UdpClientProcessPendingEmGetStatusRequest.class, this::onUdpClientProcessPendingEmGetStatusRequest)
           
+          .onMessage(LingerPeriodExpired.class, this::onLingerPeriodExpired)
           .onMessage(ThrottlingQueueClosed.class, this::onThrottlingQueueClosed);
   }
 
@@ -692,9 +698,9 @@ public class ShellyPro3EM extends Shelly {
     Rpc.Request request = Rpc.parseRequest(text);
 
     if ("EM.GetStatus".equals(request.method())) {
-      websocketContext.handleEmGetStatusRequest(request);
-      if (websocketThrottlingQueue != null) {
-        websocketThrottlingQueue.offer(new WebsocketProcessPendingEmGetStatusRequest(websocketContext, wsMessage));
+      websocketContext.handleEmGetStatusRequest(request, wsMessage.isText());
+      if (sampleMode == SampleMode.THROTTLE && websocketThrottlingQueue != null) {
+        websocketThrottlingQueue.offer(WebsocketProcessPendingEmGetStatusRequest.INSTANCE);
       }
     } else {
       processRpcRequest(message.remoteAddress(), request, wsMessage.isText(), websocketContext.getOutput());
@@ -865,8 +871,8 @@ public class ShellyPro3EM extends Shelly {
 
     if ("EM.GetStatus".equals(request.method())) {
       udpClientContext.handleEmGetStatusRequest(request);
-      if (udpThrottlingQueue != null) {
-        udpThrottlingQueue.offer(new UdpClientProcessPendingEmGetStatusRequest(udpClientContext, message.datagram()));
+      if (sampleMode == SampleMode.THROTTLE && udpThrottlingQueue != null) {
+        udpThrottlingQueue.offer(UdpClientProcessPendingEmGetStatusRequest.INSTANCE);
       }
     } else {
       processUdpRpcRequest(message.datagram().remote(), request);
@@ -887,6 +893,9 @@ public class ShellyPro3EM extends Shelly {
           processUdpRpcRequest(
                 udpClientContext.getRemote(),
                 udpClientContext.getLastEmGetStatusRequest());
+          if (sampleMode == SampleMode.ON_INPUT_UPDATE) {
+            udpClientContext.setLastEmGetStatusRequest(null);
+          }
         }
       }
     }
@@ -920,12 +929,16 @@ public class ShellyPro3EM extends Shelly {
     
     if (!isSwitchedOff()) {
       for (WebsocketContext websocketContext : websocketConnections.values()) {
-        if (websocketContext.getLastEmGetStatusRequest() != null) {
+        WebsocketEmGetStatusRequest emGetStatusRequest = websocketContext.getLastEmGetStatusRequest();
+        if (emGetStatusRequest != null) {
           processRpcRequest(
                 websocketContext.getRemoteAddress(),
-                websocketContext.getLastEmGetStatusRequest(),
-                message.websocketMessage().isText(),
+                emGetStatusRequest.request(),
+                emGetStatusRequest.textMode(),
                 websocketContext.getOutput());
+          if (sampleMode == SampleMode.ON_INPUT_UPDATE) {
+            websocketContext.setLastEmGetStatusRequest(null);
+          }
         }
       }
     }
@@ -963,6 +976,44 @@ public class ShellyPro3EM extends Shelly {
         }
       }
     }
+
+    if (sampleMode == SampleMode.ON_INPUT_UPDATE) {
+      startLingerPeriod();
+    }
+  }
+
+  /**
+   * Start the linger period if it is not already running
+   */
+  private void startLingerPeriod() {
+    if (!lingerPeriodRunning) {
+      lingerPeriodRunning = true;
+
+      getContext().getSystem().scheduler().scheduleOnce(
+            lingerPeriod,
+            () -> getContext().getSelf().tell(LingerPeriodExpired.INSTANCE),
+            getContext().getExecutionContext());
+    }
+  }
+
+  /**
+   * Handle the notification that the linger period has expired
+   * @param message Notification that the linger period has expired
+   * @return Same behavior
+   */
+  protected Behavior<Command> onLingerPeriodExpired(LingerPeriodExpired message) {
+    logger.trace("ShellyPro3EM.onLingerPeriodExpired()");
+
+    lingerPeriodRunning = false;
+
+    if (websocketThrottlingQueue != null) {
+      websocketThrottlingQueue.offer(WebsocketProcessPendingEmGetStatusRequest.INSTANCE);
+    }
+    if (udpThrottlingQueue != null) {
+      udpThrottlingQueue.offer(UdpClientProcessPendingEmGetStatusRequest.INSTANCE);
+    }
+
+    return Behaviors.same();
   }
 
   /**
@@ -1766,6 +1817,23 @@ public class ShellyPro3EM extends Shelly {
   }
 
   /**
+   * Get the sample mode from the configuration
+   * @param key Name of the configuration parameter
+   * @return Configured sample mode
+   */
+  protected @NotNull SampleMode getSampleMode(@NotNull String key) {
+    String value = getConfig().getString(key);
+
+    if (SAMPLE_MODE_THROTTLE.compareToIgnoreCase(value) == 0) {
+      return SampleMode.THROTTLE;
+    } else if (SAMPLE_MODE_ON_INPUT_UPDATE.compareToIgnoreCase(value) == 0) {
+      return SampleMode.ON_INPUT_UPDATE;
+    } else {
+      throw new IllegalArgumentException("unknown sample mode: " + value);
+    }
+  }
+
+  /**
    * Change the min-sample-period value and restart throttling queues if necessary
    * @param value New min-sample-period value
    */
@@ -1977,5 +2045,14 @@ public class ShellyPro3EM extends Shelly {
   
   public enum RetryStartUdpServer implements Command {
     INSTANCE
+  }
+
+  public enum LingerPeriodExpired implements Command {
+    INSTANCE
+  }
+
+  public enum SampleMode {
+    THROTTLE,
+    ON_INPUT_UPDATE
   }
 }
