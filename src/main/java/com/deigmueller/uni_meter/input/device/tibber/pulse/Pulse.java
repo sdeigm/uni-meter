@@ -84,13 +84,13 @@ public class Pulse extends HttpInputDevice {
   private final String password = getConfig().getString("password");
   private final Duration pulseStatusPollingInterval = getConfig().getDuration("polling-interval");
   private final Duration jsmlTimeout = getConfig().getDuration("jsml-timeout");
-  private final String requestUrl = getUrl() + "/data.json?node_id=" + nodeId;
   private final HttpCredentials credentials = BasicHttpCredentials.createBasicHttpCredentials(userId, password);
   private final boolean forceTextMode = getConfig().getBoolean("text-mode");
   private final boolean forceBinaryMode = getConfig().getBoolean("binary-mode");
 
   private int nParseErrorsLogged = 0;
   private Instant lastParseErrorLogged = Instant.MIN;
+  private String requestUrl = getUrl() + "/data.json?node_id=" + nodeId;
 
   /**
    * Create a new Pulse actor instance.
@@ -131,7 +131,8 @@ public class Pulse extends HttpInputDevice {
           .onMessage(PulseStatusRequestFailed.class, this::onPulseStatusRequestFailed)
           .onMessage(PulseStatusRequestSuccess.class, this::onPulseStatusRequestSuccess)
           .onMessage(StrictEntity.class, this::onStrictEntity)
-          .onMessage(ExecuteNextPulseStatusPolling.class, this::onExecuteNextPulseStatusPolling);
+          .onMessage(ExecuteNextPulseStatusPolling.class, this::onExecuteNextPulseStatusPolling)
+          .onMessage(SwitchToAlternativeUrl.class, this::onSwitchToAlternativeUrl);
   }
 
   /**
@@ -171,6 +172,8 @@ public class Pulse extends HttpInputDevice {
               } else {
                 if (httpResponse.status().isSuccess()) {
                   getContext().getSelf().tell(new StrictEntity(strictEntity));
+                } else if (httpResponse.status().intValue() == 404) {
+                  getContext().getSelf().tell(SwitchToAlternativeUrl.INSTANCE);
                 } else {
                   getContext().getSelf().tell(new PulseStatusRequestFailed(new IOException(
                         "http request to " + requestUrl + " failed with status " + httpResponse.status())));
@@ -224,6 +227,27 @@ public class Pulse extends HttpInputDevice {
     logger.trace("Pulse.onExecuteNextPulseStatusPolling()");
 
     executePulseStatusPolling();
+
+    return Behaviors.same();
+  }
+
+  /**
+   * Switch to an alternative URL to fetch the pulse status.
+   * @param message Notification message
+   * @return Same behavior to continue processing
+   */
+  protected Behavior<Command> onSwitchToAlternativeUrl(@NotNull SwitchToAlternativeUrl message) {
+    logger.trace("Pulse.onSwitchToAlternativeUrl()");
+    
+    if (requestUrl.equals(getUrl() + "/data.json?node_id=" + nodeId)) {
+      requestUrl = getUrl() + "/node_data.json?node_id=" + nodeId;
+    } else {
+      requestUrl = getUrl() + "/data.json?node_id=" + nodeId;
+    }
+    
+    logger.info("Switching to alternative URL: {}", requestUrl);
+    
+    startNextPulseStatusPollingTimer();
 
     return Behaviors.same();
   }
@@ -625,6 +649,10 @@ public class Pulse extends HttpInputDevice {
   }
 
   protected enum ExecuteNextPulseStatusPolling implements Command {
+    INSTANCE
+  }
+  
+  protected enum SwitchToAlternativeUrl implements Command {
     INSTANCE
   }
 
