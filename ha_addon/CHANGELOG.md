@@ -2,6 +2,13 @@
 
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.7.0] - 2026-09-25
+
+### Added
+
+- [#412](https://github.com/sdeigm/uni-meter/pull/412) Sample mode on-input-update for the Shelly Pro3EM output
+- [#414](https://github.com/sdeigm/uni-meter/issues/414) Tibber Pulse not working since Tibber firmware update
+
 ## [1.6.1] - 2026-09-07
 
 ### Fixed
