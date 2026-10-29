@@ -427,11 +427,11 @@ class HttpRoute extends AllDirectives {
                             replyTo), 
                 timeout, 
                 system.scheduler()
-          ).thenApply(response -> {
+          ).thenCompose(response -> {
             if (response.failure() != null) {
               return CompletableFuture.failedFuture(response.failure());
             } else {
-              return response.status();
+              return CompletableFuture.completedFuture(response.status());
             }
           }),
           Jackson.marshaller(objectMapper));
