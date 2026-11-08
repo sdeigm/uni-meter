@@ -119,7 +119,7 @@ To configure the input device, follow the instructions in these sections:
 
 * **[AMIS Reader](doc/input/AmisReader.md)**
 * **[Emlog](doc/input/Emlog.md)**
-* **[Fronius](doc/input/Fronius.md)**
+* **[Fronius](doc/input/Fronius.md)** (HTTP or Modbus TCP)
 * **[Generic HTTP](doc/input/GenericHttp.md)**
 * **[Home Assistant](doc/input/HomeAssistant.md)**
 * **[Huawei Inverter](doc/input/Huawei.md)**
