@@ -13,6 +13,7 @@ import org.apache.pekko.actor.typed.javadsl.TimerScheduler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -33,6 +34,7 @@ public class Failover extends InputDevice {
   public static final String TYPE = "Failover";
 
   // Instance members
+  private final Clock clock;
   private final String primaryPath;
   private final String secondaryPath;
   private final Duration timeout;
@@ -47,16 +49,34 @@ public class Failover extends InputDevice {
 
   public static Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> outputDevice,
                                          @NotNull Config config) {
-    return Behaviors.setup(context -> Behaviors.withTimers(timers -> new Failover(context, timers, outputDevice, config)));
+    return create(outputDevice, config, Clock.systemUTC(), null);
+  }
+
+  /**
+   * Create the failover input device with a custom clock and source factory (used by the tests)
+   * @param sourceFactory Factory creating the source input devices or null to use the {@link InputDeviceFactory}
+   */
+  static Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> outputDevice,
+                                  @NotNull Config config,
+                                  @NotNull Clock clock,
+                                  @Nullable SourceFactory sourceFactory) {
+    return Behaviors.setup(context -> Behaviors.withTimers(timers ->
+          new Failover(context, timers, outputDevice, config, clock, sourceFactory)));
   }
 
   protected Failover(@NotNull ActorContext<Command> context,
                      @NotNull TimerScheduler<Command> timers,
                      @NotNull ActorRef<OutputDevice.Command> outputDevice,
-                     @NotNull Config config) {
+                     @NotNull Config config,
+                     @NotNull Clock clock,
+                     @Nullable SourceFactory sourceFactory) {
     super(context, outputDevice, config);
+    this.clock = clock;
 
     Config rootConfig = context.getSystem().settings().config();
+    SourceFactory factory = sourceFactory != null
+          ? sourceFactory
+          : (proxy, path) -> InputDeviceFactory.createSupervised(proxy, rootConfig, path);
 
     primaryPath = config.getString("primary");
     secondaryPath = config.getString("secondary");
@@ -73,7 +93,7 @@ public class Failover extends InputDevice {
 
     // The input devices start in a healthy state, so that the primary device has the chance to deliver its first
     // readings before the failover is triggered.
-    Instant now = Instant.now();
+    Instant now = clock.instant();
     primary = new SourceState(now);
     secondary = new SourceState(now);
     primaryHealthySince = now;
@@ -82,8 +102,8 @@ public class Failover extends InputDevice {
           primaryPath, InputDeviceFactory.getType(rootConfig, primaryPath),
           secondaryPath, InputDeviceFactory.getType(rootConfig, secondaryPath));
 
-    spawnSource(Source.PRIMARY, rootConfig, primaryPath);
-    spawnSource(Source.SECONDARY, rootConfig, secondaryPath);
+    spawnSource(Source.PRIMARY, factory, primaryPath);
+    spawnSource(Source.SECONDARY, factory, secondaryPath);
 
     timers.startTimerWithFixedDelay(CheckHealth.INSTANCE, config.getDuration("check-interval"));
   }
@@ -101,7 +121,7 @@ public class Failover extends InputDevice {
   private @NotNull Behavior<Command> onSourceMessage(@NotNull SourceMessage message) {
     logger.trace("Failover.onSourceMessage()");
 
-    Instant now = Instant.now();
+    Instant now = clock.instant();
     OutputDevice.Command command = message.command();
     SourceState state = message.source() == Source.PRIMARY ? primary : secondary;
 
@@ -109,9 +129,10 @@ public class Failover extends InputDevice {
     if (powerKey != null) {
       state.updatePower(powerKey, powerSignature(command), command, now);
 
-      evaluate(now);
+      // If this message triggered a switch to its own source, it has already been forwarded by switchTo()
+      boolean switched = evaluate(now);
 
-      if (message.source() == active) {
+      if (message.source() == active && !switched) {
         getOutputDevice().tell(command);
       }
     } else if (isEnergyCommand(command)) {
@@ -134,15 +155,16 @@ public class Failover extends InputDevice {
   private @NotNull Behavior<Command> onCheckHealth(@NotNull CheckHealth message) {
     logger.trace("Failover.onCheckHealth()");
 
-    evaluate(Instant.now());
+    evaluate(clock.instant());
 
     return Behaviors.same();
   }
 
   /**
    * Evaluate the health of the primary input device and switch the active source if necessary
+   * @return true if the active source has been switched
    */
-  private void evaluate(@NotNull Instant now) {
+  private boolean evaluate(@NotNull Instant now) {
     String problem = primaryProblem(now);
 
     if (problem != null) {
@@ -151,6 +173,7 @@ public class Failover extends InputDevice {
         logger.warn("primary input device {} is unhealthy ({}), switching to secondary input device {}",
               primaryPath, problem, secondaryPath);
         switchTo(Source.SECONDARY, now);
+        return true;
       }
     } else {
       if (primaryHealthySince == null) {
@@ -163,8 +186,10 @@ public class Failover extends InputDevice {
       if (active == Source.SECONDARY && !now.isBefore(primaryHealthySince.plus(switchBackDelay))) {
         logger.info("switching back to primary input device {}", primaryPath);
         switchTo(Source.PRIMARY, now);
+        return true;
       }
     }
+    return false;
   }
 
   /**
@@ -205,7 +230,7 @@ public class Failover extends InputDevice {
     }
   }
 
-  private void spawnSource(@NotNull Source source, @NotNull Config rootConfig, @NotNull String path) {
+  private void spawnSource(@NotNull Source source, @NotNull SourceFactory factory, @NotNull String path) {
     ActorRef<Command> self = getContext().getSelf();
 
     ActorRef<OutputDevice.Command> proxy = getContext().spawn(
@@ -218,7 +243,7 @@ public class Failover extends InputDevice {
           source.name().toLowerCase() + "-proxy");
 
     getContext().spawn(
-          InputDeviceFactory.createSupervised(proxy, rootConfig, path),
+          factory.create(proxy, path),
           source.name().toLowerCase());
   }
 
@@ -248,6 +273,14 @@ public class Failover extends InputDevice {
     return command instanceof OutputDevice.NotifyPhaseEnergyData
           || command instanceof OutputDevice.NotifyPhasesEnergyData
           || command instanceof OutputDevice.NotifyTotalEnergyData;
+  }
+
+  /**
+   * Factory creating the behavior of a source input device
+   */
+  @FunctionalInterface
+  interface SourceFactory {
+    @NotNull Behavior<Command> create(@NotNull ActorRef<OutputDevice.Command> proxy, @NotNull String configPath);
   }
 
   private enum Source {

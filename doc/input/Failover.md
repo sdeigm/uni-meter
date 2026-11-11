@@ -25,7 +25,7 @@ uni-meter {
   input-devices {
     # Primary: ESPHome based IR reader, read via the ESPHome web_server REST API
     generic-http {
-      url = "http://192.168.178.50/sensor/total_power"
+      url = "http://esp-reader.local/sensor/total_power"
       power-phase-mode = "mono-phase"
       energy-phase-mode = "mono-phase"
       channels = [{
@@ -37,7 +37,7 @@ uni-meter {
 
     # Secondary: Solaredge meter
     solaredge {
-      address = "192.168.178.88"
+      address = "192.168.1.10"
       port = 502
       unit-id = 1
     }
@@ -75,7 +75,7 @@ a HOCON substitution:
 uni-meter {
   input-devices {
     generic-http-2 = ${uni-meter.input-devices.generic-http} {
-      url = "http://192.168.178.51/sensor/total_power"
+      url = "http://esp-reader-2.local/sensor/total_power"
     }
 
     failover {
