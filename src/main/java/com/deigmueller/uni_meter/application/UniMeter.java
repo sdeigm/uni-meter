@@ -7,6 +7,7 @@ import com.deigmueller.uni_meter.input.device.home_assistant.HomeAssistant;
 import com.deigmueller.uni_meter.input.device.modbus.huawei.HuaweiInverter;
 import com.deigmueller.uni_meter.input.device.modbus.ksem.Ksem;
 import com.deigmueller.uni_meter.input.device.modbus.sdm120.Sdm120;
+import com.deigmueller.uni_meter.input.device.modbus.fronius.FroniusSmartMeter;
 import com.deigmueller.uni_meter.input.device.modbus.solaredge.Solaredge;
 import com.deigmueller.uni_meter.input.device.modbus.sungrow.Sungrow;
 import com.deigmueller.uni_meter.input.device.mqtt.Mqtt;
@@ -271,6 +272,16 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
         return  getContext().spawn(
               Behaviors.supervise(
                     Solaredge.create(
+                          output,
+                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
+              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
+              "input");
+      }
+
+      case FroniusSmartMeter.TYPE -> {
+        return  getContext().spawn(
+              Behaviors.supervise(
+                    FroniusSmartMeter.create(
                           output,
                           getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
               ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
