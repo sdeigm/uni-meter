@@ -12,4 +12,8 @@ public class RpcException extends RuntimeException {
     super(message);
     this.code = code;
   }
+  
+  public String toJson() {
+    return "{\"code\":" + code +",\"message\":\"" + getMessage() + "\"}";
+  }
 }
