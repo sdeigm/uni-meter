@@ -1,23 +1,7 @@
 package com.deigmueller.uni_meter.application;
 
 import com.deigmueller.uni_meter.input.InputDevice;
-import com.deigmueller.uni_meter.input.device.refoss.em06p.RefossEm06p;
-import com.deigmueller.uni_meter.input.device.generic_http.GenericHttp;
-import com.deigmueller.uni_meter.input.device.home_assistant.HomeAssistant;
-import com.deigmueller.uni_meter.input.device.modbus.huawei.HuaweiInverter;
-import com.deigmueller.uni_meter.input.device.modbus.ksem.Ksem;
-import com.deigmueller.uni_meter.input.device.modbus.sdm120.Sdm120;
-import com.deigmueller.uni_meter.input.device.modbus.fronius.FroniusSmartMeter;
-import com.deigmueller.uni_meter.input.device.modbus.solaredge.Solaredge;
-import com.deigmueller.uni_meter.input.device.modbus.sungrow.Sungrow;
-import com.deigmueller.uni_meter.input.device.mqtt.Mqtt;
-import com.deigmueller.uni_meter.input.device.poweropti.Poweropti;
-import com.deigmueller.uni_meter.input.device.shelly._3em.Shelly3EM;
-import com.deigmueller.uni_meter.input.device.shrdzm.ShrDzm;
-import com.deigmueller.uni_meter.input.device.tasmota.Tasmota;
-import com.deigmueller.uni_meter.input.device.tibber.pulse.Pulse;
-import com.deigmueller.uni_meter.input.device.sma.energy_meter.EnergyMeter;
-import com.deigmueller.uni_meter.input.device.vzlogger.VzLogger;
+import com.deigmueller.uni_meter.input.InputDeviceFactory;
 import com.deigmueller.uni_meter.mdns.MDnsRegistrator;
 import com.deigmueller.uni_meter.output.OutputDevice;
 import com.deigmueller.uni_meter.output.device.eco_tracker.EcoTracker;
@@ -190,197 +174,17 @@ public class UniMeter extends AbstractBehavior<UniMeter.Command> {
   private @NotNull ActorRef<InputDevice.Command> createInput(@NotNull ActorRef<OutputDevice.Command> output) {
     logger.trace("UniMeter.createInput()");
 
-    String inputDeviceConfigPath = getContext().getSystem().settings().config().getString("uni-meter.input");
-    
-    String inputDeviceType = getContext().getSystem().settings().config().getString(inputDeviceConfigPath + ".type");
+    Config rootConfig = getContext().getSystem().settings().config();
+    String inputDeviceConfigPath = rootConfig.getString("uni-meter.input");
 
-    Duration minBackoff = getContext().getSystem().settings().config().getDuration("uni-meter.input-supervision.min-backoff");
-    Duration maxBackoff = getContext().getSystem().settings().config().getDuration("uni-meter.input-supervision.max-backoff");
-    double jitter = getContext().getSystem().settings().config().getDouble("uni-meter.input-supervision.jitter");
-
-    logger.info("creating {} input device", inputDeviceType);
-    switch (inputDeviceType) {
-      case VzLogger.TYPE -> {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    VzLogger.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-      case EnergyMeter.TYPE -> {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    EnergyMeter.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-      case HomeAssistant.TYPE ->  {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    HomeAssistant.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");           
-      }
-          
-      case com.deigmueller.uni_meter.input.device.shelly.pro3em.ShellyPro3EM.TYPE -> {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    com.deigmueller.uni_meter.input.device.shelly.pro3em.ShellyPro3EM.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-          
-      case Shelly3EM.TYPE -> {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    Shelly3EM.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-          
-      case Sdm120.TYPE -> {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    Sdm120.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-          
-      case ShrDzm.TYPE -> {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    ShrDzm.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-          
-      case Solaredge.TYPE -> {
-        return  getContext().spawn(
-              Behaviors.supervise(
-                    Solaredge.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-
-      case FroniusSmartMeter.TYPE -> {
-        return  getContext().spawn(
-              Behaviors.supervise(
-                    FroniusSmartMeter.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-
-      case Ksem.TYPE -> {
-          return  getContext().spawn(
-                Behaviors.supervise(
-                      Ksem.create(
-                            output,
-                            getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-                ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-                "input");
-        }
-
-      case Pulse.TYPE -> {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    Pulse.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-          
-      case Mqtt.TYPE -> {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    Mqtt.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-          
-      case Tasmota.TYPE -> {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    Tasmota.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-          
-      case GenericHttp.TYPE -> {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    GenericHttp.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-      
-      case Sungrow.TYPE -> {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    Sungrow.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-      
-      case HuaweiInverter.TYPE -> {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    HuaweiInverter.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-      
-      case Poweropti.TYPE -> {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    Poweropti.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-          
-      case RefossEm06p.TYPE -> {
-        return getContext().spawn(
-              Behaviors.supervise(
-                    RefossEm06p.create(
-                          output,
-                          getContext().getSystem().settings().config().getConfig(inputDeviceConfigPath))
-              ).onFailure(SupervisorStrategy.restartWithBackoff(minBackoff, maxBackoff, jitter)),
-              "input");
-      }
-      default -> {
-        logger.error("unknown input device type: {}", inputDeviceType);
-        throw new IllegalArgumentException("unknown input device type: " + inputDeviceType);
-      }
+    logger.info("creating {} input device", InputDeviceFactory.getType(rootConfig, inputDeviceConfigPath));
+    try {
+      return getContext().spawn(
+            InputDeviceFactory.createSupervised(output, rootConfig, inputDeviceConfigPath),
+            "input");
+    } catch (IllegalArgumentException e) {
+      logger.error("failed to create input device: {}", e.getMessage());
+      throw e;
     }
   }
   
