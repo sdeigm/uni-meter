@@ -46,7 +46,7 @@ Storages known to be supported are
 * Growatt NOAH 2000 & NEXA 2000
 * Hoymiles MS-A2, HiBattery 1920 AC and 4020-X
 * Indevolt SolidFlex 2000
-* Jackery SolarVault Serie 3
+* Jackery SolarVault Serie 3, HomePower 2000 Ultra
 * Marstek B2500 & Venus
 * Solakon One
 
