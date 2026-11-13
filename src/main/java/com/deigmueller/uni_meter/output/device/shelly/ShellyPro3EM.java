@@ -75,7 +75,7 @@ public class ShellyPro3EM extends Shelly {
   private final String udpInterface = getConfig().getString("udp-interface");
   private final Duration udpRestartBackoff = getConfig().getDuration("udp-restart-backoff");
   private Duration minSamplePeriod = getConfig().getDuration("min-sample-period");
-  private final SampleMode sampleMode = getSampleMode("sample-mode");
+  private final SampleMode sampleMode = getSampleMode(getConfig().getString("sample-mode"));
   private final Duration lingerPeriod = getConfig().getDuration("linger-period");
 
   private ActorRef<Datagram> udpOutput = null;
@@ -209,7 +209,7 @@ public class ShellyPro3EM extends Shelly {
     } else  {
       request.replyTo().tell(
             new EmGetStatusOrFailureResponse(
-                  new NoSuchElementException("unknown EM with id " + request.id()),
+                  new RpcException(-105, "Argument 'id', value " + request.id() + " not found!"),
                   null));
     } 
     
@@ -232,7 +232,7 @@ public class ShellyPro3EM extends Shelly {
     } else  {
       request.replyTo().tell(
             new EmGetConfigOrFailureResponse(
-                  new NoSuchElementException("unknown EM with id " + request.id()),
+                  new RpcException(-105, "Argument 'id', value " + request.id() + " not found!"),
                   null));
     }
 
@@ -254,7 +254,7 @@ public class ShellyPro3EM extends Shelly {
     } else  {
       request.replyTo().tell(
             new EmDataGetConfigOrFailureResponse(
-                  new NoSuchElementException("unknown EM with id " + request.id()),
+                  new RpcException(-105, "Argument 'id', value " + request.id() + " not found!"),
                   null));
     }
 
@@ -285,7 +285,7 @@ public class ShellyPro3EM extends Shelly {
     } else  {
       request.replyTo().tell(
             new EmDataGetStatusOrFailureResponse(
-                  new NoSuchElementException("unknown EM with id " + request.id()),
+                  new RpcException(-105, "Argument 'id', value " + request.id() + " not found!"),
                   null));
     }
 
@@ -454,7 +454,7 @@ public class ShellyPro3EM extends Shelly {
   }
 
   /**
-   * Handle the TemperatireGetConfig HTTP request
+   * Handle the TemperatureGetConfig HTTP request
    * @param request Request to get the Temperature configuration
    * @return Same behavior
    */
@@ -551,7 +551,7 @@ public class ShellyPro3EM extends Shelly {
 
   /**
    * Handle the notification that a websocket output connection was opened
-   * @param message Notification of an opened websocket output connection
+   * @param message Notification of an opened WebSocket output connection
    * @return Same behavior
    */
   protected Behavior<Command> onWebsocketOutputOpened(WebsocketOutputOpened message) {
@@ -583,7 +583,7 @@ public class ShellyPro3EM extends Shelly {
 
   /**
    * Handle a wrapped websocket input notification
-   * @param message Wrapped websocket input notification
+   * @param message Wrapped WebSocket input notification
    * @return Same behavior
    */
   protected Behavior<Command> onWrappedWebsocketInputNotification(WrappedWebsocketInputNotification message) {
@@ -616,7 +616,7 @@ public class ShellyPro3EM extends Shelly {
 
   /**
    * Handle the notification that a websocket input connection was opened
-   * @param message Notification of an opened websocket input connection
+   * @param message Notification of an opened WebSocket input connection
    */
   protected void onWebsocketInputOpened(WebsocketInput.NotifyOpened message) {
     logger.trace("ShellyPro3EM.onWebsocketInputOpened()");
@@ -628,7 +628,7 @@ public class ShellyPro3EM extends Shelly {
 
   /**
    * Handle the notification that a websocket input connection was closed
-   * @param message Notification of a closed websocket input connection
+   * @param message Notification of a closed WebSocket input connection
    */
   protected void onWebsocketInputClosed(WebsocketInput.NotifyClosed message) {
     logger.trace("ShellyPro3EM.onWebsocketInputClosed()");
@@ -640,7 +640,7 @@ public class ShellyPro3EM extends Shelly {
 
   /**
    * Handle the notification that a websocket input connection failed
-   * @param message Notification of a failed websocket input connection
+   * @param message Notification of a failed WebSocket input connection
    */
   protected void onWebsocketInputFailed(WebsocketInput.NotifyFailed message) {
     logger.trace("ShellyPro3EM.onWebsocketInputFailed()");
@@ -673,7 +673,7 @@ public class ShellyPro3EM extends Shelly {
 
   /**
    * Handle an incoming websocket message
-   * @param message Notification of an incoming websocket message
+   * @param message Notification of an incoming WebSocket message
    */
   protected void onWebsocketMessageReceived(WebsocketInput.NotifyMessageReceived message) throws JsonProcessingException {
     logger.trace("ShellyPro3EM.onWebsocketMessageReceived()");
@@ -711,7 +711,7 @@ public class ShellyPro3EM extends Shelly {
    * Process the specified RPC request
    * @param request Incoming RPC request to process
    * @param createTextResponse Flag indicating whether to create a text or binary response
-   * @param output Actor reference to the websocket output actor
+   * @param output Actor reference to the WebSocket output actor
    */
   protected void processRpcRequest(@NotNull InetAddress remoteAddress,
                                    @NotNull Rpc.Request request,
@@ -733,7 +733,7 @@ public class ShellyPro3EM extends Shelly {
   
   /**
    * Handle the notification of a successful outbound websocket connection
-   * @param message Notification of a successful outbound websocket connection
+   * @param message Notification of a successful outbound WebSocket connection
    * @return Same behavior
    */
   protected Behavior<Command> onOutboundWebsocketConnectionOpened(OutboundWebsocketConnectionOpened message) {
@@ -750,7 +750,7 @@ public class ShellyPro3EM extends Shelly {
   
   /**
    * Handle the notification of a failed outbound websocket connection
-   * @param message Notification of a failed outbound websocket connection
+   * @param message Notification of a failed outbound WebSocket connection
    * @return Same behavior
    */
   protected Behavior<Command> onOutboundWebsocketConnectionFailed(OutboundWebsocketConnectionFailed message) {
@@ -777,7 +777,7 @@ public class ShellyPro3EM extends Shelly {
   
   /**
    * Handle the notification to retry opening an outbound websocket connection
-   * @param message Notification to retry opening an outbound websocket connection
+   * @param message Notification to retry opening an outbound WebSocket connection
    * @return Same behavior
    */
   protected Behavior<Command> onRetryOpenOutboundWebsocketConnection(RetryOpenOutboundWebsocketConnection message) {
@@ -1125,7 +1125,7 @@ public class ShellyPro3EM extends Shelly {
 
   /**
    * Handle the Ws.SetConfig RPC request
-   * @param request Request to set the websocket configuration
+   * @param request Request to set the WebSocket configuration
    * @return Response to the request
    */
   private Rpc.CloudSetConfigResponse rpcCloudSetConfig(@NotNull Rpc.CloudSetConfig request) {
@@ -1376,8 +1376,8 @@ public class ShellyPro3EM extends Shelly {
   }
 
   /**
-   * Get the status of the Mqtt component
-   * @return Status of the Mqtt component
+   * Get the status of the MQTT component
+   * @return Status of the MQTT component
    */
   private Rpc.MqttGetStatusResponse rpcMqttGetStatus() {
     logger.trace("ShellyPro3EM.rpcMqttGetStatus()");
@@ -1508,7 +1508,7 @@ public class ShellyPro3EM extends Shelly {
 
   /**
    * Get the outgoing websocket configuration
-   * @return Outgoing websocket configuration
+   * @return Outgoing WebSocket configuration
    */
   private Rpc.WsGetConfigResponse rpcWsGetConfig() {
     logger.trace("ShellyPro3EM.rpcWsGetConfig()");
@@ -1517,7 +1517,7 @@ public class ShellyPro3EM extends Shelly {
 
   /**
    * Handle the Ws.SetConfig RPC request
-   * @param request Request to set the websocket configuration
+   * @param request Request to set the WebSocket configuration
    * @return Response to the request
    */
   private Rpc.WsSetConfigResponse rpcWsSetConfig(@NotNull Rpc.WsSetConfig request) {
@@ -1532,7 +1532,7 @@ public class ShellyPro3EM extends Shelly {
 
   /**
    * Get the outgoing websocket configuration
-   * @return Outgoing websocket configuration
+   * @return Outgoing WebSocket configuration
    */
   private Rpc.WsGetStatusResponse rpcWsGetStatus() {
     logger.trace("ShellyPro3EM.rpcWsGetStatus()");
@@ -1817,13 +1817,11 @@ public class ShellyPro3EM extends Shelly {
   }
 
   /**
-   * Get the sample mode from the configuration
-   * @param key Name of the configuration parameter
-   * @return Configured sample mode
+   * Convert sample mode string to enum
+   * @param value Name of the configuration parameter
+   * @return Enum value
    */
-  protected @NotNull SampleMode getSampleMode(@NotNull String key) {
-    String value = getConfig().getString(key);
-
+  protected @NotNull SampleMode getSampleMode(@NotNull String value) {
     if (SAMPLE_MODE_THROTTLE.compareToIgnoreCase(value) == 0) {
       return SampleMode.THROTTLE;
     } else if (SAMPLE_MODE_ON_INPUT_UPDATE.compareToIgnoreCase(value) == 0) {

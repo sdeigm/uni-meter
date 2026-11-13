@@ -40,8 +40,8 @@ import java.util.function.Supplier;
 @Setter(AccessLevel.PROTECTED)
 public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command> {
   
-  private static final String UNSPECIFIED_IPV4_ADRESS = "0.0.0.0";
-  private static final String UNSPECIFIED_IPV6_ADRESS = "::";
+  private static final String UNSPECIFIED_IPV4_ADDRESS = "0.0.0.0";
+  private static final String UNSPECIFIED_IPV6_ADDRESS = "::";
   private static final Logger LOGGER = LoggerFactory.getLogger("uni-meter.output");
   
   // Instance members
@@ -569,7 +569,7 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
     }
 
     if (StringUtils.isNotBlank(configured)
-        && !Strings.CS.equalsAny(configured, UNSPECIFIED_IPV4_ADRESS, UNSPECIFIED_IPV6_ADRESS)) {
+        && !Strings.CS.equalsAny(configured, UNSPECIFIED_IPV4_ADDRESS, UNSPECIFIED_IPV6_ADDRESS)) {
       if (isIpAddress(configured)) {
         return configured;
       }
