@@ -8,6 +8,7 @@ import org.apache.pekko.actor.typed.javadsl.*;
 import org.apache.pekko.http.javadsl.Http;
 import org.apache.pekko.http.javadsl.ServerBinding;
 import org.apache.pekko.http.javadsl.ServerBuilder;
+import org.apache.pekko.http.javadsl.model.ContentTypes;
 import org.apache.pekko.http.javadsl.model.HttpResponse;
 import org.apache.pekko.http.javadsl.model.StatusCodes;
 import org.apache.pekko.http.javadsl.server.*;
@@ -144,7 +145,7 @@ public class HttpServer extends AbstractBehavior<HttpServer.Command> {
   //    }
   
       serverBuilder
-            .bind(new RouteContainer().createMainRoute(innerRoute))
+            .bind(new RouteContainer().createMainRoute())
             .whenComplete((binding, throwable) -> {
               if (throwable != null) {
                 getContext().getSelf().tell(new NotifyBindFailed(throwable));
@@ -165,7 +166,6 @@ public class HttpServer extends AbstractBehavior<HttpServer.Command> {
 //                    //connection.handleWith(Flow.of(HttpRequest.class).map(requestHandler), materializer);
 //                  }))
 //                  .run(Materializer.createMaterializer(getContext()));
-//    }
   }
   
   private Route getInnerRoute() {
@@ -191,7 +191,7 @@ public class HttpServer extends AbstractBehavior<HttpServer.Command> {
   }
 
   protected class RouteContainer extends AllDirectives {
-    public @NotNull Route createMainRoute(@NotNull Route innerRoute) {
+    public @NotNull Route createMainRoute() {
       return handleExceptions(createExceptionHandler(), () ->
             handleRejections(createRejectionHandler(), 
                   HttpServer.this::getInnerRoute
@@ -211,7 +211,9 @@ public class HttpServer extends AbstractBehavior<HttpServer.Command> {
             })
             .match(RpcException.class, e -> {
               logger.debug("rpc exception: {}", e.getMessage());
-              return complete(StatusCodes.SERVICE_UNAVAILABLE, e.getMessage());
+              return complete(HttpResponse.create()
+                    .withStatus(StatusCodes.SERVICE_UNAVAILABLE)
+                    .withEntity(ContentTypes.APPLICATION_JSON, e.toJson()));
             })
             .match(TemporaryNotAvailableException.class, e -> {
               logger.debug("temporary not available: {}", e.getMessage());
