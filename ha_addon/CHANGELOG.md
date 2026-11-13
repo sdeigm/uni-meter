@@ -2,6 +2,18 @@
 
 All notable changes to the `uni-meter` will be documented in this file.
 
+## [1.8.0] - 2026-11-13
+
+### Added
+
+- [#423](https://github.com/sdeigm/uni-meter/pull/423) Add Fronius smart meter Modbus TCP (SunSpec) input device (thanks to [christian-lutze](https://github.com/christian-lutze))
+- [#424](https://github.com/sdeigm/uni-meter/pull/424) Add failover input device (primary/secondary input with automatic switching) (thanks to [jfraf](https://github.com/jfraf))
+
+### Fixed
+
+- [#420](https://github.com/sdeigm/uni-meter/issues/420) EM.GetStatus returns HTTP 200 with a serialized CompletableFuture when input is stale
+- [#426](https://github.com/sdeigm/uni-meter/issues/426) Adjust some HTTP failure responses to match an original Shelly
+
 ## [1.7.0] - 2026-09-25
 
 ### Added
