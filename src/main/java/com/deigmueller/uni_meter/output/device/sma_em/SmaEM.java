@@ -32,6 +32,7 @@ public class SmaEM extends OutputDevice {
   private final EmeterPacket packet;
   private final InetAddress groupAddress;
   private MulticastSocket socket;
+  private boolean inputStale = true;
 
   public static Behavior<Command> create(@NotNull ActorRef<UniMeter.Command> controller,
                                          @NotNull ActorRef<MDnsRegistrator.Command> mDnsRegistrator,
@@ -89,6 +90,19 @@ public class SmaEM extends OutputDevice {
 
   private void trySendPacket() {
     if (isSwitchedOff()) {
+      return;
+    }
+
+    boolean stale = getPowerPhase0() == null && getPowerPhase1() == null && getPowerPhase2() == null;
+    if (stale != inputStale) {
+      inputStale = stale;
+      if (stale) {
+        logger.warn("no current input data, suspending SMA energy meter telegrams");
+      } else {
+        logger.info("input data available, sending SMA energy meter telegrams");
+      }
+    }
+    if (stale) {
       return;
     }
 

@@ -33,3 +33,6 @@ build/
 
 ### Local things ###
 .local
+### local add-on build artifacts ###
+ha_addon_local/*.tgz
+__pycache__/

@@ -3,6 +3,7 @@ package com.deigmueller.uni_meter.input;
 import com.deigmueller.uni_meter.input.device.failover.Failover;
 import com.deigmueller.uni_meter.input.device.generic_http.GenericHttp;
 import com.deigmueller.uni_meter.input.device.home_assistant.HomeAssistant;
+import com.deigmueller.uni_meter.input.device.homewizard.HomeWizardP1;
 import com.deigmueller.uni_meter.input.device.modbus.fronius.FroniusSmartMeter;
 import com.deigmueller.uni_meter.input.device.modbus.huawei.HuaweiInverter;
 import com.deigmueller.uni_meter.input.device.modbus.ksem.Ksem;
@@ -84,6 +85,7 @@ public final class InputDeviceFactory {
       case Sungrow.TYPE -> Sungrow.create(output, config);
       case HuaweiInverter.TYPE -> HuaweiInverter.create(output, config);
       case Poweropti.TYPE -> Poweropti.create(output, config);
+      case HomeWizardP1.TYPE -> HomeWizardP1.create(output, config);
       case RefossEm06p.TYPE -> RefossEm06p.create(output, config);
       case Failover.TYPE -> Failover.create(output, config);
       default -> throw new IllegalArgumentException("unknown input device type: " + type);

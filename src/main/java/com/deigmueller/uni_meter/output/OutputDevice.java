@@ -565,7 +565,9 @@ public abstract class OutputDevice extends AbstractBehavior<OutputDevice.Command
           : "";
     if (StringUtils.isBlank(configured)) {
       configKey = "interface";
-      configured = StringUtils.trimToEmpty(outputDeviceConfig.getString(configKey));
+      configured = outputDeviceConfig.hasPath(configKey)
+            ? StringUtils.trimToEmpty(outputDeviceConfig.getString(configKey))
+            : "";
     }
 
     if (StringUtils.isNotBlank(configured)
