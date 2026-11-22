@@ -1,0 +1,19 @@
+name: "uni-meter (local build)"
+version: "1.9.0-homewizard"
+slug: "uni_meter_local"
+description: "uni-meter built from local source: HomeWizard P1 -> SMA Speedwire"
+arch:
+  - amd64
+  - aarch64
+  - armv7
+init: false
+startup: services
+boot: auto
+host_network: true
+map:
+  - type: addon_config
+    read_only: true
+options:
+  custom_config: "uni-meter.conf"
+schema:
+  custom_config: str?
